@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "665721194102",
+    "project_id": "running-dart",
+    "storage_bucket": "running-dart.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:665721194102:android:75743e57bc0d97160ac157",
+        "android_client_info": {
+          "package_name": "com.devlokos.runningdart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5szNCYhw3S6yJl5EoRyLZXke6DhgYuuw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

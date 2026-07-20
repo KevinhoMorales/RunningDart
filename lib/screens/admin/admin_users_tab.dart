@@ -1,0 +1,204 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/admin_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../theme/app_palette.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/user_list_tile.dart';
+
+class AdminUsersTab extends StatefulWidget {
+  const AdminUsersTab({super.key});
+
+  @override
+  State<AdminUsersTab> createState() => _AdminUsersTabState();
+}
+
+class _AdminUsersTabState extends State<AdminUsersTab> {
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadIfAdmin());
+  }
+
+  void _loadIfAdmin() {
+    if (!mounted) {
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    if (auth.isAdmin) {
+      context.read<AdminProvider>().startListening();
+    } else {
+      context.read<AdminProvider>().stopListening();
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    final auth = context.read<AuthProvider>();
+    await auth.refreshAccountStatus();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!auth.isAdmin) {
+      context.read<AdminProvider>().stopListening();
+      return;
+    }
+
+    await context.read<AdminProvider>().refresh();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Widget _refreshableScroll({
+    required Widget child,
+    required Future<void> Function() onRefresh,
+  }) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final admin = context.watch<AdminProvider>();
+    final palette = context.palette;
+
+    if (!auth.isAdmin) {
+      return _refreshableScroll(
+        onRefresh: _handleRefresh,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Text(
+              'No tienes permiso para ver usuarios.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: palette.textMuted),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final users = admin.filteredUsers;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.sm,
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: admin.setSearchQuery,
+            style: TextStyle(color: palette.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre o correo',
+              hintStyle: TextStyle(color: palette.textMuted),
+              prefixIcon: Icon(Icons.search_rounded, color: palette.textMuted),
+              filled: true,
+              fillColor: palette.cardBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: BorderSide(color: palette.cardBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: BorderSide(color: palette.cardBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: BorderSide(color: palette.accentPrimary),
+              ),
+            ),
+          ),
+        ),
+        if (admin.isLoading && users.isEmpty)
+          const Expanded(
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (admin.error != null && users.isEmpty)
+          Expanded(
+            child: _refreshableScroll(
+              onRefresh: _handleRefresh,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        admin.error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: palette.textMuted),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      FilledButton.icon(
+                        onPressed: admin.retry,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+        else if (users.isEmpty)
+          Expanded(
+            child: _refreshableScroll(
+              onRefresh: _handleRefresh,
+              child: Center(
+                child: Text(
+                  admin.searchQuery.isEmpty
+                      ? 'No hay usuarios registrados.'
+                      : 'No se encontraron usuarios.',
+                  style: TextStyle(color: palette.textMuted),
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _handleRefresh,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return UserListTile(
+                    user: user,
+                    onTap: () => context.push('/admin/users/${user.id}'),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == 'admin';
+    }
+
+    function isBusinessOperator() {
+      return isSignedIn()
+        && userDoc().businessId != null
+        && userDoc().businessId != '';
+    }
+
+    function isActiveMember(userData) {
+      return userData.isActive == true
+        && userData.role in ['member', 'admin'];
+    }
+
+    function scannedUserDoc(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function ownerProtectedFieldsUnchanged() {
+      return request.resource.data.role == resource.data.role
+        && request.resource.data.isActive == resource.data.isActive
+        && request.resource.data.get('businessId', null)
+            == resource.data.get('businessId', null);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId)
+        || isAdmin()
+        || (isBusinessOperator() && isActiveMember(resource.data));
+
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.isActive == true;
+
+      allow update: if (isAdmin()
+          && (userId != request.auth.uid
+              || request.resource.data.role == resource.data.role))
+        || (isOwner(userId) && ownerProtectedFieldsUnchanged());
+
+      allow delete: if false;
+    }
+
+    match /businesses/{businessId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /news/{newsId} {
+      allow read: if isSignedIn() && resource.data.isPublished == true;
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /visits/{visitId} {
+      allow read: if isAdmin()
+        || (isBusinessOperator()
+          && resource.data.businessId == userDoc().businessId);
+
+      allow create: if isBusinessOperator()
+        && request.resource.data.businessId == userDoc().businessId
+        && request.resource.data.scannedByUserId == request.auth.uid
+        && request.resource.data.userId != request.auth.uid
+        && scannedUserDoc(request.resource.data.userId).get('businessId', '')
+            != userDoc().businessId
+        && request.resource.data.keys().hasAll([
+          'userId',
+          'businessId',
+          'visitedAt',
+          'memberDisplayName',
+          'memberQrCode',
+          'scannedByUserId',
+        ]);
+
+      allow update, delete: if false;
+    }
+  }
+}
