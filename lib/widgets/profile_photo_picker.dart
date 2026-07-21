@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../utils/app_haptics.dart';
 import '../providers/auth_provider.dart';
 import '../services/profile_photo_service.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'user_avatar.dart';
+
+enum CameraButtonStyle {
+  filled,
+  minimal,
+}
 
 class ProfilePhotoPicker extends StatefulWidget {
   const ProfilePhotoPicker({
@@ -17,6 +23,7 @@ class ProfilePhotoPicker extends StatefulWidget {
     this.radius = 40,
     this.showLabel = true,
     this.labelColor,
+    this.cameraStyle = CameraButtonStyle.filled,
   });
 
   final String userId;
@@ -25,6 +32,7 @@ class ProfilePhotoPicker extends StatefulWidget {
   final double radius;
   final bool showLabel;
   final Color? labelColor;
+  final CameraButtonStyle cameraStyle;
 
   @override
   State<ProfilePhotoPicker> createState() => _ProfilePhotoPickerState();
@@ -88,6 +96,55 @@ class _ProfilePhotoPickerState extends State<ProfilePhotoPicker> {
     }
   }
 
+  Widget _buildCameraButton(AppPalette palette) {
+    final iconSize = widget.radius * 0.32;
+
+    if (widget.cameraStyle == CameraButtonStyle.minimal) {
+      return Material(
+        color: palette.cardBackground,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: AppHaptics.wrap(_handlePickPhoto),
+          enableFeedback: false,
+          child: Ink(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: palette.cardBorder),
+              boxShadow: palette.iconButtonShadow,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(
+                Icons.camera_alt_outlined,
+                size: iconSize,
+                color: palette.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: palette.accentPrimary,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: AppHaptics.wrap(_handlePickPhoto),
+        enableFeedback: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Icon(
+            Icons.camera_alt_rounded,
+            size: iconSize,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -122,23 +179,7 @@ class _ProfilePhotoPickerState extends State<ProfilePhotoPicker> {
                   ),
                 ),
               ),
-            if (!_isUploading)
-              Material(
-                color: palette.accentPrimary,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: _handlePickPhoto,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: Icon(
-                      Icons.camera_alt_rounded,
-                      size: widget.radius * 0.35,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+            if (!_isUploading) _buildCameraButton(palette),
           ],
         ),
         if (widget.showLabel) ...[

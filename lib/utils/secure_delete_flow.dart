@@ -4,6 +4,7 @@ import '../services/biometric_auth_service.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import '../widgets/haptic_controls.dart';
 
 class SecureDeleteFlow {
   SecureDeleteFlow({BiometricAuthService? biometricAuth})
@@ -193,11 +194,11 @@ class _SecureDeleteDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
+        HapticTextButton(
           onPressed: () => Navigator.of(context).pop(false),
           child: const Text('Cancelar'),
         ),
-        FilledButton(
+        HapticFilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.error,
           ),

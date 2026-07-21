@@ -46,17 +46,16 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>SAINTS necesita acceder a tu galería para actualizar tu foto de perfil.</string>
+	<string>SAINTS necesita acceder a tu galería para tu foto de perfil y comprobantes de pago.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>SAINTS necesita la cámara para escanear códigos QR de miembros.</string>
+	<string>SAINTS usa la cámara para escanear códigos QR y fotografiar comprobantes de pago.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>SAINTS usa Face ID para confirmar eliminaciones sensibles en el panel de administración.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>SAINTS usa tu ubicación para marcar negocios en el mapa.</string>
+	<string>SAINTS usa tu ubicación para marcar marcas aliadas en el mapa.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>waze</string>
-		<string>comgooglemaps</string>
 		<string>maps</string>
 	</array>
 	<key>UIBackgroundModes</key>

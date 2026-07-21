@@ -11,10 +11,13 @@ import '../../theme/app_typography.dart';
 import '../../theme/category_style.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../widgets/business_hours_display.dart';
 import '../../widgets/business_location_section.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/membership_upsell_card.dart';
 import '../../widgets/modern_text_field.dart';
+import '../../widgets/social_links_row.dart';
 
 class BusinessDetailScreen extends StatefulWidget {
   const BusinessDetailScreen({
@@ -90,7 +93,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               _infoStep('1', 'Abre tu perfil en la app SAINTS.'),
-              _infoStep('2', 'Muestra tu código QR al personal del negocio.'),
+              _infoStep('2', 'Muestra tu código QR al personal de la marca aliada.'),
               _infoStep(
                 '3',
                 'El establecimiento verificará tu membresía y aplicará el beneficio.',
@@ -161,7 +164,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
       return Scaffold(
         backgroundColor: palette.scaffoldBackground,
         appBar: const CustomAppBar(title: 'Detalle'),
-        body: const Center(child: Text('Negocio no encontrado')),
+        body: const Center(child: Text('Marca aliada no encontrada')),
       );
     }
 
@@ -171,20 +174,20 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
         title: business.name,
-        leading: IconButton(
+        leading: HapticIconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: isAdmin
             ? [
-                IconButton(
+                HapticIconButton(
                   onPressed: () async {
                     await context.push('/admin/businesses/${business.id}/edit');
                     if (mounted) {
                       await _loadBusiness();
                     }
                   },
-                  tooltip: 'Editar negocio',
+                  tooltip: 'Editar marca',
                   icon: Icon(
                     Icons.edit_rounded,
                     color: palette.textPrimary,
@@ -301,82 +304,11 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: palette.cardBackground,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                boxShadow: palette.softShadow,
-              ),
-              child: Text(
-                business.description,
-                style: AppTypography.muted(context).copyWith(height: 1.5),
-              ),
+            _BusinessDetailsCard(
+              business: business,
+              canUseMembership: canUseMembership,
+              onMembershipInfo: _showMembershipInfo,
             ),
-            const SizedBox(height: AppSpacing.md),
-            _InfoSection(
-              children: [
-                _DetailRow(
-                  icon: Icons.location_on_rounded,
-                  text: business.address,
-                ),
-                _DetailRow(icon: Icons.phone_rounded, text: business.phone),
-                _DetailRow(icon: Icons.schedule_rounded, text: business.hours),
-              ],
-            ),
-            if (business.hasLocation) ...[
-              const SizedBox(height: AppSpacing.md),
-              BusinessLocationSection(business: business),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            if (canUseMembership) ...[
-              _InfoSection(
-                title: 'Beneficios para miembros',
-                children: business.benefits
-                    .map(
-                      (benefit) => Container(
-                        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              AppConstants.accentColor.withValues(alpha: 0.1),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusLg),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle_rounded,
-                              color: AppConstants.accentColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                benefit,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'Cómo usar tu membresía',
-                onPressed: _showMembershipInfo,
-              ),
-            ] else ...[
-              const MembershipUpsellCard(),
-            ],
             const SizedBox(height: AppSpacing.md),
           ],
         ),
@@ -436,7 +368,7 @@ class _DiscountHighlightCard extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Activa tu membresía para ver el descuento de este negocio.',
+                    'Activa tu membresía para ver el descuento de esta marca aliada.',
                     style: AppTypography.muted(context).copyWith(height: 1.35),
                   ),
                 ],
@@ -535,7 +467,7 @@ class _DiscountHighlightCard extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         showLargePercent
-                            ? 'Ahorra $formattedDiscount en tu visita'
+                            ? 'En tu visita'
                             : formattedDiscount,
                         style: AppTypography.title(
                           context,
@@ -563,18 +495,22 @@ class _DiscountHighlightCard extends StatelessWidget {
   }
 }
 
-class _InfoSection extends StatelessWidget {
-  const _InfoSection({
-    required this.children,
-    this.title,
+class _BusinessDetailsCard extends StatelessWidget {
+  const _BusinessDetailsCard({
+    required this.business,
+    required this.canUseMembership,
+    required this.onMembershipInfo,
   });
 
-  final List<Widget> children;
-  final String? title;
+  final BusinessModel business;
+  final bool canUseMembership;
+  final VoidCallback onMembershipInfo;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final hasSocialLinks = _hasSocialLinks(business);
+    final hasBenefits = canUseMembership && business.benefits.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -592,17 +528,87 @@ class _InfoSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (title != null) ...[
+          Text(
+            business.description,
+            style: AppTypography.muted(context).copyWith(height: 1.5),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text('Contacto', style: AppTypography.title(context)),
+          const SizedBox(height: AppSpacing.md),
+          _DetailRow(
+            icon: Icons.location_on_rounded,
+            text: business.address,
+          ),
+          if (business.hasHoursDisplay) ...[
+            const SizedBox(height: AppSpacing.sm),
+            BusinessHoursDisplay(business: business, compact: true),
+          ],
+          if (business.conditions != null &&
+              business.conditions!.trim().isNotEmpty)
+            _DetailRow(
+              icon: Icons.rule_rounded,
+              text: business.conditions!,
+            ),
+          if (hasSocialLinks) ...[
+            const SizedBox(height: AppSpacing.sm),
+            SocialLinksRow(
+              whatsapp: business.whatsapp,
+              instagram: business.instagram,
+              phone: business.phone,
+              compact: true,
+            ),
+          ],
+          if (business.hasLocation) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Divider(color: palette.cardBorder, height: 1),
+            const SizedBox(height: AppSpacing.lg),
+            BusinessLocationSection(
+              business: business,
+              embedded: true,
+            ),
+          ],
+          if (hasBenefits) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Divider(color: palette.cardBorder, height: 1),
+            const SizedBox(height: AppSpacing.lg),
             Text(
-              title!,
-              style: AppTypography.sectionTitle(context),
+              'Beneficios para miembros',
+              style: AppTypography.title(context),
             ),
             const SizedBox(height: AppSpacing.md),
+            for (final benefit in business.benefits)
+              _DetailRow(
+                icon: Icons.check_circle_rounded,
+                text: benefit,
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: HapticTextButtonIcon(
+                onPressed: onMembershipInfo,
+                icon: const Icon(Icons.info_outline_rounded, size: 18),
+                label: const Text('Cómo usar tu membresía'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppConstants.primaryColor,
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ] else if (!canUseMembership) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Divider(color: palette.cardBorder, height: 1),
+            const SizedBox(height: AppSpacing.lg),
+            const MembershipUpsellCard(),
           ],
-          ...children,
         ],
       ),
     );
+  }
+
+  bool _hasSocialLinks(BusinessModel business) {
+    return (business.whatsapp != null && business.whatsapp!.trim().isNotEmpty) ||
+        (business.instagram != null && business.instagram!.trim().isNotEmpty) ||
+        business.phone.trim().isNotEmpty;
   }
 }
 

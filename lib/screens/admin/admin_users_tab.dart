@@ -6,6 +6,9 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/category_chip.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/user_list_tile.dart';
 
 class AdminUsersTab extends StatefulWidget {
@@ -136,6 +139,41 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
             ),
           ),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            itemCount: AdminUserFilter.values.length,
+            separatorBuilder: (context, _) =>
+                const SizedBox(width: AppSpacing.sm),
+            itemBuilder: (context, index) {
+              final filter = AdminUserFilter.values[index];
+              return CategoryChip(
+                label: filter.chipLabel,
+                isSelected: admin.userFilter == filter,
+                onSelected: () => admin.setUserFilter(filter),
+              );
+            },
+          ),
+        ),
+        if (admin.userFilter != AdminUserFilter.all ||
+            admin.searchQuery.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
+            child: Text(
+              admin.searchQuery.isEmpty
+                  ? admin.userFilter.label
+                  : '${admin.filteredUsers.length} resultado(s)',
+              style: AppTypography.caption(context, color: palette.textMuted),
+            ),
+          ),
         if (admin.isLoading && users.isEmpty)
           const Expanded(
             child: Center(child: CircularProgressIndicator()),
@@ -156,10 +194,20 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                         style: TextStyle(color: palette.textMuted),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      FilledButton.icon(
+                      HapticFilledButton(
                         onPressed: admin.retry,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Reintentar'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.refresh_rounded),
+                            const SizedBox(width: AppSpacing.sm),
+                            const Text('Reintentar'),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -174,7 +222,9 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
               child: Center(
                 child: Text(
                   admin.searchQuery.isEmpty
-                      ? 'No hay usuarios registrados.'
+                      ? admin.userFilter == AdminUserFilter.all
+                          ? 'No hay usuarios registrados.'
+                          : 'No hay usuarios para este filtro.'
                       : 'No se encontraron usuarios.',
                   style: TextStyle(color: palette.textMuted),
                 ),

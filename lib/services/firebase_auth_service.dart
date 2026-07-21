@@ -4,21 +4,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
+import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import 'auth_service.dart';
+import 'account_deletion_service.dart';
 
 class FirebaseAuthService implements AuthService {
   FirebaseAuthService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    AccountDeletionService? accountDeletionService,
   })  : _auth = auth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance {
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _accountDeletionService =
+            accountDeletionService ?? AccountDeletionService() {
     _authSubscription = _auth.authStateChanges().listen(_handleAuthStateChanged);
   }
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final AccountDeletionService _accountDeletionService;
   final _uuid = const Uuid();
   final _userController = StreamController<UserModel?>.broadcast();
 
@@ -47,7 +53,7 @@ class FirebaseAuthService implements AuthService {
   Future<UserModel> register({
     required String email,
     required String password,
-    required String displayName,
+    required RegisterProfileData profile,
   }) async {
     User? firebaseUser;
 
@@ -62,14 +68,24 @@ class FirebaseAuthService implements AuthService {
         throw AuthException('No se pudo crear la cuenta. Intenta de nuevo.');
       }
 
+      final now = DateTime.now();
+      final requiresApproval = profile.modality.requiresPayment;
       final user = UserModel(
         id: firebaseUser.uid,
         email: email.trim().toLowerCase(),
-        displayName: displayName.trim(),
+        displayName: profile.displayName.trim(),
         qrCode: 'RD-${_uuid.v4()}',
-        createdAt: DateTime.now(),
+        createdAt: now,
         isActive: true,
         role: UserRole.user,
+        whatsapp: profile.whatsapp.trim(),
+        nationalIdLast4: profile.nationalIdLast4.trim(),
+        birthDate: profile.birthDate,
+        membershipModality: profile.modality,
+        membershipStatus: requiresApproval
+            ? MembershipStatus.pending
+            : MembershipStatus.active,
+        acceptedTermsAt: profile.acceptedTerms ? now : null,
       );
 
       try {
@@ -143,6 +159,25 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<void> logout() async {
     await _auth.signOut();
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _accountDeletionService.deleteMyAccount();
+    } on AuthException {
+      rethrow;
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapFirebaseAuthError(e));
+    } catch (_) {
+      throw AuthException(
+        'No se pudo eliminar la cuenta. Intenta de nuevo.',
+      );
+    } finally {
+      if (_auth.currentUser != null) {
+        await _auth.signOut();
+      }
+    }
   }
 
   Future<void> _handleAuthStateChanged(User? firebaseUser) async {

@@ -10,6 +10,7 @@ import '../../utils/helpers.dart';
 import '../../utils/secure_delete_flow.dart';
 import '../../widgets/admin_search_field.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 
 class AdminBusinessesTab extends StatefulWidget {
   const AdminBusinessesTab({super.key});
@@ -60,14 +61,14 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
   Future<void> _confirmDelete(BusinessModel business) async {
     final result = await _secureDeleteFlow.confirmAndAuthenticate(
       context: context,
-      resourceType: 'negocio',
+      resourceType: 'marca aliada',
       itemName: business.name,
       summary:
-          'Vas a eliminar un negocio afiliado y toda su información en SAINTS.',
+          'Vas a eliminar una marca aliada y toda su información en SAINTS.',
       consequences: [
-        'Se borrará "${business.name}" del directorio de negocios.',
+        'Se borrará "${business.name}" del directorio de marcas aliadas.',
         'Se eliminará su foto de portada si existe.',
-        'Los operadores vinculados perderán la referencia a este negocio.',
+        'Los operadores vinculados perderán la referencia a esta marca aliada.',
         'Esta acción no se puede deshacer.',
       ],
     );
@@ -134,7 +135,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
               child: Center(
                 child: EmptyStateCard(
                   icon: Icons.cloud_off_rounded,
-                  message: 'No pudimos cargar los negocios',
+                  message: 'No pudimos cargar las marcas aliadas',
                   subtitle: provider.error,
                   actionLabel: 'Reintentar',
                   onAction: _handleRefresh,
@@ -148,10 +149,10 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
               child: Center(
                 child: EmptyStateCard(
                   icon: Icons.storefront_outlined,
-                  message: 'No hay negocios registrados',
+                  message: 'No hay marcas aliadas registradas',
                   subtitle:
-                      'Agrega el primero desde el tab Negocios con el botón + Negocio.',
-                  actionLabel: 'Agregar negocio',
+                      'Agrega la primera desde el tab Marcas con el botón + Marca.',
+                  actionLabel: 'Agregar marca',
                   onAction: () => context.push('/admin/businesses/new'),
                 ),
               ),
@@ -165,7 +166,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
                   icon: Icons.search_off_rounded,
                   message: 'Sin resultados',
                   subtitle:
-                      'No encontramos negocios para "$_searchQuery". Prueba con otro nombre o categoría.',
+                      'No encontramos marcas aliadas para "$_searchQuery". Prueba con otro nombre o categoría.',
                 ),
               ),
             ),
@@ -187,7 +188,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
                   final business = filteredBusinesses[index];
                   return Card(
                     margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: ListTile(
+                    child: HapticListTile(
                       contentPadding: const EdgeInsets.all(AppSpacing.md),
                       leading: CircleAvatar(
                         backgroundColor: palette.iconButtonBackground,
@@ -216,7 +217,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
+                          HapticIconButton(
                             tooltip: 'Eliminar',
                             onPressed: () => _confirmDelete(business),
                             icon: Icon(

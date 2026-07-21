@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/qr_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
-import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
+import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
+import '../../widgets/profile_action_tile.dart';
 import '../../widgets/profile_photo_picker.dart';
-import '../../widgets/qr_generator.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -26,7 +28,7 @@ class ProfilePage extends StatelessWidget {
       appBar: CustomAppBar(
         title: 'Mi perfil',
         actions: [
-          IconButton(
+          HapticIconButton(
             onPressed: () => context.push('/settings'),
             tooltip: 'Ajustes',
             icon: Container(
@@ -59,7 +61,6 @@ class ProfileScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
     final palette = context.palette;
-    final canUseMembership = auth.canUseMembershipFeatures;
 
     if (user == null) {
       return Center(
@@ -76,146 +77,190 @@ class ProfileScreen extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ProfileIdentityHeader(user: user),
+          const SizedBox(height: AppSpacing.lg),
+          MembershipCredentialCard(user: user, qrPayload: qrPayload),
+          const SizedBox(height: AppSpacing.md),
+          _ContextBanner(auth: auth),
+          const SizedBox(height: AppSpacing.md),
+          ProfileActionTile(
+            icon: Icons.schedule_rounded,
+            title: 'Horarios de entrenamiento',
+            subtitle: 'Comunidad, Oficial y Pro Team',
+            onTap: () => context.push('/training-schedule'),
+          ),
+          if (auth.isProTeamMember) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ProfileActionTile(
+              icon: Icons.fitness_center_rounded,
+              title: 'SAINTS Pro Team',
+              subtitle: 'Sesiones, coach e indicaciones',
+              onTap: () => context.push('/pro-team'),
+            ),
+          ],
+          if (auth.canManageSchedules) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ProfileActionTile(
+              icon: Icons.edit_calendar_rounded,
+              title: 'Editar horarios del club',
+              subtitle: 'Panel coach / administrador',
+              onTap: () => context.push('/admin/training-schedule'),
+            ),
+          ],
+          if (user.whatsapp != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ProfileActionTile(
+              icon: Icons.chat_rounded,
+              title: 'WhatsApp',
+              subtitle: user.whatsapp,
+              trailing: Icon(Icons.open_in_new_rounded, color: palette.textMuted),
+              onTap: null,
+            ),
+          ],
+          if (user.expiresAt != null && !user.isAdmin) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ProfileActionTile(
+              icon: Icons.event_available_rounded,
+              title: 'Vigencia de membresía',
+              subtitle: 'Hasta ${Helpers.formatDate(user.expiresAt!)}',
+              trailing: const SizedBox.shrink(),
+              onTap: null,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileIdentityHeader extends StatelessWidget {
+  const _ProfileIdentityHeader({required this.user});
+
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        ProfilePhotoPicker(
+          userId: user.id,
+          displayName: user.displayName,
+          photoUrl: user.photoUrl,
+          radius: 36,
+          showLabel: false,
+          cameraStyle: CameraButtonStyle.minimal,
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.displayName,
+                style: AppTypography.sectionTitle(context),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                user.email,
+                style: AppTypography.body(context, color: palette.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContextBanner extends StatelessWidget {
+  const _ContextBanner({required this.auth});
+
+  final AuthProvider auth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (auth.isMembershipPending) {
+      return _CompactInfoBanner(
+        icon: Icons.hourglass_top_rounded,
+        title: 'Solicitud en revisión',
+        message:
+            'Te avisaremos cuando tu credencial esté activa.',
+      );
+    }
+
+    if (!auth.canUseMembershipFeatures) {
+      return const MembershipUpsellCard(
+        message:
+            'Activa tu membresía SAINTS para acceder a beneficios con marcas aliadas y tu credencial digital.',
+      );
+    }
+
+    return _CompactInfoBanner(
+      icon: Icons.qr_code_scanner_rounded,
+      title: 'Valida tu beneficio',
+      message:
+          'Muestra tu credencial en las marcas aliadas para validar tu beneficio.',
+    );
+  }
+}
+
+class _CompactInfoBanner extends StatelessWidget {
+  const _CompactInfoBanner({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: palette.infoBannerBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.infoBannerBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: AppConstants.profileCardGradientFor(
-                  Theme.of(context).brightness,
-                ),
-              ),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              boxShadow: palette.cardShadow,
+              color: palette.accentPrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
+            child: Icon(icon, color: palette.accentPrimary, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ProfilePhotoPicker(
-                  userId: user.id,
-                  displayName: user.displayName,
-                  photoUrl: user.photoUrl,
-                  radius: 40,
-                  showLabel: true,
-                  labelColor: Colors.white.withValues(alpha: 0.9),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  user.displayName,
-                  style: AppTypography.sectionTitle(
-                    context,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                Text(title, style: AppTypography.title(context)),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  user.email,
-                  style: AppTypography.body(
-                    context,
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Text(
-                    '${user.role.displayName} desde ${Helpers.formatDate(user.createdAt)}',
-                    style: AppTypography.caption(
-                      context,
-                      color: Colors.white.withValues(alpha: 0.95),
-                    ).copyWith(fontWeight: FontWeight.w600),
-                  ),
+                  message,
+                  style: AppTypography.muted(context).copyWith(height: 1.4),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          if (canUseMembership) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: palette.cardBackground,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                border: Border.all(color: palette.cardBorder),
-                boxShadow: palette.elevatedCardShadow,
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'tu código de membresía',
-                    style: AppTypography.title(context),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    user.qrCode,
-                    style: AppTypography.body(
-                      context,
-                      color: palette.accentPrimary,
-                      weight: FontWeight.w700,
-                    ).copyWith(
-                      letterSpacing: 1.2,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  QRGenerator(data: qrPayload, size: 200),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: palette.infoBannerBackground,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: palette.cardBorder),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: palette.accentPrimary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                    ),
-                    child: Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: palette.accentPrimary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Text(
-                      'Muestra este código en el establecimiento para verificar tu membresía.',
-                      style: AppTypography.muted(context).copyWith(height: 1.4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            const MembershipUpsellCard(
-              message:
-                  'Tu código QR y los beneficios exclusivos se activan cuando un administrador te asigna el rol de Miembro.',
-            ),
-          ],
         ],
       ),
     );

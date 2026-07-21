@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/app_haptics.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/gradient_background.dart';
 import '../../widgets/modern_text_field.dart';
@@ -125,12 +126,13 @@ class AccountDisabledScreen extends StatelessWidget {
                           isLoading: auth.isLoading,
                           onPressed: auth.isLoading
                               ? null
-                              : () => _handleRefresh(context),
+                              : AppHaptics.wrap(() => _handleRefresh(context)),
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         OutlinedButton(
-                          onPressed:
-                              auth.isLoading ? null : () => _handleLogout(context),
+                          onPressed: auth.isLoading
+                              ? null
+                              : AppHaptics.wrap(() => _handleLogout(context)),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                               vertical: AppSpacing.md,

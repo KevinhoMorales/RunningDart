@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
-import 'package:latlong2/latlong.dart';
-
+import '../../models/business_hours.dart';
+import '../../models/membership_modality.dart';
 import '../../models/business_model.dart';
 import '../../providers/admin_business_provider.dart';
 import '../../providers/business_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/constants.dart';
+import '../../utils/app_haptics.dart';
+import '../../utils/business_hours_helpers.dart';
+import '../../widgets/business_hours_editor.dart';
 import '../../widgets/business_location_picker.dart';
 import '../../widgets/category_chip.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/modern_text_field.dart';
 
 class AdminBusinessFormScreen extends StatefulWidget {
@@ -36,19 +41,32 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _hoursController = TextEditingController();
   final _discountController = TextEditingController();
   final _benefitController = TextEditingController();
+  final _whatsappController = TextEditingController();
+  final _instagramController = TextEditingController();
+  final _conditionsController = TextEditingController();
 
   String _selectedCategory = AppConstants.businessCategories[1];
   final List<String> _benefits = [];
+  final Set<MembershipModality> _selectedModalities = {};
   LatLng? _selectedLocation;
+  List<BusinessHoursSlot> _operatingHoursSlots = const [
+    BusinessHoursSlot(
+      weekdays: [1, 2, 3, 4, 5],
+      period: BusinessDayPeriod.morning,
+      start: TimeOfDay(hour: 9, minute: 0),
+      end: TimeOfDay(hour: 12, minute: 0),
+    ),
+  ];
+  String? _legacyHours;
   bool _isLoading = false;
   bool _uploadPhotoAfterCreate = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedModalities.addAll(MembershipModality.values);
     if (widget.isEditing) {
       _loadBusiness();
     }
@@ -70,15 +88,27 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
       _descriptionController.text = business.description;
       _addressController.text = business.address;
       _phoneController.text = business.phone;
-      _hoursController.text = business.hours;
+      _legacyHours = business.hasStructuredHours ? null : business.hours;
+      _operatingHoursSlots = business.hasStructuredHours
+          ? List<BusinessHoursSlot>.from(business.operatingHours.slots)
+          : _operatingHoursSlots;
       _discountController.text = business.discount;
+      _whatsappController.text = business.whatsapp ?? '';
+      _instagramController.text = business.instagram ?? '';
+      _conditionsController.text = business.conditions ?? '';
       _selectedCategory = business.category;
       _benefits
         ..clear()
         ..addAll(business.benefits);
+      _selectedModalities
+        ..clear()
+        ..addAll(
+          business.applicableModalities.isEmpty
+              ? MembershipModality.values
+              : business.applicableModalities,
+        );
       if (business.hasLocation) {
-        _selectedLocation =
-            LatLng(business.latitude!, business.longitude!);
+        _selectedLocation = LatLng(business.latitude!, business.longitude!);
       }
     }
 
@@ -91,9 +121,11 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     _descriptionController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
-    _hoursController.dispose();
     _discountController.dispose();
     _benefitController.dispose();
+    _whatsappController.dispose();
+    _instagramController.dispose();
+    _conditionsController.dispose();
     super.dispose();
   }
 
@@ -120,25 +152,46 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Marca la ubicación del negocio en el mapa.'),
+          content: Text('Marca la ubicación de la marca aliada en el mapa.'),
         ),
       );
       return;
     }
 
+    final hoursError = BusinessHoursHelpers.validateSlots(_operatingHoursSlots);
+    if (hoursError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(hoursError)),
+      );
+      return;
+    }
+
+    final operatingHours = BusinessOperatingHours(slots: _operatingHoursSlots);
+    final summaryHours =
+        BusinessHoursHelpers.toDisplaySummary(_operatingHoursSlots);
+
     final adminBusiness = context.read<AdminBusinessProvider>();
+    final allModalitiesSelected =
+        _selectedModalities.length == MembershipModality.values.length;
     final business = BusinessModel(
       id: widget.businessId ?? '',
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
       address: _addressController.text.trim(),
       phone: _phoneController.text.trim(),
-      hours: _hoursController.text.trim(),
+      hours: summaryHours,
+      operatingHours: operatingHours,
       category: _selectedCategory,
       benefits: List.unmodifiable(_benefits),
       discount: _discountController.text.trim(),
       latitude: _selectedLocation!.latitude,
       longitude: _selectedLocation!.longitude,
+      whatsapp: _whatsappController.text.trim(),
+      instagram: _instagramController.text.trim(),
+      conditions: _conditionsController.text.trim(),
+      applicableModalities: allModalitiesSelected
+          ? const []
+          : _selectedModalities.toList(growable: false),
     );
 
     if (widget.isEditing) {
@@ -151,7 +204,7 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
           await adminBusiness.uploadPhoto(business.id);
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Negocio actualizado.')),
+          const SnackBar(content: Text('Marca aliada actualizada.')),
         );
         context.pop();
       } else if (adminBusiness.error != null) {
@@ -172,7 +225,7 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
         await adminBusiness.uploadPhoto(businessId);
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Negocio creado correctamente.')),
+        const SnackBar(content: Text('Marca aliada creada correctamente.')),
       );
       context.pop();
     } else if (adminBusiness.error != null) {
@@ -190,8 +243,8 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
-        title: widget.isEditing ? 'Editar negocio' : 'Nuevo negocio',
-        leading: IconButton(
+        title: widget.isEditing ? 'Editar marca aliada' : 'Nueva marca aliada',
+        leading: HapticIconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
@@ -207,7 +260,7 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                   children: [
                     ModernTextField(
                       controller: _nameController,
-                      labelText: 'Nombre del negocio',
+                      labelText: 'Nombre de la marca aliada',
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                               ? 'Ingresa el nombre'
@@ -258,13 +311,55 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                               : null,
                     ),
                     const SizedBox(height: AppSpacing.md),
+                    BusinessHoursEditor(
+                      slots: _operatingHoursSlots,
+                      legacyHours: _legacyHours,
+                      enabled: !adminBusiness.isSaving,
+                      onChanged: (slots) {
+                        setState(() => _operatingHoursSlots = slots);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                     ModernTextField(
-                      controller: _hoursController,
-                      labelText: 'Horario',
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                              ? 'Ingresa el horario'
-                              : null,
+                      controller: _whatsappController,
+                      labelText: 'WhatsApp',
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    ModernTextField(
+                      controller: _instagramController,
+                      labelText: 'Instagram',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    ModernTextField(
+                      controller: _conditionsController,
+                      labelText: 'Condiciones del beneficio',
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      'Modalidades aplicables',
+                      style: TextStyle(
+                        color: palette.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ...MembershipModality.values.map(
+                      (modality) => CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _selectedModalities.contains(modality),
+                        onChanged: AppHaptics.wrapValue((value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedModalities.add(modality);
+                            } else {
+                              _selectedModalities.remove(modality);
+                            }
+                          });
+                        }),
+                        title: Text(modality.displayName),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
@@ -310,9 +405,13 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                           ),
                         ),
                         const SizedBox(width: AppSpacing.sm),
-                        IconButton.filled(
+                        HapticIconButton(
                           onPressed: _addBenefit,
                           icon: const Icon(Icons.add_rounded),
+                          style: IconButton.styleFrom(
+                            backgroundColor: palette.accentPrimary,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -324,7 +423,7 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                         children: _benefits.asMap().entries.map((entry) {
                           return Chip(
                             label: Text(entry.value),
-                            onDeleted: () => _removeBenefit(entry.key),
+                            onDeleted: AppHaptics.wrap(() => _removeBenefit(entry.key)),
                           );
                         }).toList(),
                       ),
@@ -333,7 +432,7 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        'Subir foto del negocio',
+                        'Subir foto de la marca',
                         style: TextStyle(
                           color: palette.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -342,17 +441,17 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                       subtitle: Text(
                         widget.isEditing
                             ? 'Selecciona una imagen para reemplazar la portada.'
-                            : 'Después de crear el negocio se subirá la foto.',
+                            : 'Después de crear la marca se subirá la foto.',
                         style: TextStyle(color: palette.textMuted),
                       ),
                       value: _uploadPhotoAfterCreate,
-                      onChanged: (value) {
+                      onChanged: AppHaptics.wrapValue((value) {
                         setState(() => _uploadPhotoAfterCreate = value);
-                      },
+                      }),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     PrimaryButton(
-                      label: widget.isEditing ? 'Guardar cambios' : 'Crear negocio',
+                      label: widget.isEditing ? 'Guardar cambios' : 'Crear marca',
                       onPressed: adminBusiness.isSaving ? null : _submit,
                       isLoading: adminBusiness.isSaving,
                     ),

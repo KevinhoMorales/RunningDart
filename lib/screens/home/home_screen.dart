@@ -7,8 +7,10 @@ import '../../providers/admin_provider.dart';
 import '../../providers/admin_news_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_palette.dart';
+import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/user_avatar.dart';
 import '../admin/admin_panel_screen.dart';
 import '../business/business_list_screen.dart';
@@ -78,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront_rounded),
-            label: 'Negocios',
+            label: 'Marcas',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
@@ -91,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront_rounded),
-            label: 'Negocios',
+            label: 'Marcas',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
@@ -109,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront_rounded),
-            label: 'Negocios',
+            label: 'Marcas',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
@@ -163,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: CustomAppBar(
         title: _homeAppBarTitle(auth.user?.displayName),
         actions: [
-          IconButton(
+          HapticIconButton(
             onPressed: () => context.push('/profile'),
             tooltip: 'Mi perfil',
             icon: UserAvatar(
@@ -176,13 +178,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: showAdminBusinessFab
-          ? FloatingActionButton.extended(
+          ? HapticFloatingActionButton(
               onPressed: () => context.push('/admin/businesses/new'),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Negocio'),
+              label: const Text('Marca'),
             )
           : showAdminNewsFab
-              ? FloatingActionButton.extended(
+              ? HapticFloatingActionButton(
                   onPressed: () => context.push('/admin/news/new'),
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Evento'),
@@ -206,14 +208,14 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SafeArea(
           child: NavigationBar(
             selectedIndex: safeIndex,
-            onDestinationSelected: (index) {
+            onDestinationSelected: AppHaptics.wrapValue((index) {
               setState(() {
                 _currentIndex = index;
               });
               if (mode == _HomeMode.admin && index == adminPanelHomeTabIndex) {
                 _refreshAdminPanel();
               }
-            },
+            }),
             destinations: _destinations(mode),
           ),
         ),

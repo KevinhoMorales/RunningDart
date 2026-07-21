@@ -21,6 +21,16 @@ service cloud.firestore {
         && userDoc().role == 'admin';
     }
 
+    function isCoach() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == 'coach';
+    }
+
+    function canManageClubSettings() {
+      return isAdmin() || isCoach();
+    }
+
     function isBusinessOperator() {
       return isSignedIn()
         && userDoc().businessId != null
@@ -29,7 +39,8 @@ service cloud.firestore {
 
     function isActiveMember(userData) {
       return userData.isActive == true
-        && userData.role in ['member', 'admin'];
+        && userData.role in ['member', 'admin']
+        && userData.get('membershipStatus', 'active') == 'active';
     }
 
     function scannedUserDoc(userId) {
@@ -40,7 +51,13 @@ service cloud.firestore {
       return request.resource.data.role == resource.data.role
         && request.resource.data.isActive == resource.data.isActive
         && request.resource.data.get('businessId', null)
-            == resource.data.get('businessId', null);
+            == resource.data.get('businessId', null)
+        && request.resource.data.get('membershipStatus', 'active')
+            == resource.data.get('membershipStatus', 'active')
+        && request.resource.data.get('membershipModality', 'community')
+            == resource.data.get('membershipModality', 'community')
+        && request.resource.data.get('expiresAt', null)
+            == resource.data.get('expiresAt', null);
     }
 
     match /users/{userId} {
@@ -50,7 +67,8 @@ service cloud.firestore {
 
       allow create: if isOwner(userId)
         && request.resource.data.role == 'user'
-        && request.resource.data.isActive == true;
+        && request.resource.data.isActive == true
+        && request.resource.data.membershipStatus in ['pending', 'active'];
 
       allow update: if (isAdmin()
           && (userId != request.auth.uid
@@ -73,6 +91,18 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /payments/{paymentId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.status == 'pending');
+
+      allow update, delete: if isAdmin();
+    }
+
     match /visits/{visitId} {
       allow read: if isAdmin()
         || (isBusinessOperator()
@@ -91,9 +121,16 @@ service cloud.firestore {
           'memberDisplayName',
           'memberQrCode',
           'scannedByUserId',
+          'validationResult',
         ]);
 
       allow update, delete: if false;
+    }
+
+    match /club_settings/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if canManageClubSettings();
+      allow delete: if isAdmin();
     }
   }
 }

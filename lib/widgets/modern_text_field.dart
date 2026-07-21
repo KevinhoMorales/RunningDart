@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
 
 class ModernTextField extends StatelessWidget {
@@ -18,6 +19,8 @@ class ModernTextField extends StatelessWidget {
     this.suffixIcon,
     this.validator,
     this.onFieldSubmitted,
+    this.onChanged,
+    this.enabled = true,
     this.maxLines = 1,
   });
 
@@ -31,6 +34,8 @@ class ModernTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
   final void Function(String)? onFieldSubmitted;
+  final void Function(String)? onChanged;
+  final bool enabled;
   final int maxLines;
 
   @override
@@ -44,6 +49,8 @@ class ModernTextField extends StatelessWidget {
       obscureText: obscureText,
       textCapitalization: textCapitalization,
       maxLines: maxLines,
+      enabled: enabled,
+      onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
       style: TextStyle(color: palette.textPrimary),
@@ -91,7 +98,8 @@ class PrimaryButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isLoading ? null : onPressed,
+          onTap: isLoading ? null : AppHaptics.wrap(onPressed),
+          enableFeedback: false,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: Container(
             width: double.infinity,

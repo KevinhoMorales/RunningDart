@@ -1,7 +1,8 @@
 enum UserRole {
   user,
   member,
-  admin;
+  admin,
+  coach;
 
   String get firestoreValue => name;
 
@@ -11,13 +12,20 @@ enum UserRole {
 
   bool get isAdmin => this == UserRole.admin;
 
+  bool get isCoach => this == UserRole.coach;
+
   bool get hasMembershipPrivileges => isMember || isAdmin;
+
+  bool get canManageSchedules => isAdmin || isCoach;
+
+  bool get canAccessAdminPanel => isAdmin;
 
   String get displayName {
     return switch (this) {
       UserRole.user => 'Usuario',
       UserRole.member => 'Miembro',
       UserRole.admin => 'Administrador',
+      UserRole.coach => 'Coach',
     };
   }
 
@@ -25,6 +33,7 @@ enum UserRole {
     return switch (value) {
       'member' => UserRole.member,
       'admin' => UserRole.admin,
+      'coach' => UserRole.coach,
       'business' => UserRole.member,
       _ => UserRole.user,
     };

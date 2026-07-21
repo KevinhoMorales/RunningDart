@@ -12,6 +12,7 @@ import '../../utils/secure_delete_flow.dart';
 import '../../widgets/admin_search_field.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/event_status_badge.dart';
+import '../../widgets/haptic_controls.dart';
 
 class AdminNewsManagementTab extends StatefulWidget {
   const AdminNewsManagementTab({super.key});
@@ -191,7 +192,7 @@ class _AdminNewsManagementTabState extends State<AdminNewsManagementTab> {
                   final item = filteredNews[index];
                   return Card(
                     margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: ListTile(
+                    child: HapticListTile(
                       contentPadding: const EdgeInsets.all(AppSpacing.md),
                       leading: CircleAvatar(
                         backgroundColor: palette.iconButtonBackground,
@@ -235,8 +236,7 @@ class _AdminNewsManagementTabState extends State<AdminNewsManagementTab> {
                           ),
                         ],
                       ),
-                      isThreeLine: true,
-                      trailing: IconButton(
+                      trailing: HapticIconButton(
                         tooltip: 'Eliminar',
                         onPressed: () => _confirmDelete(item),
                         icon: Icon(

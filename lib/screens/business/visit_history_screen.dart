@@ -50,9 +50,9 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
       return Center(
         child: EmptyStateCard(
           icon: Icons.storefront_outlined,
-          message: 'Sin negocio vinculado',
+          message: 'Sin marca aliada vinculada',
           subtitle:
-              'Las visitas aparecerán aquí cuando un administrador asigne tu cuenta a un negocio.',
+              'Las validaciones aparecerán aquí cuando un administrador asigne tu cuenta a una marca aliada.',
         ),
       );
     }
@@ -78,9 +78,9 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
       return Center(
         child: EmptyStateCard(
           icon: Icons.history_rounded,
-          message: 'Aún no hay escaneos',
+          message: 'Aún no hay validaciones',
           subtitle:
-              'Cuando escanees el QR de un miembro, la visita quedará registrada aquí con fecha y hora.',
+              'Cuando escanees el QR de un miembro, la validación quedará registrada aquí con fecha y hora.',
         ),
       );
     }
@@ -138,7 +138,7 @@ class _VisitTile extends StatelessWidget {
           style: AppTypography.title(context),
         ),
         subtitle: Text(
-          '${Helpers.formatDate(visit.visitedAt)} · ${visit.memberQrCode}',
+          '${Helpers.formatDate(visit.visitedAt)} · ${visit.validationResult.displayName}${visit.benefitUsed != null ? ' · ${visit.benefitUsed}' : ''}',
           style: AppTypography.caption(context),
         ),
         trailing: Container(

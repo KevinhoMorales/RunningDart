@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/membership_modality.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -32,10 +33,15 @@ class AuthProvider extends ChangeNotifier {
   bool get hasSession => _user != null;
   bool get isAccountActive => _user?.isActive ?? false;
   bool get isAdmin => _user?.isAdmin ?? false;
+  bool get isCoach => _user?.isCoach ?? false;
+  bool get canManageSchedules => _user?.canManageSchedules ?? false;
+  bool get isProTeamMember =>
+      _user?.membershipModality == MembershipModality.proTeam;
   bool get isMember => _user?.isMember ?? false;
   bool get isBusinessOperator => _user?.isBusinessOperator ?? false;
   bool get hasMembershipPrivileges =>
       _user?.hasMembershipPrivileges ?? false;
+  bool get isMembershipPending => _user?.isMembershipPending ?? false;
   bool get canAccessApp => hasSession && isAccountActive;
   bool get canAccessAdminPanel => canAccessApp && isAdmin;
   bool get canUseMembershipFeatures =>
@@ -60,13 +66,13 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> register({
     required String email,
     required String password,
-    required String displayName,
+    required RegisterProfileData profile,
   }) async {
     return _runAuthAction(() async {
       _user = await _authService.register(
         email: email,
         password: password,
-        displayName: displayName,
+        profile: profile,
       );
     });
   }
@@ -89,6 +95,14 @@ class AuthProvider extends ChangeNotifier {
     _user = null;
     _error = null;
     notifyListeners();
+  }
+
+  Future<bool> deleteAccount() async {
+    return _runAuthAction(() async {
+      await _notificationService?.unsubscribeAll();
+      await _authService.deleteAccount();
+      _user = null;
+    });
   }
 
   Future<void> refreshAccountStatus() async {

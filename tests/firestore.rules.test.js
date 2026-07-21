@@ -37,6 +37,8 @@ function seedUser(uid, data) {
       createdAt: new Date(),
       isActive: true,
       role: 'user',
+      membershipStatus: 'active',
+      membershipModality: 'community',
       ...data,
     });
   });
@@ -56,6 +58,7 @@ async function runTests() {
         createdAt: new Date(),
         isActive: true,
         role: 'user',
+        membershipStatus: 'active',
       }),
     );
 
@@ -67,6 +70,7 @@ async function runTests() {
         createdAt: new Date(),
         isActive: true,
         role: 'admin',
+        membershipStatus: 'active',
       }),
     );
 
@@ -319,6 +323,7 @@ async function runTests() {
         memberDisplayName: 'Member One',
         memberQrCode: 'RD-member-1',
         scannedByUserId: 'operator-1',
+        validationResult: 'approved',
       }),
     );
 
@@ -330,6 +335,7 @@ async function runTests() {
         memberDisplayName: 'Operator One',
         memberQrCode: 'RD-operator-1',
         scannedByUserId: 'operator-1',
+        validationResult: 'approved',
       }),
     );
 
@@ -341,6 +347,7 @@ async function runTests() {
         memberDisplayName: 'Operator Two',
         memberQrCode: 'RD-operator-2',
         scannedByUserId: 'operator-1',
+        validationResult: 'approved',
       }),
     );
 
@@ -352,6 +359,7 @@ async function runTests() {
         memberDisplayName: 'Member One',
         memberQrCode: 'RD-member-1',
         scannedByUserId: 'operator-1',
+        validationResult: 'approved',
       }),
     );
 
@@ -361,6 +369,88 @@ async function runTests() {
 
     await assertFails(
       authedDb('member-1').collection('visits').doc('visit-1').get(),
+    );
+
+    await assertSucceeds(
+      authedDb('member-1').collection('payments').doc('pay-self').set({
+        userId: 'member-1',
+        modality: 'official',
+        amount: 5,
+        paidAt: new Date(),
+        status: 'pending',
+      }),
+    );
+
+    await assertFails(
+      authedDb('member-1').collection('payments').doc('pay-other').set({
+        userId: 'user-plain',
+        modality: 'official',
+        amount: 5,
+        paidAt: new Date(),
+        status: 'pending',
+      }),
+    );
+
+    await assertSucceeds(
+      authedDb('admin-1').collection('payments').doc('pay-admin').set({
+        userId: 'member-1',
+        modality: 'official',
+        amount: 5,
+        paidAt: new Date(),
+        status: 'approved',
+      }),
+    );
+
+    await assertSucceeds(
+      authedDb('admin-1').collection('payments').doc('pay-admin').get(),
+    );
+
+    await assertSucceeds(
+      authedDb('member-1').collection('payments').doc('pay-admin').get(),
+    );
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('payments').doc('pay-other-user').set({
+        userId: 'user-plain',
+        modality: 'official',
+        amount: 5,
+        paidAt: new Date(),
+        status: 'approved',
+      });
+    });
+
+    await assertFails(
+      authedDb('member-1').collection('payments').doc('pay-other-user').get(),
+    );
+
+    await seedUser('coach-1', { role: 'coach' });
+
+    await assertSucceeds(
+      authedDb('member-1').collection('club_settings').doc('training_schedule').get(),
+    );
+
+    await assertSucceeds(
+      authedDb('coach-1').collection('club_settings').doc('training_schedule').set({
+        location: 'Jelen Tenka',
+        venue: 'Quito',
+        sections: [],
+      }),
+    );
+
+    await assertFails(
+      authedDb('member-1').collection('club_settings').doc('training_schedule').set({
+        location: 'Hack',
+        venue: 'Hack',
+        sections: [],
+      }),
+    );
+
+    await assertSucceeds(
+      authedDb('admin-1').collection('club_settings').doc('training_schedule').set({
+        location: 'Jelen Tenka',
+        venue: 'Quito',
+        sections: [],
+      }),
     );
 
     console.log('All Firestore rules tests passed.');

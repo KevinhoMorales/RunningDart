@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:running_dart/models/membership_status.dart';
 import 'package:running_dart/models/user_model.dart';
 import 'package:running_dart/models/user_role.dart';
+import 'package:running_dart/models/membership_modality.dart';
 import 'package:running_dart/providers/auth_provider.dart';
+import 'package:running_dart/services/auth_service.dart';
 import 'package:running_dart/services/local_storage_service.dart';
 import 'package:running_dart/services/mock_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,17 +72,46 @@ void main() {
       await authProvider.initialize();
     });
 
-    test('creates active user with role user and no photo', () async {
+    test('creates community user active immediately', () async {
+      final success = await authProvider.register(
+        email: 'community@example.com',
+        password: 'secret123',
+        profile: RegisterProfileData(
+          displayName: 'Comunidad User',
+          whatsapp: '+593991234567',
+          nationalIdLast4: '5678',
+          birthDate: DateTime(1995, 5, 10),
+          modality: MembershipModality.community,
+          acceptedTerms: true,
+        ),
+      );
+
+      expect(success, isTrue);
+      expect(authProvider.user?.membershipModality,
+          MembershipModality.community);
+      expect(authProvider.user?.isMembershipPending, isFalse);
+      expect(authProvider.user?.membershipStatus, MembershipStatus.active);
+    });
+
+    test('creates pending user for paid modality', () async {
       final success = await authProvider.register(
         email: 'new@example.com',
         password: 'secret123',
-        displayName: 'Nuevo Usuario',
+        profile: RegisterProfileData(
+          displayName: 'Nuevo Usuario',
+          whatsapp: '+593991234567',
+          nationalIdLast4: '1234',
+          birthDate: DateTime(1995, 5, 10),
+          modality: MembershipModality.official,
+          acceptedTerms: true,
+        ),
       );
 
       expect(success, isTrue);
       expect(authProvider.canAccessApp, isTrue);
       expect(authProvider.user?.role, UserRole.user);
       expect(authProvider.user?.isActive, isTrue);
+      expect(authProvider.user?.isMembershipPending, isTrue);
       expect(authProvider.user?.photoUrl, isNull);
       expect(authProvider.user?.email, 'new@example.com');
       expect(authProvider.user?.displayName, 'Nuevo Usuario');

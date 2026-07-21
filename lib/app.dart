@@ -18,13 +18,19 @@ import 'screens/admin/admin_business_form_screen.dart';
 import 'screens/admin/admin_businesses_screen.dart';
 import 'screens/admin/admin_news_form_screen.dart';
 import 'screens/admin/admin_user_detail_screen.dart';
+import 'screens/admin/admin_validations_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/account_disabled_screen.dart';
+import 'screens/auth/membership_pending_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/admin/admin_training_schedule_screen.dart';
+import 'screens/club/pro_team_screen.dart';
+import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/news/news_detail_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/settings/delete_account_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'services/business_service.dart';
 import 'services/firestore_business_service.dart';
@@ -121,7 +127,11 @@ class _RunningDartAppState extends State<RunningDartApp> {
         final isDisabledRoute = location == '/account-disabled';
         final isProtectedRoute = location == '/home' ||
             location == '/settings' ||
+            location == '/settings/delete-account' ||
             location == '/profile' ||
+            location == '/membership-pending' ||
+            location == '/training-schedule' ||
+            location == '/pro-team' ||
             location.startsWith('/business/') ||
             location.startsWith('/news/') ||
             _isAdminRoute(location);
@@ -141,6 +151,10 @@ class _RunningDartAppState extends State<RunningDartApp> {
         }
 
         if (_isAdminRoute(location) && !auth.canAccessAdminPanel) {
+          if (location == '/admin/training-schedule' &&
+              auth.canManageSchedules) {
+            return null;
+          }
           return '/home';
         }
 
@@ -166,6 +180,22 @@ class _RunningDartAppState extends State<RunningDartApp> {
           ),
         ),
         GoRoute(
+          path: '/membership-pending',
+          builder: (context, state) => const MembershipPendingScreen(),
+        ),
+        GoRoute(
+          path: '/training-schedule',
+          builder: (context, state) => const TrainingScheduleScreen(),
+        ),
+        GoRoute(
+          path: '/pro-team',
+          builder: (context, state) => const ProTeamScreen(),
+        ),
+        GoRoute(
+          path: '/admin/training-schedule',
+          builder: (context, state) => const AdminTrainingScheduleScreen(),
+        ),
+        GoRoute(
           path: '/home',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: HomeScreen(),
@@ -174,6 +204,10 @@ class _RunningDartAppState extends State<RunningDartApp> {
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/settings/delete-account',
+          builder: (context, state) => const DeleteAccountScreen(),
         ),
         GoRoute(
           path: '/profile',
@@ -198,6 +232,14 @@ class _RunningDartAppState extends State<RunningDartApp> {
           builder: (context, state) {
             final id = state.pathParameters['id']!;
             return AdminUserDetailScreen(userId: id);
+          },
+        ),
+        GoRoute(
+          path: '/admin/validations',
+          builder: (context, state) {
+            final approvedOnly =
+                state.uri.queryParameters['approved'] == 'true';
+            return AdminValidationsScreen(approvedOnly: approvedOnly);
           },
         ),
         GoRoute(

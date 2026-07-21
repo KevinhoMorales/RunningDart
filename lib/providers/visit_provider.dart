@@ -16,13 +16,13 @@ class VisitProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isScanning = false;
   String? _error;
-  String? _lastScanMessage;
+  ScanValidationResult? _lastValidationResult;
 
   List<VisitModel> get visits => _visits;
   bool get isLoading => _isLoading;
   bool get isScanning => _isScanning;
   String? get error => _error;
-  String? get lastScanMessage => _lastScanMessage;
+  ScanValidationResult? get lastValidationResult => _lastValidationResult;
 
   void startListening(String businessId) {
     if (_subscription != null) {
@@ -42,7 +42,7 @@ class VisitProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (_) {
-        _error = 'No se pudieron cargar las visitas.';
+        _error = 'No se pudieron cargar las validaciones.';
         _isLoading = false;
         notifyListeners();
       },
@@ -59,30 +59,43 @@ class VisitProvider extends ChangeNotifier {
     _subscription = null;
   }
 
-  Future<bool> processScan({
+  Future<ScanValidationResult> processScan({
     required String rawQrValue,
     required String businessId,
     required String scannedByUserId,
   }) async {
     _isScanning = true;
     _error = null;
-    _lastScanMessage = null;
+    _lastValidationResult = null;
     notifyListeners();
 
     try {
-      final visit = await _visitService.processScan(
+      final result = await _visitService.processScan(
         rawQrValue: rawQrValue,
         businessId: businessId,
         scannedByUserId: scannedByUserId,
       );
-      _lastScanMessage = 'Visita registrada: ${visit.memberDisplayName}';
-      return true;
+      _lastValidationResult = result;
+      if (!result.isApproved) {
+        _error = result.message;
+      }
+      return result;
     } on ScanException catch (e) {
       _error = e.message;
-      return false;
+      final fallback = ScanValidationResult(
+        isApproved: false,
+        message: e.message,
+      );
+      _lastValidationResult = fallback;
+      return fallback;
     } catch (_) {
-      _error = 'No se pudo registrar la visita.';
-      return false;
+      _error = 'No se pudo registrar la validación.';
+      final fallback = ScanValidationResult(
+        isApproved: false,
+        message: 'No se pudo registrar la validación.',
+      );
+      _lastValidationResult = fallback;
+      return fallback;
     } finally {
       _isScanning = false;
       notifyListeners();
@@ -91,7 +104,7 @@ class VisitProvider extends ChangeNotifier {
 
   void clearMessages() {
     _error = null;
-    _lastScanMessage = null;
+    _lastValidationResult = null;
     notifyListeners();
   }
 

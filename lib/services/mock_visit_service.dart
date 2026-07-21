@@ -8,7 +8,7 @@ class MockVisitService implements VisitServiceBase {
   }
 
   @override
-  Future<VisitModel> processScan({
+  Future<ScanValidationResult> processScan({
     required String rawQrValue,
     required String businessId,
     required String scannedByUserId,

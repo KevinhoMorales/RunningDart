@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../utils/app_haptics.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
@@ -124,7 +125,10 @@ class _BusinessLocationPickerState extends State<BusinessLocationPicker> {
                   options: MapOptions(
                     initialCenter: center,
                     initialZoom: _selectedLocation == null ? 13 : 16,
-                    onTap: (_, point) => _selectLocation(point),
+                    onTap: (_, point) {
+                      AppHaptics.lightTap();
+                      _selectLocation(point);
+                    },
                   ),
                   children: [
                     TileLayer(
@@ -153,7 +157,7 @@ class _BusinessLocationPickerState extends State<BusinessLocationPicker> {
                   right: AppSpacing.sm,
                   bottom: AppSpacing.sm,
                   child: FilledButton.tonalIcon(
-                    onPressed: _isLocating ? null : _useCurrentLocation,
+                    onPressed: _isLocating ? null : AppHaptics.wrap(_useCurrentLocation),
                     icon: _isLocating
                         ? SizedBox(
                             width: 16,

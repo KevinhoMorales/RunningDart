@@ -11,6 +11,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/event_status_badge.dart';
 
 class NewsDetailScreen extends StatefulWidget {
@@ -88,7 +89,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
         title: 'Evento',
-        leading: IconButton(
+        leading: HapticIconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
@@ -114,7 +115,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                           style: TextStyle(color: palette.textMuted),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        FilledButton(
+                        HapticFilledButton(
                           onPressed: () => context.pop(),
                           child: const Text('Volver'),
                         ),

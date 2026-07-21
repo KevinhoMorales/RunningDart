@@ -9,6 +9,8 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/gradient_background.dart';
+import '../../widgets/haptic_controls.dart';
+import '../../widgets/legal_links.dart';
 import '../../widgets/modern_text_field.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -113,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             textInputAction: TextInputAction.done,
                             prefixIcon: Icons.lock_outline,
                             onFieldSubmitted: (_) => _handleLogin(),
-                            suffixIcon: IconButton(
+                            suffixIcon: HapticIconButton(
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility_outlined
@@ -147,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    TextButton(
+                    HapticTextButton(
                       onPressed:
                           auth.isLoading ? null : () => context.go('/register'),
                       child: Text(
@@ -158,6 +160,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    const LegalLinksNotice(),
                   ],
                 ),
               ),

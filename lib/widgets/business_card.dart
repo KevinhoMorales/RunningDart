@@ -7,6 +7,7 @@ import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../theme/category_style.dart';
+import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 
@@ -45,7 +46,8 @@ class BusinessCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: onTap,
+            onTap: AppHaptics.wrap(onTap),
+            enableFeedback: false,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -322,7 +324,7 @@ class _BusinessCardDiscount extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         showLargePercent
-                            ? 'Ahorra $formattedDiscount'
+                            ? 'En tu visita'
                             : formattedDiscount,
                         style: AppTypography.caption(
                           context,

@@ -32,7 +32,7 @@ class BusinessProvider extends ChangeNotifier {
         category: _selectedCategory,
       );
     } catch (_) {
-      _error = 'No se pudieron cargar los negocios.';
+      _error = 'No se pudieron cargar las marcas aliadas.';
       _businesses = [];
     } finally {
       _isLoading = false;

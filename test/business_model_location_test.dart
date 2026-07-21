@@ -1,5 +1,8 @@
-import 'package:running_dart/models/business_model.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:running_dart/models/business_hours.dart';
+import 'package:running_dart/models/business_model.dart';
+import 'package:running_dart/utils/business_hours_helpers.dart';
 
 void main() {
   group('BusinessModel location', () {
@@ -47,6 +50,7 @@ void main() {
         'discount': '10%',
         'latitude': -0.18,
         'longitude': -78.46,
+        'allianceStatus': 'active',
       });
     });
 

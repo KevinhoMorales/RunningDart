@@ -6,8 +6,10 @@ import '../../models/news_model.dart';
 import '../../providers/admin_news_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/modern_text_field.dart';
 
 class AdminNewsFormScreen extends StatefulWidget {
@@ -157,7 +159,7 @@ class _AdminNewsFormScreenState extends State<AdminNewsFormScreen> {
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
         title: widget.isEditing ? 'Editar evento' : 'Nuevo evento',
-        leading: IconButton(
+        leading: HapticIconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
@@ -204,7 +206,7 @@ class _AdminNewsFormScreenState extends State<AdminNewsFormScreen> {
                       labelText: 'Lugar (opcional)',
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    ListTile(
+                    HapticListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
                         'Fecha del evento',
@@ -235,9 +237,9 @@ class _AdminNewsFormScreenState extends State<AdminNewsFormScreen> {
                         style: TextStyle(color: palette.textMuted),
                       ),
                       value: _isPublished,
-                      onChanged: (value) {
+                      onChanged: AppHaptics.wrapValue((value) {
                         setState(() => _isPublished = value);
-                      },
+                      }),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SwitchListTile(
@@ -256,9 +258,9 @@ class _AdminNewsFormScreenState extends State<AdminNewsFormScreen> {
                         style: TextStyle(color: palette.textMuted),
                       ),
                       value: _uploadPhotoAfterSave,
-                      onChanged: (value) {
+                      onChanged: AppHaptics.wrapValue((value) {
                         setState(() => _uploadPhotoAfterSave = value);
-                      },
+                      }),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     PrimaryButton(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_haptics.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 
@@ -37,11 +38,12 @@ class AdminSearchField extends StatelessWidget {
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
                   tooltip: 'Limpiar',
-                  onPressed: () {
+                  onPressed: AppHaptics.wrap(() {
                     controller.clear();
                     onChanged?.call('');
-                  },
+                  }),
                   icon: Icon(Icons.close_rounded, color: palette.textMuted),
+                  enableFeedback: false,
                 )
               : null,
           filled: true,

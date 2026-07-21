@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_palette.dart';
+import '../../utils/app_haptics.dart';
 import 'qr_scanner_screen.dart';
 import 'visit_history_screen.dart';
 
@@ -28,6 +29,7 @@ class _OperatorScanScreenState extends State<OperatorScanScreen>
       return;
     }
 
+    AppHaptics.lightTap();
     final isScanTab = _tabController.index == 0;
     if (_scannerActive != isScanTab) {
       setState(() => _scannerActive = isScanTab);
@@ -60,7 +62,7 @@ class _OperatorScanScreenState extends State<OperatorScanScreen>
             ),
             Tab(
               icon: Icon(Icons.history_rounded, size: 20),
-              text: 'Visitas',
+              text: 'Validaciones',
             ),
           ],
         ),

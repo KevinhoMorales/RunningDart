@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../utils/app_haptics.dart';
 import '../models/business_model.dart';
 import '../services/map_launcher_service.dart';
 import '../theme/app_palette.dart';
@@ -145,7 +146,8 @@ class _MapOptionTile extends StatelessWidget {
       ),
       title: Text(label, style: AppTypography.body(context)),
       trailing: Icon(Icons.chevron_right_rounded, color: palette.textMuted),
-      onTap: onTap,
+      onTap: AppHaptics.wrap(onTap),
+      enableFeedback: false,
     );
   }
 }

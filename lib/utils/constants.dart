@@ -3,7 +3,20 @@ import 'package:latlong2/latlong.dart';
 
 class AppConstants {
   static const String appName = 'SAINTS';
-  static const String appTagline = 'Tu comunidad, tus beneficios exclusivos';
+  static const String appTagline =
+      'Wellness Club · Running · Bienestar en Santo Domingo';
+  static const String clubLocation = 'Santo Domingo de los Tsáchilas, Ecuador';
+  static const String clubVenue = 'Jelen Tenka';
+  static const String membershipTermsLabel =
+      'Acepto los términos y condiciones de SAINTS Wellness Club';
+
+  /// Placeholder URLs — reemplazar cuando estén publicadas.
+  static const String termsOfServiceUrl =
+      'https://saints-wellness.club/terminos-y-condiciones';
+  static const String privacyPolicyUrl =
+      'https://saints-wellness.club/politica-de-privacidad';
+
+  static const String officialMembershipPriceLabel = r'$5 lanzamiento 2026';
 
   static const String devLokosEnterpriseUrl =
       'https://devlokos.com/empresarial';
@@ -13,7 +26,7 @@ class AppConstants {
   static const String notificationChannelId = 'saints_alerts';
   static const String notificationChannelName = 'Alertas SAINTS';
   static const String notificationChannelDescription =
-      'Nuevos negocios y eventos de la comunidad';
+      'Nuevas marcas aliadas y eventos de la comunidad';
 
   static const String fcmTopicNewBusinesses = 'saints_new_businesses';
   static const String fcmTopicNewEvents = 'saints_new_events';
@@ -67,6 +80,17 @@ class AppConstants {
         : brandGradientAccentColors;
   }
 
-  /// Centro por defecto del mapa (Quito, Ecuador).
+  /// Credencial digital: fondo oscuro neutro con acento verde sutil (no bloque verde).
+  static List<Color> credentialCardGradientFor(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? const [Color(0xFF0D1117), Color(0xFF161B22)]
+        : const [Color(0xFF1A1D26), Color(0xFF2A3140)];
+  }
+
+  static Color credentialAccentColor(Brightness brightness) {
+    return brightness == Brightness.dark ? primaryColorLight : accentColor;
+  }
+
+  /// Centro por defecto del mapa (Santo Domingo de los Tsáchilas).
   static const LatLng defaultMapCenter = LatLng(-0.1807, -78.4678);
 }

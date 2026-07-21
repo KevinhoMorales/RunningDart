@@ -1,9 +1,13 @@
 const { initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+const { getFirestore } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 const { getMessaging } = require("firebase-admin/messaging");
 const {
   onDocumentCreated,
   onDocumentUpdated,
 } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
 initializeApp();
 
@@ -50,8 +54,8 @@ exports.onBusinessCreated = onDocumentCreated(
 
     await sendTopicNotification({
       topic: TOPIC_NEW_BUSINESSES,
-      title: "Nuevo negocio",
-      body: name || "Hay un nuevo negocio en SAINTS",
+      title: "Nueva marca aliada",
+      body: name || "Hay una nueva marca aliada en SAINTS",
       type: "business",
       id: businessId,
     });
@@ -98,4 +102,56 @@ exports.onNewsPublished = onDocumentUpdated("news/{newsId}", async (event) => {
     type: "news",
     id: newsId,
   });
+});
+
+async function deleteStoragePrefix(bucket, prefix) {
+  const [files] = await bucket.getFiles({ prefix });
+  await Promise.all(
+    files.map((file) =>
+      file.delete().catch(() => undefined),
+    ),
+  );
+}
+
+exports.deleteMyAccount = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Debes iniciar sesión para eliminar tu cuenta.",
+    );
+  }
+
+  const uid = request.auth.uid;
+  const db = getFirestore();
+  const bucket = getStorage().bucket();
+
+  const paymentsSnapshot = await db
+    .collection("payments")
+    .where("userId", "==", uid)
+    .get();
+
+  await Promise.all(
+    paymentsSnapshot.docs.map((doc) => doc.ref.delete()),
+  );
+
+  await deleteStoragePrefix(bucket, `payments/${uid}/`);
+  await bucket
+    .file(`users/${uid}/profile.jpg`)
+    .delete()
+    .catch(() => undefined);
+
+  await db.collection("users").doc(uid).delete();
+
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (error) {
+    if (error.code !== "auth/user-not-found") {
+      throw new HttpsError(
+        "internal",
+        "No se pudo eliminar la cuenta. Intenta de nuevo.",
+      );
+    }
+  }
+
+  return { success: true };
 });

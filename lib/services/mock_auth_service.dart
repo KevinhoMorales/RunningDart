@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:uuid/uuid.dart';
 
+import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import 'auth_service.dart';
@@ -31,7 +32,7 @@ class MockAuthService implements AuthService {
   Future<UserModel> register({
     required String email,
     required String password,
-    required String displayName,
+    required RegisterProfileData profile,
   }) async {
     final existing = await _storage.getUserByEmail(email);
     if (existing != null) {
@@ -42,12 +43,20 @@ class MockAuthService implements AuthService {
     final user = UserModel(
       id: userId,
       email: email.trim().toLowerCase(),
-      displayName: displayName.trim(),
+      displayName: profile.displayName.trim(),
       qrCode: 'RD-${_uuid.v4()}',
       createdAt: DateTime.now(),
       isActive: true,
       role: UserRole.user,
       password: password,
+      whatsapp: profile.whatsapp,
+      nationalIdLast4: profile.nationalIdLast4,
+      birthDate: profile.birthDate,
+      membershipModality: profile.modality,
+      membershipStatus: profile.modality.requiresPayment
+          ? MembershipStatus.pending
+          : MembershipStatus.active,
+      acceptedTermsAt: profile.acceptedTerms ? DateTime.now() : null,
     );
 
     await _storage.saveUser(user);
@@ -76,6 +85,18 @@ class MockAuthService implements AuthService {
 
   @override
   Future<void> logout() async {
+    await _storage.clearSession();
+    _userController.add(null);
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    final user = await _storage.getCurrentUser();
+    if (user == null) {
+      throw AuthException('No hay sesión activa.');
+    }
+
+    await _storage.deleteUser(user.id);
     await _storage.clearSession();
     _userController.add(null);
   }

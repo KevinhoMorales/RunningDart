@@ -47,3 +47,6 @@ app.*.map.json
 # Firebase rules testing
 /node_modules/
 firestore-debug.log
+
+# Local secrets
+**/local.properties

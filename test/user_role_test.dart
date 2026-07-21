@@ -9,7 +9,7 @@ void main() {
       expect(UserRole.fromFirestore('user'), UserRole.user);
       expect(UserRole.fromFirestore('member'), UserRole.member);
       expect(UserRole.fromFirestore('admin'), UserRole.admin);
-      expect(UserRole.fromFirestore(null), UserRole.user);
+      expect(UserRole.fromFirestore('coach'), UserRole.coach);
       expect(UserRole.fromFirestore('unknown'), UserRole.user);
     });
 
@@ -27,6 +27,7 @@ void main() {
       expect(UserRole.user.displayName, 'Usuario');
       expect(UserRole.member.displayName, 'Miembro');
       expect(UserRole.admin.displayName, 'Administrador');
+      expect(UserRole.coach.displayName, 'Coach');
     });
   });
 

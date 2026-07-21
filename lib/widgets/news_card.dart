@@ -4,6 +4,7 @@ import '../models/news_model.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import '../utils/app_haptics.dart';
 import '../utils/helpers.dart';
 import 'event_status_badge.dart';
 
@@ -39,7 +40,8 @@ class NewsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: AppHaptics.wrap(onTap),
+          enableFeedback: false,
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(color: palette.cardBorder),

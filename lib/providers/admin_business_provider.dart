@@ -43,7 +43,7 @@ class AdminBusinessProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (_) {
-        _error = 'No se pudieron cargar los negocios.';
+        _error = 'No se pudieron cargar las marcas aliadas.';
         _isLoading = false;
         notifyListeners();
       },
@@ -74,7 +74,7 @@ class AdminBusinessProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (_) {
-        _error = 'No se pudieron cargar los negocios.';
+        _error = 'No se pudieron cargar las marcas aliadas.';
         _isLoading = false;
         if (!completer.isCompleted) {
           completer.complete();
@@ -103,7 +103,7 @@ class AdminBusinessProvider extends ChangeNotifier {
 
       return businessId;
     } catch (_) {
-      _error = 'No se pudo crear el negocio.';
+      _error = 'No se pudo crear la marca aliada.';
       return null;
     } finally {
       _isSaving = false;
@@ -120,7 +120,7 @@ class AdminBusinessProvider extends ChangeNotifier {
       await _businessService.updateBusiness(business);
       return true;
     } catch (_) {
-      _error = 'No se pudo actualizar el negocio.';
+      _error = 'No se pudo actualizar la marca aliada.';
       return false;
     } finally {
       _isSaving = false;
@@ -137,7 +137,7 @@ class AdminBusinessProvider extends ChangeNotifier {
       await _businessService.deleteBusiness(id);
       return true;
     } catch (_) {
-      _error = 'No se pudo eliminar el negocio.';
+      _error = 'No se pudo eliminar la marca aliada.';
       return false;
     } finally {
       _isSaving = false;

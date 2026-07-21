@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'haptic_controls.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   const CustomAppBar({
@@ -137,7 +138,7 @@ class EmptyStateCard extends StatelessWidget {
           ],
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
+            HapticFilledButton(
               onPressed: onAction,
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,

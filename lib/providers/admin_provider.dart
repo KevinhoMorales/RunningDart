@@ -3,9 +3,47 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/membership_modality.dart';
+import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import '../services/user_service.dart';
+
+enum AdminUserFilter {
+  all,
+  pending,
+  activeMembers,
+  operators,
+  users,
+  members,
+  admins,
+  coaches,
+  inactive;
+
+  String get label => switch (this) {
+        AdminUserFilter.all => 'Todos los usuarios',
+        AdminUserFilter.pending => 'Solicitudes pendientes',
+        AdminUserFilter.activeMembers => 'Miembros activos',
+        AdminUserFilter.operators => 'Operadores de marcas',
+        AdminUserFilter.users => 'Usuarios',
+        AdminUserFilter.members => 'Miembros',
+        AdminUserFilter.admins => 'Administradores',
+        AdminUserFilter.coaches => 'Coach',
+        AdminUserFilter.inactive => 'Cuentas inactivas',
+      };
+
+  String get chipLabel => switch (this) {
+        AdminUserFilter.all => 'Todos',
+        AdminUserFilter.pending => 'Pendientes',
+        AdminUserFilter.activeMembers => 'Memb. activos',
+        AdminUserFilter.operators => 'Operadores',
+        AdminUserFilter.users => 'Usuarios',
+        AdminUserFilter.members => 'Miembros',
+        AdminUserFilter.admins => 'Admins',
+        AdminUserFilter.coaches => 'Coach',
+        AdminUserFilter.inactive => 'Inactivos',
+      };
+}
 
 class AdminProvider extends ChangeNotifier {
   AdminProvider(this._userService);
@@ -16,6 +54,7 @@ class AdminProvider extends ChangeNotifier {
 
   List<UserModel> _users = [];
   String _searchQuery = '';
+  AdminUserFilter _userFilter = AdminUserFilter.all;
   bool _isLoading = false;
   bool _isUpdating = false;
   String? _error;
@@ -23,14 +62,42 @@ class AdminProvider extends ChangeNotifier {
 
   List<UserModel> get users => _users;
   String get searchQuery => _searchQuery;
+  AdminUserFilter get userFilter => _userFilter;
   bool get isLoading => _isLoading;
   bool get isUpdating => _isUpdating;
   String? get error => _error;
   String? get errorDetail => _errorDetail;
   bool get isListening => _usersSubscription != null;
 
-  List<UserModel> get filteredUsers =>
-      UserService.filterUsers(_users, _searchQuery);
+  List<UserModel> get filteredUsers {
+    final filtered = switch (_userFilter) {
+      AdminUserFilter.all => _users,
+      AdminUserFilter.pending => _users
+          .where((u) => u.membershipStatus == MembershipStatus.pending)
+          .toList(),
+      AdminUserFilter.activeMembers => _users
+          .where(
+            (u) =>
+                u.isActive &&
+                u.membershipStatus == MembershipStatus.active &&
+                u.role.isMember,
+          )
+          .toList(),
+      AdminUserFilter.operators =>
+        _users.where((u) => u.isBusinessOperator).toList(),
+      AdminUserFilter.users =>
+        _users.where((u) => u.role.isUser).toList(),
+      AdminUserFilter.members =>
+        _users.where((u) => u.role.isMember).toList(),
+      AdminUserFilter.admins =>
+        _users.where((u) => u.role.isAdmin).toList(),
+      AdminUserFilter.coaches =>
+        _users.where((u) => u.role.isCoach).toList(),
+      AdminUserFilter.inactive =>
+        _users.where((u) => !u.isActive).toList(),
+    };
+    return UserService.filterUsers(filtered, _searchQuery);
+  }
 
   static String _messageForLoadError(Object error) {
     if (error is FirebaseException && error.code == 'permission-denied') {
@@ -112,6 +179,18 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setUserFilter(AdminUserFilter filter) {
+    if (_userFilter == filter) {
+      return;
+    }
+    _userFilter = filter;
+    notifyListeners();
+  }
+
+  void clearUserFilter() {
+    setUserFilter(AdminUserFilter.all);
+  }
+
   Future<UserModel?> getUserById(String id) {
     return _userService.getUserById(id);
   }
@@ -172,7 +251,77 @@ class AdminProvider extends ChangeNotifier {
       await _userService.setBusinessAssignment(userId, businessId);
       return true;
     } catch (_) {
-      _error = 'No se pudo actualizar la asignación del negocio.';
+      _error = 'No se pudo actualizar la asignación de la marca.';
+      return false;
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> approveMembership(String userId) async {
+    _isUpdating = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _userService.approveMembership(userId);
+      return true;
+    } catch (_) {
+      _error = 'No se pudo aprobar la membresía.';
+      return false;
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> rejectMembership(String userId) async {
+    _isUpdating = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _userService.rejectMembership(userId);
+      return true;
+    } catch (_) {
+      _error = 'No se pudo rechazar la solicitud.';
+      return false;
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateMembershipProfile({
+    required String userId,
+    required MembershipModality modality,
+    required MembershipStatus status,
+    DateTime? expiresAt,
+    String? whatsapp,
+    String? nationalIdLast4,
+    DateTime? birthDate,
+    String? internalNotes,
+  }) async {
+    _isUpdating = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _userService.updateMembershipProfile(
+        id: userId,
+        modality: modality,
+        status: status,
+        expiresAt: expiresAt,
+        activatedAt: status == MembershipStatus.active ? DateTime.now() : null,
+        whatsapp: whatsapp,
+        nationalIdLast4: nationalIdLast4,
+        birthDate: birthDate,
+        internalNotes: internalNotes,
+      );
+      return true;
+    } catch (_) {
+      _error = 'No se pudo actualizar la membresía.';
       return false;
     } finally {
       _isUpdating = false;

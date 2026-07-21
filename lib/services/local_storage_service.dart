@@ -68,4 +68,13 @@ class LocalStorageService {
   Future<void> clearSession() async {
     await _prefs.remove(_currentUserIdKey);
   }
+
+  Future<void> deleteUser(String userId) async {
+    final users = await getUsers();
+    users.removeWhere((user) => user.id == userId);
+    await _prefs.setString(
+      _usersKey,
+      jsonEncode(users.map((u) => u.toJson()).toList()),
+    );
+  }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/business_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/business_provider.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/constants.dart';
@@ -29,13 +31,22 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BusinessProvider>();
+    final auth = context.watch<AuthProvider>();
+    final modality = auth.user?.membershipModality;
+    final businesses = provider.businesses
+        .where(
+          (business) =>
+              business.isAllianceActive &&
+              (modality == null || business.appliesToModality(modality)),
+        )
+        .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(
-          title: 'Explora negocios',
-          subtitle: 'Descubre beneficios exclusivos cerca de ti',
+          title: 'Marcas aliadas',
+          subtitle: 'Beneficios exclusivos para la comunidad SAINTS',
         ),
         SizedBox(
           height: 36,
@@ -62,17 +73,20 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Expanded(child: _buildBody(provider)),
+        Expanded(child: _buildBody(provider, businesses)),
       ],
     );
   }
 
-  Widget _buildBody(BusinessProvider provider) {
-    if (provider.isLoading && provider.businesses.isEmpty) {
+  Widget _buildBody(
+    BusinessProvider provider,
+    List<BusinessModel> businesses,
+  ) {
+    if (provider.isLoading && businesses.isEmpty) {
       return const LoadingSkeleton();
     }
 
-    if (provider.error != null && provider.businesses.isEmpty) {
+    if (provider.error != null && businesses.isEmpty) {
       return Center(
         child: EmptyStateCard(
           icon: Icons.error_outline_rounded,
@@ -83,11 +97,11 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
       );
     }
 
-    if (provider.businesses.isEmpty) {
+    if (businesses.isEmpty) {
       return const Center(
         child: EmptyStateCard(
           icon: Icons.storefront_outlined,
-          message: 'No hay negocios en esta categoría',
+          message: 'No hay marcas aliadas en esta categoría',
         ),
       );
     }
@@ -98,9 +112,9 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        itemCount: provider.businesses.length,
+        itemCount: businesses.length,
         itemBuilder: (context, index) {
-          final business = provider.businesses[index];
+          final business = businesses[index];
           return BusinessCard(
             business: business,
             onTap: () => context.push('/business/${business.id}'),

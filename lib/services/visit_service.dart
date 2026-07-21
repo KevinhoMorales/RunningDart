@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/business_model.dart';
+import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/visit_model.dart';
 import '../services/qr_service.dart';
@@ -23,7 +25,7 @@ class VisitScanValidator {
     required UserModel member,
   }) {
     if (scannedMemberId == scannedByUserId) {
-      throw ScanException('No puedes escanear tu propio código en tu negocio.');
+      throw ScanException('No puedes escanear tu propio código en tu marca aliada.');
     }
 
     final memberBusinessId = member.businessId;
@@ -31,7 +33,7 @@ class VisitScanValidator {
         memberBusinessId.isNotEmpty &&
         memberBusinessId == businessId) {
       throw ScanException(
-        'No puedes registrar visitas de otro operador de este negocio.',
+        'No puedes registrar validaciones de otro operador de esta marca.',
       );
     }
   }
@@ -39,7 +41,7 @@ class VisitScanValidator {
 
 abstract class VisitServiceBase {
   Stream<List<VisitModel>> watchVisitsForBusiness(String businessId);
-  Future<VisitModel> processScan({
+  Future<ScanValidationResult> processScan({
     required String rawQrValue,
     required String businessId,
     required String scannedByUserId,
@@ -58,21 +60,34 @@ class VisitService implements VisitServiceBase {
 
   static const _visitsCollection = 'visits';
   static const _usersCollection = 'users';
+  static const _businessesCollection = 'businesses';
 
   @override
   Stream<List<VisitModel>> watchVisitsForBusiness(String businessId) {
     return _firestore
         .collection(_visitsCollection)
         .where('businessId', isEqualTo: businessId)
-        .orderBy('visitedAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map(VisitModel.fromFirestore).toList(growable: false);
-    });
+        .map(_mapVisitSnapshot);
+  }
+
+  Stream<List<VisitModel>> watchAllVisits() {
+    return _firestore
+        .collection(_visitsCollection)
+        .snapshots()
+        .map(_mapVisitSnapshot);
+  }
+
+  List<VisitModel> _mapVisitSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final items = snapshot.docs.map(VisitModel.fromFirestore).toList();
+    items.sort((a, b) => b.visitedAt.compareTo(a.visitedAt));
+    return items;
   }
 
   @override
-  Future<VisitModel> processScan({
+  Future<ScanValidationResult> processScan({
     required String rawQrValue,
     required String businessId,
     required String scannedByUserId,
@@ -83,30 +98,144 @@ class VisitService implements VisitServiceBase {
         await _firestore.collection(_usersCollection).doc(payload.userId).get();
 
     if (!userSnapshot.exists) {
-      throw ScanException('No se encontró el usuario del QR.');
+      return ScanValidationResult(
+        isApproved: false,
+        message: 'No se encontró el miembro del QR.',
+      );
     }
 
     final member = UserModel.fromFirestore(userSnapshot);
 
-    VisitScanValidator.validateOperatorScan(
-      scannedMemberId: payload.userId,
-      scannedByUserId: scannedByUserId,
-      businessId: businessId,
-      member: member,
-    );
-
-    if (!member.isActive) {
-      throw ScanException('La cuenta de este miembro está inactiva.');
-    }
-
-    if (!member.hasMembershipPrivileges) {
-      throw ScanException('Este usuario no tiene membresía activa.');
+    try {
+      VisitScanValidator.validateOperatorScan(
+        scannedMemberId: payload.userId,
+        scannedByUserId: scannedByUserId,
+        businessId: businessId,
+        member: member,
+      );
+    } on ScanException catch (e) {
+      return ScanValidationResult(
+        isApproved: false,
+        message: e.message,
+        memberDisplayName: member.displayName,
+        memberModality: member.membershipModality,
+        memberStatus: member.membershipStatus,
+        expiresAt: member.expiresAt,
+      );
     }
 
     if (member.qrCode != payload.qrCode) {
-      throw ScanException('El código QR no coincide con el miembro.');
+      return ScanValidationResult(
+        isApproved: false,
+        message: 'El código QR no coincide con el miembro.',
+        memberDisplayName: member.displayName,
+        memberModality: member.membershipModality,
+        memberStatus: member.membershipStatus,
+        expiresAt: member.expiresAt,
+      );
     }
 
+    final businessSnapshot =
+        await _firestore.collection(_businessesCollection).doc(businessId).get();
+    final business = businessSnapshot.exists
+        ? BusinessModel.fromFirestore(businessSnapshot)
+        : null;
+
+    final rejection = _evaluateMemberAccess(
+      member: member,
+      business: business,
+    );
+
+    if (rejection != null) {
+      final visit = await _recordValidation(
+        member: member,
+        businessId: businessId,
+        scannedByUserId: scannedByUserId,
+        validationResult: ValidationResult.rejected,
+        benefitUsed: business?.discount,
+      );
+
+      return ScanValidationResult(
+        isApproved: false,
+        message: rejection,
+        visit: visit,
+        memberDisplayName: member.displayName,
+        memberModality: member.membershipModality,
+        memberStatus: member.membershipStatus,
+        expiresAt: member.expiresAt,
+        benefitUsed: business?.discount,
+      );
+    }
+
+    final visit = await _recordValidation(
+      member: member,
+      businessId: businessId,
+      scannedByUserId: scannedByUserId,
+      validationResult: ValidationResult.approved,
+      benefitUsed: business?.discount,
+    );
+
+    return ScanValidationResult(
+      isApproved: true,
+      message: 'Validación registrada correctamente.',
+      visit: visit,
+      memberDisplayName: member.displayName,
+      memberModality: member.membershipModality,
+      memberStatus: member.membershipStatus,
+      expiresAt: member.expiresAt,
+      benefitUsed: business?.discount,
+    );
+  }
+
+  String? _evaluateMemberAccess({
+    required UserModel member,
+    required BusinessModel? business,
+  }) {
+    if (!member.isActive) {
+      return 'La cuenta de este miembro está inactiva.';
+    }
+
+    if (member.membershipStatus == MembershipStatus.pending) {
+      return 'La membresía está pendiente de aprobación.';
+    }
+
+    if (member.membershipStatus == MembershipStatus.inactive) {
+      return 'La membresía de este miembro está inactiva.';
+    }
+
+    if (member.isMembershipExpired) {
+      return 'La membresía de este miembro está vencida.';
+    }
+
+    if (!member.hasMembershipPrivileges) {
+      return 'Este usuario no tiene membresía activa.';
+    }
+
+    if (business != null && !business.isAllianceActive) {
+      return 'Esta alianza no está activa.';
+    }
+
+    if (business != null &&
+        business.validUntil != null &&
+        DateTime.now().isAfter(business.validUntil!)) {
+      return 'El beneficio de esta marca ya no está vigente.';
+    }
+
+    if (business != null &&
+        !business.appliesToModality(member.membershipModality)) {
+      return 'Este beneficio no aplica a la modalidad del miembro.';
+    }
+
+    return null;
+  }
+
+  Future<VisitModel> _recordValidation({
+    required UserModel member,
+    required String businessId,
+    required String scannedByUserId,
+    required ValidationResult validationResult,
+    String? benefitUsed,
+  }) async {
     final visitRef = _firestore.collection(_visitsCollection).doc();
     final visit = VisitModel(
       id: visitRef.id,
@@ -116,6 +245,11 @@ class VisitService implements VisitServiceBase {
       memberDisplayName: member.displayName,
       memberQrCode: member.qrCode,
       scannedByUserId: scannedByUserId,
+      memberModality: member.membershipModality,
+      memberStatus: member.membershipStatus,
+      validationResult: validationResult,
+      benefitUsed: benefitUsed,
+      expiresAt: member.expiresAt,
     );
 
     await visitRef.set(visit.toFirestore());

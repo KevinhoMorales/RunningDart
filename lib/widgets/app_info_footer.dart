@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
 
 class AppInfoFooter extends StatelessWidget {
@@ -54,7 +55,8 @@ class AppInfoFooter extends StatelessWidget {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => _openDevLokosSite(context),
+                  onTap: AppHaptics.wrap(() => _openDevLokosSite(context)),
+                  enableFeedback: false,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(

@@ -1,8 +1,63 @@
+import 'package:flutter/material.dart';
+
+import '../models/business_hours.dart';
 import '../models/business_model.dart';
+import '../utils/business_hours_helpers.dart';
 import 'business_service.dart';
 
+const _cafeHours = BusinessOperatingHours(
+  slots: [
+    BusinessHoursSlot(
+      weekdays: [1, 2, 3, 4, 5],
+      period: BusinessDayPeriod.morning,
+      start: TimeOfDay(hour: 7, minute: 0),
+      end: TimeOfDay(hour: 12, minute: 0),
+    ),
+    BusinessHoursSlot(
+      weekdays: [1, 2, 3, 4, 5],
+      period: BusinessDayPeriod.afternoon,
+      start: TimeOfDay(hour: 14, minute: 0),
+      end: TimeOfDay(hour: 20, minute: 0),
+    ),
+    BusinessHoursSlot(
+      weekdays: [6, 7],
+      period: BusinessDayPeriod.morning,
+      start: TimeOfDay(hour: 8, minute: 0),
+      end: TimeOfDay(hour: 18, minute: 0),
+    ),
+  ],
+);
+
+const _gymHours = BusinessOperatingHours(
+  slots: [
+    BusinessHoursSlot(
+      weekdays: [1, 2, 3, 4, 5, 6, 7],
+      period: BusinessDayPeriod.morning,
+      start: TimeOfDay(hour: 5, minute: 0),
+      end: TimeOfDay(hour: 12, minute: 0),
+    ),
+    BusinessHoursSlot(
+      weekdays: [1, 2, 3, 4, 5, 6, 7],
+      period: BusinessDayPeriod.afternoon,
+      start: TimeOfDay(hour: 14, minute: 0),
+      end: TimeOfDay(hour: 22, minute: 0),
+    ),
+  ],
+);
+
+const _restaurantHours = BusinessOperatingHours(
+  slots: [
+    BusinessHoursSlot(
+      weekdays: [2, 3, 4, 5, 6, 7],
+      period: BusinessDayPeriod.afternoon,
+      start: TimeOfDay(hour: 12, minute: 0),
+      end: TimeOfDay(hour: 23, minute: 0),
+    ),
+  ],
+);
+
 class MockBusinessService implements BusinessService {
-  static const _mockBusinesses = [
+  static final _mockBusinesses = [
     BusinessModel(
       id: 'biz-001',
       name: 'Café Central',
@@ -10,7 +65,8 @@ class MockBusinessService implements BusinessService {
           'Cafetería artesanal con granos de origen local y ambiente acogedor.',
       address: 'Av. Principal 123, Centro',
       phone: '+593 99 123 4567',
-      hours: 'Lun - Vie: 7:00 - 20:00 | Sáb - Dom: 8:00 - 18:00',
+      hours: BusinessHoursHelpers.toDisplaySummary(_cafeHours.slots),
+      operatingHours: _cafeHours,
       category: 'café',
       benefits: ['10% de descuento en bebidas', 'Café de cortesía los lunes'],
       discount: '10% en bebidas',
@@ -24,7 +80,8 @@ class MockBusinessService implements BusinessService {
           'Gimnasio moderno con equipos de última generación y clases grupales.',
       address: 'Calle Deportiva 45, Norte',
       phone: '+593 98 765 4321',
-      hours: 'Lun - Dom: 5:00 - 22:00',
+      hours: BusinessHoursHelpers.toDisplaySummary(_gymHours.slots),
+      operatingHours: _gymHours,
       category: 'gimnasio',
       benefits: ['1 mes gratis al registrarte', 'Acceso a clases premium'],
       discount: '1 mes gratis',
@@ -38,7 +95,8 @@ class MockBusinessService implements BusinessService {
           'Cocina tradicional con toques contemporáneos en el corazón de la ciudad.',
       address: 'Plaza Mayor 78, Centro Histórico',
       phone: '+593 97 555 1234',
-      hours: 'Mar - Dom: 12:00 - 23:00',
+      hours: BusinessHoursHelpers.toDisplaySummary(_restaurantHours.slots),
+      operatingHours: _restaurantHours,
       category: 'restaurante',
       benefits: ['Postre gratis con plato principal', '15% en almuerzos'],
       discount: '15% en almuerzos',

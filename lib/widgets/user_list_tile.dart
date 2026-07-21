@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_haptics.dart';
 import '../models/user_model.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
@@ -34,7 +35,8 @@ class UserListTile extends StatelessWidget {
         color: palette.cardBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         child: InkWell(
-          onTap: onTap,
+          onTap: AppHaptics.wrap(onTap),
+          enableFeedback: false,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.md),

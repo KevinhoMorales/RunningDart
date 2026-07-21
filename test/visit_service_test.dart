@@ -36,7 +36,7 @@ void main() {
           isA<ScanException>().having(
             (e) => e.message,
             'message',
-            'No puedes escanear tu propio código en tu negocio.',
+            'No puedes escanear tu propio código en tu marca aliada.',
           ),
         ),
       );
@@ -54,7 +54,7 @@ void main() {
           isA<ScanException>().having(
             (e) => e.message,
             'message',
-            'No puedes registrar visitas de otro operador de este negocio.',
+            'No puedes registrar validaciones de otro operador de esta marca.',
           ),
         ),
       );

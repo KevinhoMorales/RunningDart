@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_haptics.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
@@ -35,7 +36,8 @@ class CategoryChip extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onSelected,
+          onTap: AppHaptics.wrap(onSelected),
+          enableFeedback: false,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),

@@ -40,7 +40,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ajustes'), findsOneWidget);
-    expect(find.text('Nuevos negocios y eventos'), findsOneWidget);
+    expect(find.text('Nuevas marcas aliadas y eventos'), findsOneWidget);
     expect(find.text('Cerrar sesión'), findsOneWidget);
     expect(
       find.text(

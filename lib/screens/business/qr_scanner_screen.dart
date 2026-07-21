@@ -7,6 +7,7 @@ import '../../providers/visit_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/validation_result_sheet.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({
@@ -73,7 +74,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     final visitProvider = context.read<VisitProvider>();
     visitProvider.clearMessages();
 
-    final success = await visitProvider.processScan(
+    final result = await visitProvider.processScan(
       rawQrValue: rawValue,
       businessId: businessId,
       scannedByUserId: auth.user!.id,
@@ -84,18 +85,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
 
     setState(() => _isProcessing = false);
-
-    final palette = context.palette;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: success ? palette.accentPrimary : null,
-        content: Text(
-          success
-              ? visitProvider.lastScanMessage ?? 'Visita registrada.'
-              : visitProvider.error ?? 'No se pudo registrar la visita.',
-        ),
-      ),
-    );
+    await showValidationResultSheet(context, result);
   }
 
   @override
@@ -118,13 +108,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Tu cuenta de negocio aún no está vinculada.',
+                'Tu cuenta de marca aliada aún no está vinculada.',
                 textAlign: TextAlign.center,
                 style: AppTypography.title(context),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Contacta al administrador para asignarte un negocio.',
+                'Contacta al administrador para asignarte una marca aliada.',
                 textAlign: TextAlign.center,
                 style: AppTypography.muted(context),
               ),

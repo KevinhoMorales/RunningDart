@@ -8,6 +8,7 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 
 class AdminBusinessesScreen extends StatefulWidget {
   const AdminBusinessesScreen({super.key});
@@ -33,16 +34,16 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
-        title: 'Negocios',
-        leading: IconButton(
+        title: 'Marcas aliadas',
+        leading: HapticIconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: HapticFloatingActionButton(
         onPressed: () => context.push('/admin/businesses/new'),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Agregar negocio'),
+        label: const Text('Agregar marca'),
       ),
       body: _buildBody(provider, palette),
     );
@@ -69,7 +70,7 @@ class _AdminBusinessesScreenState extends State<AdminBusinessesScreen> {
     if (provider.businesses.isEmpty) {
       return Center(
         child: Text(
-          'No hay negocios registrados.',
+          'No hay marcas aliadas registradas.',
           style: TextStyle(color: palette.textMuted),
         ),
       );
@@ -102,7 +103,7 @@ class _BusinessAdminTile extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ListTile(
+      child: HapticListTile(
         contentPadding: const EdgeInsets.all(AppSpacing.md),
         leading: CircleAvatar(
           backgroundColor: palette.iconButtonBackground,

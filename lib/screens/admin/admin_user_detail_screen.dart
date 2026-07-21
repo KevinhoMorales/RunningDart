@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/membership_modality.dart';
+import '../../models/membership_status.dart';
+import '../../models/payment_model.dart';
 import '../../models/business_model.dart';
 import '../../models/user_model.dart';
 import '../../models/user_role.dart';
@@ -10,8 +13,14 @@ import '../../providers/auth_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
-import '../../widgets/glass_card.dart';
+import '../../utils/membership_helpers.dart';
+import '../../services/payment_service.dart';
+import '../../widgets/haptic_controls.dart';
+import '../../widgets/modality_chip.dart';
+import '../../widgets/status_badge.dart';
+import '../../widgets/receipt_viewer.dart';
 import '../../widgets/user_avatar.dart';
 
 class AdminUserDetailScreen extends StatefulWidget {
@@ -31,8 +40,15 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   bool _isLoading = true;
   bool _isActive = false;
   UserRole _selectedRole = UserRole.user;
+  MembershipModality _selectedModality = MembershipModality.community;
+  MembershipStatus _selectedMembershipStatus = MembershipStatus.active;
   String? _selectedBusinessId;
   String? _error;
+  DateTime? _expiresAt;
+  final _whatsappController = TextEditingController();
+  final _nationalIdController = TextEditingController();
+  final _internalNotesController = TextEditingController();
+  final _paymentService = PaymentService();
 
   static const _noBusinessValue = '__none__';
 
@@ -43,6 +59,14 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       context.read<AdminBusinessProvider>().startListening();
       _loadUser();
     });
+  }
+
+  @override
+  void dispose() {
+    _whatsappController.dispose();
+    _nationalIdController.dispose();
+    _internalNotesController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUser() async {
@@ -62,10 +86,213 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       _user = user;
       _isActive = user?.isActive ?? false;
       _selectedRole = user?.role ?? UserRole.user;
+      _selectedModality = user?.membershipModality ?? MembershipModality.community;
+      _selectedMembershipStatus =
+          user?.membershipStatus ?? MembershipStatus.active;
+      _expiresAt = user?.expiresAt ??
+          (user?.membershipModality.requiresPayment == true
+              ? MembershipHelpers.defaultOfficialExpiry()
+              : null);
       _selectedBusinessId = user?.businessId;
+      _whatsappController.text = user?.whatsapp ?? '';
+      _nationalIdController.text = user?.nationalIdLast4 ?? '';
+      _internalNotesController.text = user?.internalNotes ?? '';
       _isLoading = false;
       _error = user == null ? 'Usuario no encontrado.' : null;
     });
+  }
+
+  Future<void> _approveMembership() async {
+    final admin = context.read<AdminProvider>();
+    final success = await admin.approveMembership(widget.userId);
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      await _loadUser();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Membresía aprobada.')),
+      );
+    } else if (admin.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(admin.error!)),
+      );
+    }
+  }
+
+  Future<void> _rejectMembership() async {
+    final admin = context.read<AdminProvider>();
+    final success = await admin.rejectMembership(widget.userId);
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      await _loadUser();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitud rechazada.')),
+      );
+    } else if (admin.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(admin.error!)),
+      );
+    }
+  }
+
+  Future<void> _saveMembership() async {
+    final admin = context.read<AdminProvider>();
+    final success = await admin.updateMembershipProfile(
+      userId: widget.userId,
+      modality: _selectedModality,
+      status: _selectedMembershipStatus,
+      expiresAt: _expiresAt,
+      whatsapp: _whatsappController.text.trim(),
+      nationalIdLast4: _nationalIdController.text.trim(),
+      internalNotes: _internalNotesController.text.trim(),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      await _loadUser();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Membresía actualizada.')),
+      );
+    } else if (admin.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(admin.error!)),
+      );
+    }
+  }
+
+  Future<void> _registerManualPayment() async {
+    final amountController = TextEditingController(
+      text: MembershipHelpers.amountForModality(_selectedModality)
+          .toStringAsFixed(0),
+    );
+    final notesController = TextEditingController();
+    var modality = _selectedModality;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Registrar pago manual'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<MembershipModality>(
+                      initialValue: modality,
+                      decoration: const InputDecoration(labelText: 'Modalidad'),
+                      items: MembershipModality.values
+                          .where((item) => item.requiresPayment)
+                          .map(
+                            (item) => DropdownMenuItem(
+                              value: item,
+                              child: Text(item.displayName),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: AppHaptics.wrapValue((value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setDialogState(() {
+                          modality = value;
+                          amountController.text =
+                              MembershipHelpers.amountForModality(value)
+                                  .toStringAsFixed(0);
+                        });
+                      }),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Monto (USD)',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: notesController,
+                      decoration: const InputDecoration(
+                        labelText: 'Notas (opcional)',
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                HapticTextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancelar'),
+                ),
+                HapticFilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Registrar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      amountController.dispose();
+      notesController.dispose();
+      return;
+    }
+
+    final amount = double.tryParse(amountController.text.trim()) ??
+        MembershipHelpers.amountForModality(modality);
+    final notes = notesController.text.trim();
+    amountController.dispose();
+    notesController.dispose();
+
+    try {
+      await _paymentService.createPayment(
+        PaymentModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: widget.userId,
+          modality: modality,
+          amount: amount,
+          paidAt: DateTime.now(),
+          status: PaymentStatus.approved,
+          notes: notes.isEmpty ? null : notes,
+          createdAt: DateTime.now(),
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pago registrado.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo registrar el pago.')),
+      );
+    }
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _expiresAt ?? MembershipHelpers.defaultOfficialExpiry(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(DateTime.now().year + 5),
+    );
+    if (picked != null) {
+      setState(() => _expiresAt = picked);
+    }
   }
 
   Future<void> _handleToggleActive(bool value) async {
@@ -85,11 +312,11 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                 : '¿Confirmas que ${user.displayName} quedará sin acceso a la app?',
           ),
           actions: [
-            TextButton(
+            HapticTextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Cancelar'),
             ),
-            FilledButton(
+            HapticFilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: const Text('Confirmar'),
             ),
@@ -203,6 +430,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     final isSelf = _user != null && _user!.id == auth.user?.id;
 
     return Scaffold(
+      backgroundColor: palette.scaffoldBackground,
       appBar: AppBar(
         title: const Text('Detalle de usuario'),
       ),
@@ -216,173 +444,335 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: UserAvatar(
-                            displayName: _user!.displayName,
-                            photoUrl: _user!.photoUrl,
-                            radius: 48,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          _user!.displayName,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.sectionTitle(context),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          _user!.email,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.muted(context),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        _DetailRow(
-                          label: 'Estado',
-                          value: _user!.isActive ? 'Activo' : 'Desactivado',
-                        ),
-                        _DetailRow(
-                          label: 'Rol',
-                          value: _user!.role.displayName,
-                        ),
-                        if (_user!.isBusinessOperator)
-                          _DetailRow(
-                            label: 'Operador',
-                            value: 'Sí',
-                          ),
-                        if (_user!.businessId != null)
-                          _DetailRow(
-                            label: 'Negocio',
-                            value: _businessName(
-                              businesses,
-                              _user!.businessId!,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _UserIdentityHeader(user: _user!),
+                      const SizedBox(height: AppSpacing.md),
+                      _AdminSectionCard(
+                        title: 'Resumen',
+                        child: Column(
+                          children: [
+                            _DetailRow(
+                              label: 'Estado cuenta',
+                              value: _user!.isActive ? 'Activo' : 'Desactivado',
                             ),
-                          ),
-                        _DetailRow(
-                          label: 'Código QR',
-                          value: _user!.qrCode,
-                        ),
-                        _DetailRow(
-                          label: 'Registro',
-                          value: Helpers.formatDate(_user!.createdAt),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          'Rol en la app',
-                          style: TextStyle(
-                            color: palette.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        if (isSelf)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.sm,
+                            _DetailRow(
+                              label: 'Rol',
+                              value: _user!.role.displayName,
                             ),
-                            child: Text(
-                              'No puedes cambiar tu propio rol.',
-                              style: AppTypography.caption(context),
-                            ),
-                          ),
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          children: UserRole.values.map((role) {
-                            final isSelected = _selectedRole == role;
-                            return ChoiceChip(
-                              label: Text(role.displayName),
-                              selected: isSelected,
-                              onSelected: isSelf || admin.isUpdating
-                                  ? null
-                                  : (_) {
-                                      setState(() => _selectedRole = role);
-                                    },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          'Negocio asignado',
-                          style: AppTypography.title(
-                            context,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          'Asignar un negocio habilita escaneo QR. Si el usuario es "Usuario", se promueve a miembro automáticamente.',
-                          style: AppTypography.caption(context),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        DropdownButtonFormField<String>(
-                          value: dropdownValue,
-                          decoration: const InputDecoration(
-                            labelText: 'Operador de negocio',
-                          ),
-                          items: [
-                            const DropdownMenuItem(
-                              value: _noBusinessValue,
-                              child: Text('Ninguno'),
-                            ),
-                            ...businesses.map(
-                              (business) => DropdownMenuItem(
-                                value: business.id,
-                                child: Text(business.name),
+                            if (_user!.whatsapp != null)
+                              _DetailRow(
+                                label: 'WhatsApp',
+                                value: _user!.whatsapp!,
                               ),
+                            if (_user!.nationalIdLast4 != null)
+                              _DetailRow(
+                                label: 'Cédula',
+                                value: '**** ${_user!.nationalIdLast4}',
+                              ),
+                            if (_user!.isBusinessOperator)
+                              const _DetailRow(
+                                label: 'Operador',
+                                value: 'Marca aliada',
+                              ),
+                            if (_user!.businessId != null)
+                              _DetailRow(
+                                label: 'Marca',
+                                value: _businessName(
+                                  businesses,
+                                  _user!.businessId!,
+                                ),
+                              ),
+                            _DetailRow(
+                              label: 'Código QR',
+                              value: _user!.qrCode,
+                              monospace: true,
+                            ),
+                            _DetailRow(
+                              label: 'Registro',
+                              value: Helpers.formatDate(_user!.createdAt),
                             ),
                           ],
-                          onChanged: admin.isUpdating
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    _selectedBusinessId =
-                                        value == _noBusinessValue ? null : value;
-                                  });
-                                },
                         ),
-                        if (businesses.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.sm),
-                            child: Text(
-                              'Primero crea un negocio desde el panel admin.',
-                              style: TextStyle(color: palette.textMuted),
-                            ),
-                          ),
-                        const SizedBox(height: AppSpacing.sm),
-                        FilledButton(
-                          onPressed: admin.isUpdating ? null : _saveChanges,
-                          child: const Text('Guardar cambios'),
-                        ),
+                      ),
+                      if (_user!.membershipStatus ==
+                          MembershipStatus.pending) ...[
                         const SizedBox(height: AppSpacing.md),
-                        SwitchListTile(
+                        _PendingMembershipBanner(
+                          isUpdating: admin.isUpdating,
+                          onApprove: _approveMembership,
+                          onReject: _rejectMembership,
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      _AdminSectionCard(
+                        title: 'Gestión de membresía',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            DropdownButtonFormField<MembershipModality>(
+                              initialValue: _selectedModality,
+                              decoration: const InputDecoration(
+                                labelText: 'Modalidad',
+                              ),
+                              items: MembershipModality.values
+                                  .map(
+                                    (modality) => DropdownMenuItem(
+                                      value: modality,
+                                      child: Text(modality.displayName),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: admin.isUpdating
+                                  ? null
+                                  : AppHaptics.wrapValue((value) {
+                                      if (value != null) {
+                                        setState(
+                                          () => _selectedModality = value,
+                                        );
+                                      }
+                                    }),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            DropdownButtonFormField<MembershipStatus>(
+                              initialValue: _selectedMembershipStatus,
+                              decoration: const InputDecoration(
+                                labelText: 'Estado de membresía',
+                              ),
+                              items: MembershipStatus.values
+                                  .map(
+                                    (status) => DropdownMenuItem(
+                                      value: status,
+                                      child: Text(status.displayName),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: admin.isUpdating
+                                  ? null
+                                  : AppHaptics.wrapValue((value) {
+                                      if (value != null) {
+                                        setState(
+                                          () => _selectedMembershipStatus =
+                                              value,
+                                        );
+                                      }
+                                    }),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            OutlinedButton.icon(
+                              onPressed: admin.isUpdating
+                                  ? null
+                                  : AppHaptics.wrap(_pickExpiryDate),
+                              icon: const Icon(Icons.event_rounded),
+                              label: Text(
+                                _expiresAt == null
+                                    ? 'Vigencia'
+                                    : 'Vigencia: ${Helpers.formatDate(_expiresAt!)}',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextField(
+                              controller: _whatsappController,
+                              decoration: const InputDecoration(
+                                labelText: 'WhatsApp',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextField(
+                              controller: _nationalIdController,
+                              decoration: const InputDecoration(
+                                labelText: 'Últimos 4 dígitos cédula',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextField(
+                              controller: _internalNotesController,
+                              decoration: const InputDecoration(
+                                labelText: 'Observaciones internas',
+                              ),
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            HapticFilledButton(
+                              onPressed:
+                                  admin.isUpdating ? null : _saveMembership,
+                              child: const Text('Guardar membresía'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _AdminSectionCard(
+                        title: 'Pagos registrados',
+                        child: StreamBuilder<List<PaymentModel>>(
+                          stream: _paymentService.watchPaymentsForUser(
+                            widget.userId,
+                          ),
+                          builder: (context, snapshot) {
+                            final payments = snapshot.data ?? [];
+                            if (payments.isEmpty) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Sin pagos registrados.',
+                                    style: AppTypography.muted(context),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  OutlinedButton.icon(
+                                    onPressed: admin.isUpdating
+                                        ? null
+                                        : AppHaptics.wrap(_registerManualPayment),
+                                    icon: const Icon(Icons.add_rounded),
+                                    label:
+                                        const Text('Registrar pago manual'),
+                                  ),
+                                ],
+                              );
+                            }
+                            return Column(
+                              children: [
+                                ...payments.map(
+                                  (payment) => _PaymentListItem(
+                                    payment: payment,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: OutlinedButton.icon(
+                                    onPressed: admin.isUpdating
+                                        ? null
+                                        : AppHaptics.wrap(_registerManualPayment),
+                                    icon: const Icon(Icons.add_rounded),
+                                    label:
+                                        const Text('Registrar pago manual'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _AdminSectionCard(
+                        title: 'Rol y acceso',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (isSelf)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.sm,
+                                ),
+                                child: Text(
+                                  'No puedes cambiar tu propio rol.',
+                                  style: AppTypography.caption(context),
+                                ),
+                              ),
+                            Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.sm,
+                              children: UserRole.values.map((role) {
+                                final isSelected = _selectedRole == role;
+                                return ChoiceChip(
+                                  label: Text(role.displayName),
+                                  selected: isSelected,
+                                  onSelected: isSelf || admin.isUpdating
+                                      ? null
+                                      : AppHaptics.wrapValue((_) {
+                                          setState(
+                                            () => _selectedRole = role,
+                                          );
+                                        }),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              'Marca aliada asignada',
+                              style: AppTypography.title(context),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              'Asignar una marca habilita el escaneo QR. Si el usuario es "Usuario", pasa a miembro automáticamente.',
+                              style: AppTypography.caption(context),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            DropdownButtonFormField<String>(
+                              initialValue: dropdownValue,
+                              decoration: const InputDecoration(
+                                labelText: 'Operador de marca aliada',
+                              ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: _noBusinessValue,
+                                  child: Text('Ninguno'),
+                                ),
+                                ...businesses.map(
+                                  (business) => DropdownMenuItem(
+                                    value: business.id,
+                                    child: Text(business.name),
+                                  ),
+                                ),
+                              ],
+                              onChanged: admin.isUpdating
+                                  ? null
+                                  : AppHaptics.wrapValue((value) {
+                                      setState(() {
+                                        _selectedBusinessId =
+                                            value == _noBusinessValue
+                                                ? null
+                                                : value;
+                                      });
+                                    }),
+                            ),
+                            if (businesses.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: AppSpacing.sm,
+                                ),
+                                child: Text(
+                                  'Primero crea una marca aliada desde el panel admin.',
+                                  style: TextStyle(color: palette.textMuted),
+                                ),
+                              ),
+                            const SizedBox(height: AppSpacing.md),
+                            HapticFilledButton(
+                              onPressed:
+                                  admin.isUpdating ? null : _saveChanges,
+                              child: const Text('Guardar cambios'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _AdminSectionCard(
+                        title: 'Estado de cuenta',
+                        child: SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             'Cuenta activa',
-                            style: TextStyle(
-                              color: palette.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTypography.title(context),
                           ),
                           subtitle: Text(
                             'Desactívala para bloquear el acceso a la app.',
-                            style: TextStyle(color: palette.textMuted),
+                            style: AppTypography.caption(context),
                           ),
                           value: _isActive,
                           onChanged: admin.isUpdating
                               ? null
-                              : (value) => _handleToggleActive(value),
+                              : AppHaptics.wrapValue(_handleToggleActive),
                         ),
-                        if (admin.isUpdating) ...[
-                          const SizedBox(height: AppSpacing.sm),
-                          const Center(child: CircularProgressIndicator()),
-                        ],
+                      ),
+                      if (admin.isUpdating) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        const Center(child: CircularProgressIndicator()),
                       ],
-                    ),
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
                   ),
                 ),
     );
@@ -398,14 +788,245 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   }
 }
 
+class _UserIdentityHeader extends StatelessWidget {
+  const _UserIdentityHeader({required this.user});
+
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        UserAvatar(
+          displayName: user.displayName,
+          photoUrl: user.photoUrl,
+          radius: 36,
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.displayName,
+                style: AppTypography.sectionTitle(context),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                user.email,
+                style: AppTypography.body(context, color: palette.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  StatusBadge(
+                    status: user.membershipStatus,
+                    isExpired: user.isMembershipExpired,
+                  ),
+                  ModalityChip(
+                    modality: user.membershipModality,
+                    compact: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminSectionCard extends StatelessWidget {
+  const _AdminSectionCard({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: palette.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: palette.cardBorder),
+        boxShadow: palette.elevatedCardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: AppTypography.title(context)),
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingMembershipBanner extends StatelessWidget {
+  const _PendingMembershipBanner({
+    required this.isUpdating,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final bool isUpdating;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: palette.infoBannerBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.infoBannerBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hourglass_top_rounded,
+                color: palette.accentPrimary,
+                size: 20,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Solicitud pendiente de aprobación',
+                  style: AppTypography.title(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Revisa los datos y el comprobante antes de aprobar la membresía.',
+            style: AppTypography.muted(context).copyWith(height: 1.4),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: HapticFilledButton(
+                  onPressed: isUpdating ? null : onApprove,
+                  child: const Text('Aprobar'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isUpdating ? null : AppHaptics.wrap(onReject),
+                  child: const Text('Rechazar'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentListItem extends StatelessWidget {
+  const _PaymentListItem({required this.payment});
+
+  final PaymentModel payment;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.scaffoldBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: palette.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: palette.accentPrimary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Icon(
+              Icons.payments_outlined,
+              size: 18,
+              color: palette.accentPrimary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${payment.modality.displayName} · \$${payment.amount.toStringAsFixed(0)}',
+                  style: AppTypography.title(context),
+                ),
+                Text(
+                  '${payment.status.displayName} · ${Helpers.formatDate(payment.paidAt)}',
+                  style: AppTypography.caption(context),
+                ),
+                if (payment.receiptUrl != null &&
+                    payment.receiptUrl!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  HapticTextButtonIcon(
+                    onPressed: () =>
+                        ReceiptViewer.show(context, payment.receiptUrl!),
+                    icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                    label: const Text('Ver comprobante'),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.label,
     required this.value,
+    this.monospace = false,
   });
 
   final String label;
   final String value;
+  final bool monospace;
 
   @override
   Widget build(BuildContext context) {
@@ -417,21 +1038,26 @@ class _DetailRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 96,
+            width: 110,
             child: Text(
               label,
               style: TextStyle(
                 color: palette.textMuted,
                 fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
+              maxLines: monospace ? 2 : null,
+              overflow: monospace ? TextOverflow.ellipsis : null,
               style: TextStyle(
                 color: palette.textPrimary,
                 fontWeight: FontWeight.w500,
+                fontFamily: monospace ? 'monospace' : null,
+                fontSize: monospace ? 12 : null,
               ),
             ),
           ),
