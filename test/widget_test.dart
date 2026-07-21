@@ -41,7 +41,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsNWidgets(2));
     expect(find.text('SAINTS'), findsOneWidget);
   });
 }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../config/firebase_paths.dart';
 import '../models/training_schedule_model.dart';
 import '../utils/constants.dart';
 
@@ -9,7 +10,8 @@ class TrainingScheduleService {
 
   final FirebaseFirestore _firestore;
 
-  static const _docPath = 'club_settings/training_schedule';
+  DocumentReference<Map<String, dynamic>> get _scheduleDocument =>
+      FirebasePaths.clubSettingsDocument(_firestore, 'training_schedule');
   static const _loadTimeout = Duration(seconds: 12);
 
   static TrainingScheduleModel get defaultSchedule {
@@ -51,13 +53,12 @@ class TrainingScheduleService {
   }
 
   Stream<TrainingScheduleModel> watchSchedule() {
-    return _firestore.doc(_docPath).snapshots().map(_resolveSchedule);
+    return _scheduleDocument.snapshots().map(_resolveSchedule);
   }
 
   Future<TrainingScheduleModel> getSchedule() async {
     try {
-      final snapshot = await _firestore
-          .doc(_docPath)
+      final snapshot = await _scheduleDocument
           .get(const GetOptions(source: Source.serverAndCache))
           .timeout(_loadTimeout);
       return _resolveSchedule(snapshot);
@@ -67,7 +68,7 @@ class TrainingScheduleService {
   }
 
   Future<void> saveSchedule(TrainingScheduleModel schedule) async {
-    await _firestore.doc(_docPath).set(schedule.toFirestore());
+    await _scheduleDocument.set(schedule.toFirestore());
   }
 
   TrainingScheduleModel _resolveSchedule(

@@ -7,6 +7,7 @@ import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../utils/app_haptics.dart';
+import 'app_snackbar.dart';
 import 'haptic_controls.dart';
 
 class LogoutButton extends StatelessWidget {
@@ -34,7 +35,6 @@ class LogoutButton extends StatelessWidget {
         color: palette.cardBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(color: palette.cardBorder),
-        boxShadow: palette.elevatedCardShadow,
       ),
       child: HapticListTile(
         shape: RoundedRectangleBorder(
@@ -94,10 +94,9 @@ class _LogoutConfirmDialogState extends State<_LogoutConfirmDialog> {
       setState(() {
         _isLoggingOut = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo cerrar sesión. Intenta de nuevo.'),
-        ),
+      AppSnackBar.show(
+        context,
+        'No se pudo cerrar sesión. Intenta de nuevo.',
       );
     }
   }

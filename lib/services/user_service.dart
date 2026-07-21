@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../config/firebase_paths.dart';
 import '../models/membership_modality.dart';
 import '../models/membership_status.dart';
 import '../models/user_model.dart';
@@ -33,11 +34,12 @@ class UserService implements UserServiceBase {
 
   final FirebaseFirestore _firestore;
 
-  static const _usersCollection = 'users';
+  CollectionReference<Map<String, dynamic>> get _users =>
+      FirebasePaths.collection(_firestore, 'users');
 
   @override
   Stream<List<UserModel>> watchAllUsers() {
-    return _firestore.collection(_usersCollection).snapshots().map((snapshot) {
+    return _users.snapshots().map((snapshot) {
       final users = snapshot.docs
           .map(UserModel.fromFirestore)
           .toList(growable: false);
@@ -47,8 +49,7 @@ class UserService implements UserServiceBase {
 
   @override
   Future<UserModel?> getUserById(String id) async {
-    final snapshot =
-        await _firestore.collection(_usersCollection).doc(id).get();
+    final snapshot = await _users.doc(id).get();
 
     if (!snapshot.exists) {
       return null;
@@ -59,7 +60,7 @@ class UserService implements UserServiceBase {
 
   @override
   Future<void> setUserActive(String id, bool isActive) async {
-    await _firestore.collection(_usersCollection).doc(id).update({
+    await _users.doc(id).update({
       'isActive': isActive,
       'membershipStatus':
           isActive ? MembershipStatus.active.firestoreValue : MembershipStatus.inactive.firestoreValue,
@@ -68,7 +69,7 @@ class UserService implements UserServiceBase {
 
   @override
   Future<void> setUserRole(String id, UserRole role) async {
-    await _firestore.collection(_usersCollection).doc(id).update({
+    await _users.doc(id).update({
       'role': role.firestoreValue,
     });
   }
@@ -91,7 +92,7 @@ class UserService implements UserServiceBase {
       }
     }
 
-    await _firestore.collection(_usersCollection).doc(id).update(updates);
+    await _users.doc(id).update(updates);
   }
 
   @override
@@ -106,7 +107,7 @@ class UserService implements UserServiceBase {
     DateTime? birthDate,
     String? internalNotes,
   }) async {
-    await _firestore.collection(_usersCollection).doc(id).update({
+    await _users.doc(id).update({
       'membershipModality': modality.firestoreValue,
       'membershipStatus': status.firestoreValue,
       if (expiresAt != null) 'expiresAt': Timestamp.fromDate(expiresAt),
@@ -121,7 +122,7 @@ class UserService implements UserServiceBase {
   @override
   Future<void> approveMembership(String id) async {
     final now = DateTime.now();
-    await _firestore.collection(_usersCollection).doc(id).update({
+    await _users.doc(id).update({
       'role': UserRole.member.firestoreValue,
       'membershipStatus': MembershipStatus.active.firestoreValue,
       'isActive': true,
@@ -132,7 +133,7 @@ class UserService implements UserServiceBase {
 
   @override
   Future<void> rejectMembership(String id) async {
-    await _firestore.collection(_usersCollection).doc(id).update({
+    await _users.doc(id).update({
       'membershipStatus': MembershipStatus.inactive.firestoreValue,
       'isActive': false,
     });

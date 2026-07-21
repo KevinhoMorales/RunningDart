@@ -7,6 +7,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
+import 'app_snackbar.dart';
 
 class AppInfoFooter extends StatelessWidget {
   const AppInfoFooter({super.key});
@@ -19,10 +20,9 @@ class AppInfoFooter extends StatelessWidget {
     );
 
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo abrir el enlace. Intenta de nuevo.'),
-        ),
+      AppSnackBar.show(
+        context,
+        'No se pudo abrir el enlace. Intenta de nuevo.',
       );
     }
   }

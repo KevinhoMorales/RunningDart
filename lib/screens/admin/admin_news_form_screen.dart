@@ -8,6 +8,7 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/modern_text_field.dart';
@@ -118,14 +119,10 @@ class _AdminNewsFormScreenState extends State<AdminNewsFormScreen> {
         if (_uploadPhotoAfterSave) {
           await adminNews.uploadPhoto(news.id);
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Evento actualizado.')),
-        );
+        AppSnackBar.show(context, 'Evento actualizado.');
         context.pop();
       } else if (adminNews.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(adminNews.error!)),
-        );
+        AppSnackBar.showError(context, adminNews.error);
       }
       return;
     }
@@ -139,14 +136,10 @@ class _AdminNewsFormScreenState extends State<AdminNewsFormScreen> {
       if (_uploadPhotoAfterSave) {
         await adminNews.uploadPhoto(newsId);
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Evento creado correctamente.')),
-      );
+      AppSnackBar.show(context, 'Evento creado correctamente.');
       context.pop();
     } else if (adminNews.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(adminNews.error!)),
-      );
+      AppSnackBar.showError(context, adminNews.error);
     }
   }
 

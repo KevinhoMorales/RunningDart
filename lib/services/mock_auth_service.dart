@@ -26,6 +26,9 @@ class MockAuthService implements AuthService {
   }
 
   @override
+  Future<UserModel?> resolveStartupSession() => getCurrentUser();
+
+  @override
   Future<UserModel?> refreshCurrentUser() => getCurrentUser();
 
   @override

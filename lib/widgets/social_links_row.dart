@@ -3,8 +3,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
+import '../utils/whatsapp_launcher.dart';
 
 class SocialLinksRow extends StatelessWidget {
   const SocialLinksRow({
@@ -28,7 +30,7 @@ class SocialLinksRow extends StatelessWidget {
       items.add((
         label: 'WhatsApp',
         icon: Icons.chat_rounded,
-        onTap: () => _launchWhatsApp(whatsapp!.trim()),
+        onTap: () => launchWhatsApp(whatsapp!.trim()),
       ));
     }
 
@@ -57,15 +59,20 @@ class SocialLinksRow extends StatelessWidget {
     if (compact) {
       return Row(
         children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(width: AppSpacing.sm),
-            _CompactSocialButton(
-              icon: items[i].icon,
-              label: items[i].label,
-              onTap: items[i].onTap,
-              palette: palette,
+          for (var i = 0; i < items.length; i++)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: i == 0 ? 0 : AppSpacing.xs,
+                ),
+                child: _CompactSocialButton(
+                  icon: items[i].icon,
+                  label: items[i].label,
+                  onTap: items[i].onTap,
+                  palette: palette,
+                ),
+              ),
             ),
-          ],
         ],
       );
     }
@@ -81,19 +88,10 @@ class SocialLinksRow extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppConstants.primaryColor,
             side: BorderSide(color: palette.inputBorder),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            ),
           ),
         );
       }).toList(),
     );
-  }
-
-  Future<void> _launchWhatsApp(String value) async {
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    final uri = Uri.parse('https://wa.me/$digits');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _launchInstagram(String value) async {
@@ -127,27 +125,30 @@ class _CompactSocialButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: palette.iconButtonBackground,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: InkWell(
         onTap: AppHaptics.wrap(onTap),
         enableFeedback: false,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
+            horizontal: AppSpacing.xs,
             vertical: AppSpacing.sm,
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: AppConstants.primaryColor),
-              const SizedBox(width: AppSpacing.xs),
+              Icon(icon, size: 20, color: AppConstants.primaryColor),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 label,
-                style: TextStyle(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppTypography.caption(context).copyWith(
                   color: AppConstants.primaryColor,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 11,
                 ),
               ),
             ],

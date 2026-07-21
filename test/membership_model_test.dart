@@ -84,5 +84,53 @@ void main() {
       expect(MembershipHelpers.isValidNationalIdLast4('1234'), isTrue);
       expect(MembershipHelpers.isValidNationalIdLast4('12ab'), isFalse);
     });
+
+    test('validates local whatsapp numbers with country prefix on save', () {
+      expect(MembershipHelpers.isValidWhatsappLocal('0959084920'), isTrue);
+      expect(MembershipHelpers.isValidWhatsappLocal('959084920'), isTrue);
+      expect(MembershipHelpers.isValidWhatsappLocal('12345'), isFalse);
+      expect(MembershipHelpers.isValidWhatsappLocal('abc'), isFalse);
+
+      expect(
+        MembershipHelpers.formatWhatsappForStorage('0959084920'),
+        '+593959084920',
+      );
+      expect(
+        MembershipHelpers.formatWhatsappForStorage('959084920'),
+        '+593959084920',
+      );
+    });
+
+    test('validates international phone numbers by country', () {
+      expect(
+        MembershipHelpers.isValidNationalPhoneNumber(
+          '3001234567',
+          countryCode: '57',
+        ),
+        isTrue,
+      );
+      expect(
+        MembershipHelpers.isValidNationalPhoneNumber(
+          '5551234567',
+          countryCode: '1',
+        ),
+        isTrue,
+      );
+      expect(
+        MembershipHelpers.isValidNationalPhoneNumber(
+          '12345',
+          countryCode: '57',
+        ),
+        isFalse,
+      );
+
+      expect(
+        MembershipHelpers.formatWhatsappForStorage(
+          '3001234567',
+          countryCode: '57',
+        ),
+        '+573001234567',
+      );
+    });
   });
 }

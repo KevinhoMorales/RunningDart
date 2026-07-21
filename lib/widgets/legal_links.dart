@@ -7,6 +7,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
+import 'app_snackbar.dart';
 import 'haptic_controls.dart';
 
 Future<void> openLegalUrl(BuildContext context, String url) async {
@@ -17,11 +18,7 @@ Future<void> openLegalUrl(BuildContext context, String url) async {
 
   final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!launched && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No se pudo abrir el enlace. Intenta de nuevo.'),
-      ),
-    );
+    AppSnackBar.show(context, 'No se pudo abrir el enlace. Intenta de nuevo.');
   }
 }
 

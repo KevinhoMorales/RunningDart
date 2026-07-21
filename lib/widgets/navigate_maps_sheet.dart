@@ -8,6 +8,7 @@ import '../services/map_launcher_service.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'app_snackbar.dart';
 
 Future<void> showNavigateMapsSheet(
   BuildContext context,
@@ -32,9 +33,7 @@ Future<void> showNavigateMapsSheet(
           return;
         }
         if (!launched) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No se pudo abrir $appName.')),
-          );
+          AppSnackBar.show(context, 'No se pudo abrir $appName.');
         }
       }
 

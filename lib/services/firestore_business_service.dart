@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../config/firebase_paths.dart';
 import '../models/business_model.dart';
 import 'business_service.dart';
 
@@ -14,10 +15,8 @@ class FirestoreBusinessService implements BusinessService {
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  static const _collection = 'businesses';
-
   CollectionReference<Map<String, dynamic>> get _businesses =>
-      _firestore.collection(_collection);
+      FirebasePaths.collection(_firestore, 'businesses');
 
   @override
   Stream<List<BusinessModel>> watchAllBusinesses() {
@@ -71,7 +70,10 @@ class FirestoreBusinessService implements BusinessService {
     await _businesses.doc(id).delete();
 
     try {
-      await _storage.ref().child('businesses/$id/cover.jpg').delete();
+      await FirebasePaths.storageRef(
+        _storage,
+        'businesses/$id/cover.jpg',
+      ).delete();
     } catch (_) {
       // Cover may not exist.
     }

@@ -18,6 +18,16 @@ class AppConstants {
 
   static const String officialMembershipPriceLabel = r'$5 lanzamiento 2026';
 
+  static const String supportWhatsApp = '+593984126959';
+  static const String supportWhatsAppDisplay = '+593 98 412 6959';
+  static const String supportWhatsAppDefaultMessage =
+      'Hola, tengo una consulta sobre SAINTS.';
+
+  static const String communityWhatsAppGroupUrl =
+      'https://chat.whatsapp.com/JNSEYSbOtelsoIPdvOibh';
+  static const String proTeamWhatsAppGroupUrl =
+      'https://chat.whatsapp.com/lbs975Y30T0HsJQHMnSDR';
+
   static const String devLokosEnterpriseUrl =
       'https://devlokos.com/empresarial';
   static const String devLokosEnterpriseName = 'DevLokos Enterprise';
@@ -33,6 +43,16 @@ class AppConstants {
 
   static const String pushNotificationsEnabledKey =
       'push_notifications_enabled';
+  static const String notificationsOnboardingCompletedKey =
+      'notifications_onboarding_completed';
+  static const String notificationsOnboardingPendingKey =
+      'notifications_onboarding_pending';
+
+  static const String remoteConfigMinVersionKey = 'running_dart_version';
+  static const String iosAppStoreUrl =
+      'https://apps.apple.com/us/app/saints/id6792610093';
+  static const String androidPlayStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.devlokos.runningdart';
 
   static const int minPasswordLength = 6;
 
@@ -43,6 +63,8 @@ class AppConstants {
     'gimnasio',
     'retail',
     'salud',
+    'lifestyle',
+    'servicios',
   ];
 
   static const Color primaryColor = Color(0xFF1C4524);
@@ -92,5 +114,5 @@ class AppConstants {
   }
 
   /// Centro por defecto del mapa (Santo Domingo de los Tsáchilas).
-  static const LatLng defaultMapCenter = LatLng(-0.1807, -78.4678);
+  static const LatLng defaultMapCenter = LatLng(-0.2522, -79.1754);
 }

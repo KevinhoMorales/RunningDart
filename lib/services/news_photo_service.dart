@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../config/firebase_paths.dart';
+import '../utils/user_messages.dart';
+
 class NewsPhotoException implements Exception {
   NewsPhotoException(this.message);
 
@@ -26,7 +29,8 @@ class NewsPhotoService {
   final FirebaseStorage _storage;
   final ImagePicker _picker;
 
-  static const _newsCollection = 'news';
+  CollectionReference<Map<String, dynamic>> get _news =>
+      FirebasePaths.collection(_firestore, 'news');
 
   Future<String?> pickAndUploadNewsPhoto(String newsId) async {
     final pickedFile = await _picker.pickImage(
@@ -42,7 +46,8 @@ class NewsPhotoService {
 
     try {
       final file = File(pickedFile.path);
-      final storageRef = _storage.ref().child('news/$newsId/cover.jpg');
+      final storageRef =
+          FirebasePaths.storageRef(_storage, 'news/$newsId/cover.jpg');
 
       await storageRef.putFile(
         file,
@@ -51,7 +56,7 @@ class NewsPhotoService {
 
       final downloadUrl = await storageRef.getDownloadURL();
 
-      await _firestore.collection(_newsCollection).doc(newsId).update({
+      await _news.doc(newsId).update({
         'imageUrl': downloadUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -70,11 +75,6 @@ class NewsPhotoService {
   }
 
   String _mapFirebaseError(FirebaseException exception) {
-    return switch (exception.code) {
-      'unauthorized' || 'permission-denied' =>
-        'No tienes permisos para subir esta foto.',
-      'object-not-found' => 'No se encontró la imagen seleccionada.',
-      _ => 'No se pudo subir la foto. Intenta de nuevo.',
-    };
+    return UserMessages.storage(exception);
   }
 }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/membership_modality.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_preferences_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/payment_service.dart';
 import '../../theme/app_palette.dart';
@@ -15,10 +16,12 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
 import '../../utils/receipt_upload_helper.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/gradient_background.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/legal_links.dart';
+import '../../widgets/international_phone_field.dart';
 import '../../widgets/modern_text_field.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -30,6 +33,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _whatsappFieldKey = GlobalKey<InternationalPhoneFieldState>();
   final _nameController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _emailController = TextEditingController();
@@ -84,34 +88,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (_birthDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona tu fecha de nacimiento.')),
+      AppSnackBar.show(
+        context,
+        'Selecciona tu fecha de nacimiento.',
       );
       return;
     }
 
     if (!_acceptedTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Debes aceptar los términos y condiciones y la política de privacidad.',
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        'Debes aceptar los términos y condiciones y la política de privacidad.',
       );
       return;
     }
 
     if (_selectedModality.requiresPayment && _receiptFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adjunta el comprobante de pago.')),
-      );
+      AppSnackBar.show(context, 'Adjunta el comprobante de pago.');
       return;
     }
 
     final auth = context.read<AuthProvider>();
     final profile = RegisterProfileData(
       displayName: _nameController.text.trim(),
-      whatsapp: _whatsappController.text.trim(),
+      whatsapp: _whatsappFieldKey.currentState!.formatForStorage(),
       nationalIdLast4: _nationalIdController.text.trim(),
       birthDate: _birthDate!,
       modality: _selectedModality,
@@ -130,9 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!success) {
       if (auth.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(auth.error!)),
-        );
+        AppSnackBar.showError(context, auth.error);
       }
       return;
     }
@@ -145,13 +143,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (auth.isMembershipPending) {
-      context.go('/membership-pending');
-    } else if (auth.canAccessApp) {
-      context.go('/home');
-    } else {
-      context.go('/account-disabled');
+    final notificationPreferences =
+        context.read<NotificationPreferencesProvider?>();
+    if (notificationPreferences != null) {
+      await notificationPreferences.markOnboardingPending();
     }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (notificationPreferences != null) {
+      context.go('/onboarding/notifications');
+      return;
+    }
+
+    context.go(auth.postAuthRoute);
   }
 
   Future<void> _uploadReceipt(String userId) async {
@@ -165,12 +172,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Cuenta creada, pero no se pudo subir el comprobante. Contacta a SAINTS.',
-            ),
-          ),
+        AppSnackBar.show(
+          context,
+          'Cuenta creada, pero no se pudo subir el comprobante. Contacta a SAINTS.',
         );
       }
     } finally {
@@ -245,17 +249,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         : null,
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              ModernTextField(
+                              InternationalPhoneField(
+                                key: _whatsappFieldKey,
                                 controller: _whatsappController,
                                 labelText: 'WhatsApp',
-                                keyboardType: TextInputType.phone,
-                                validator: (value) =>
-                                    value == null ||
-                                            !MembershipHelpers.isValidWhatsapp(
-                                              value,
-                                            )
-                                        ? 'Ingresa un WhatsApp válido'
-                                        : null,
                               ),
                               const SizedBox(height: AppSpacing.md),
                               ModernTextField(
@@ -277,6 +274,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 controller: _nationalIdController,
                                 labelText: 'Últimos 4 dígitos de cédula',
                                 keyboardType: TextInputType.number,
+                                inputFormatters:
+                                    MembershipHelpers.nationalIdLast4InputFormatters,
                                 validator: (value) =>
                                     value == null ||
                                             !MembershipHelpers
@@ -344,6 +343,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 controller: _passwordController,
                                 labelText: 'Contraseña',
                                 obscureText: _obscurePassword,
+                                prefixIcon: Icons.lock_outline,
+                                suffixIcon: HapticIconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    color: palette.textMuted,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Ingresa una contraseña';
@@ -360,6 +373,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 controller: _confirmPasswordController,
                                 labelText: 'Confirmar contraseña',
                                 obscureText: _obscureConfirm,
+                                prefixIcon: Icons.lock_outline,
+                                suffixIcon: HapticIconButton(
+                                  icon: Icon(
+                                    _obscureConfirm
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    color: palette.textMuted,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureConfirm = !_obscureConfirm;
+                                    });
+                                  },
+                                ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Confirma tu contraseña';

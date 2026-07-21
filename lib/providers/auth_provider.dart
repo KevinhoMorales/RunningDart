@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/membership_modality.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../utils/user_messages.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider(
@@ -13,8 +15,16 @@ class AuthProvider extends ChangeNotifier {
     NotificationService? notificationService,
   }) : _notificationService = notificationService {
     _userSubscription = _authService.userChanges.listen((user) {
-      _user = user;
-      _syncPushSubscription();
+      if (user != null) {
+        _user = user;
+      } else if (_user == null) {
+        _user = null;
+      } else {
+        // Solo limpiar si el servicio confirma cierre de sesión real.
+        unawaited(_confirmSessionCleared());
+        return;
+      }
+      unawaited(_syncPushSubscription());
       notifyListeners();
     });
   }
@@ -50,13 +60,35 @@ class AuthProvider extends ChangeNotifier {
   bool get isAccountDisabled => hasSession && !isAccountActive;
   bool get isAuthenticated => canAccessApp;
 
+  /// Ruta destino tras login/registro o al abrir la app con sesión.
+  String get postAuthRoute {
+    if (!hasSession) {
+      return '/login';
+    }
+    if (isAccountDisabled) {
+      return '/account-disabled';
+    }
+    if (isMembershipPending) {
+      return '/membership-pending';
+    }
+    if (canAccessApp) {
+      return '/home';
+    }
+    return '/membership-pending';
+  }
+
   Future<void> initialize() async {
     _isLoading = true;
+    _error = null;
     notifyListeners();
 
     try {
-      _user = await _authService.getCurrentUser();
+      _user = await _authService.resolveStartupSession();
       await _syncPushSubscription();
+    } catch (error, stackTrace) {
+      debugPrint('Auth initialization failed: $error\n$stackTrace');
+      _user = null;
+      _error = 'No se pudo cargar tu sesión. Inicia sesión de nuevo.';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -129,13 +161,19 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await action();
-      await _syncPushSubscription();
+      unawaited(_syncPushSubscription());
       return true;
     } on AuthException catch (e) {
-      _error = e.message;
+      _error = UserMessages.error(e.message);
+      return false;
+    } on FirebaseAuthException catch (e) {
+      _error = UserMessages.auth(e);
+      return false;
+    } on FirebaseException catch (e) {
+      _error = UserMessages.firestore(e);
       return false;
     } catch (_) {
-      _error = 'Ocurrió un error inesperado. Intenta de nuevo.';
+      _error = UserMessages.unexpectedError;
       return false;
     } finally {
       _isLoading = false;
@@ -144,7 +182,24 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _syncPushSubscription() async {
-    await _notificationService?.syncForUser(_user);
+    final notificationService = _notificationService;
+    if (notificationService == null) {
+      return;
+    }
+
+    try {
+      await notificationService
+          .syncForUser(_user)
+          .timeout(const Duration(seconds: 8));
+    } catch (error, stackTrace) {
+      debugPrint('Push subscription sync failed: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> _confirmSessionCleared() async {
+    _user = await _authService.resolveStartupSession();
+    await _syncPushSubscription();
+    notifyListeners();
   }
 
   @override

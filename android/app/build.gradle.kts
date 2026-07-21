@@ -31,6 +31,20 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "SAINTS Dev")
+        }
+        create("prod") {
+            dimension = "environment"
+            resValue("string", "app_name", "SAINTS")
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -42,4 +56,25 @@ android {
 
 flutter {
     source = "../.."
+}
+
+val appEnvDartDefine: (String) -> String = { value ->
+    java.util.Base64.getEncoder().encodeToString("APP_ENV=$value".toByteArray())
+}
+
+afterEvaluate {
+    tasks.withType<com.flutter.gradle.tasks.FlutterTask>().configureEach {
+        val envValue = when (flavor) {
+            "dev" -> "dev"
+            else -> "prod"
+        }
+        val appEnvDefine = appEnvDartDefine(envValue)
+        val existing = dartDefines
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+        if (!existing.contains(appEnvDefine)) {
+            dartDefines = (existing + appEnvDefine).joinToString(",")
+        }
+    }
 }

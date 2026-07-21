@@ -1,0 +1,97 @@
+[
+  {
+    "id": "cerfik",
+    "name": "Cerfik",
+    "description": "Centro de Rehabilitación física y kinesiología",
+    "discount": "25% en todos sus servicios",
+    "address": "Calle García Márquez y Rómulo Betancourt (sector casa del balón)",
+    "phone": "0994706369",
+    "whatsapp": "0994706369",
+    "instagram": "@cerfik.ec",
+    "hours": "Lunes a Viernes de 8:00 a 19:00",
+    "category": "salud",
+    "benefits": [],
+    "allianceStatus": "active",
+    "applicableModalities": ["official", "proTeam"]
+  },
+  {
+    "id": "elegance-barberia",
+    "name": "Elegance Barbería",
+    "description": "Grooming Experience",
+    "discount": "15% en todos sus productos y servicios",
+    "address": "Av. Abraham Calazacón y Río Toachi, frente al Tuti",
+    "phone": "0981411821",
+    "whatsapp": "0981411821",
+    "instagram": "@elegancebarberia.sd",
+    "hours": "Toda la semana excepto días martes de 9:15 a 19:00",
+    "category": "lifestyle",
+    "benefits": [],
+    "allianceStatus": "active",
+    "applicableModalities": ["official", "proTeam"]
+  },
+  {
+    "id": "nexus-gym",
+    "name": "Nexus Gym",
+    "description": "Health & Fitness",
+    "discount": "15%",
+    "address": "Av La Lorena y Lázaro Cárdenas",
+    "phone": "0995989042",
+    "whatsapp": "0995989042",
+    "instagram": "@nexusgym_oficial",
+    "hours": "De lunes a viernes 5:00 a 22:00 sabado y domingo 07:00 a 17:00",
+    "category": "gimnasio",
+    "benefits": [],
+    "allianceStatus": "active",
+    "applicableModalities": ["official", "proTeam"]
+  },
+  {
+    "id": "pasos",
+    "name": "Pasos",
+    "description": "Lavandería especializada en calzado y artículos personales",
+    "discount": "3 pares por $10",
+    "address": "Calle Guayaquil y Cuicocha, diagonal a Majestad Tv",
+    "phone": "0969606879",
+    "whatsapp": "0969606879",
+    "instagram": "@pasos.ecu",
+    "hours": "lunes a sabado de 9:00 a 19:00",
+    "category": "lifestyle",
+    "benefits": [
+      "Pueden juntar 3 pares entre 3 personas, no necesariamente 3 pares de la misma persona."
+    ],
+    "allianceStatus": "active",
+    "applicableModalities": ["official", "proTeam"]
+  },
+  {
+    "id": "belmiq-group",
+    "name": "BelMiQ Group",
+    "description": "Soluciones Empresariales",
+    "discount": "15% en todos sus servicios",
+    "address": "Rio Sucua y Rio Yanucay",
+    "phone": "0988399287",
+    "whatsapp": "0988399287",
+    "instagram": "@belmiqgroupec",
+    "hours": "lunes a sabado de 9.00 a 18:00",
+    "category": "servicios",
+    "benefits": [],
+    "allianceStatus": "active",
+    "applicableModalities": ["official", "proTeam"]
+  },
+  {
+    "id": "mandayan-chill-fest",
+    "name": "Mandayan Chill & Fest",
+    "description": "El restaurante temático más grande del Ecuador",
+    "discount": "15% de descuento en Karaoke y citas románticas",
+    "address": "Av Rio Lelia y Los Ceibos",
+    "phone": "0960642453",
+    "whatsapp": "0960642453",
+    "instagram": "@mandayan_chillfest",
+    "hours": "Atención todos los días, lunes a jueves de 14:00 a 23:00 fines de semana de 13:00 a 01:00",
+    "category": "restaurante",
+    "benefits": [
+      "Ice Tea gratis en cortes premium",
+      "Chicken bites en reservas de 5+"
+    ],
+    "allianceStatus": "active",
+    "applicableModalities": ["official", "proTeam"]
+  }
+]

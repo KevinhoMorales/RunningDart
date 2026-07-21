@@ -25,6 +25,7 @@ abstract class AuthService {
   Stream<UserModel?> get userChanges;
 
   Future<UserModel?> getCurrentUser();
+  Future<UserModel?> resolveStartupSession();
   Future<UserModel> register({
     required String email,
     required String password,

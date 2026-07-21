@@ -7,6 +7,7 @@ import '../services/profile_photo_service.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'app_snackbar.dart';
 import 'user_avatar.dart';
 
 enum CameraButtonStyle {
@@ -68,23 +69,18 @@ class _ProfilePhotoPickerState extends State<ProfilePhotoPicker> {
         });
         await context.read<AuthProvider>().refreshAccountStatus();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Foto de perfil actualizada.')),
-          );
+          AppSnackBar.show(context, 'Foto de perfil actualizada.');
         }
       }
     } on ProfilePhotoException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        AppSnackBar.showError(context, e.message);
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo subir la foto. Intenta de nuevo.'),
-          ),
+        AppSnackBar.show(
+          context,
+          'No se pudo subir la foto. Intenta de nuevo.',
         );
       }
     } finally {

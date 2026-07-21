@@ -7,6 +7,7 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/gradient_background.dart';
 import '../../widgets/haptic_controls.dart';
@@ -49,15 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (success) {
-      if (auth.canAccessApp) {
-        context.go('/home');
-      } else {
-        context.go('/account-disabled');
-      }
+      context.go(auth.postAuthRoute);
     } else if (auth.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.error!)),
-      );
+      AppSnackBar.showError(context, auth.error);
     }
   }
 
@@ -84,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'iniciar sesión',
+                            'Iniciar sesión',
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge

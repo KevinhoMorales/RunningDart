@@ -2,50 +2,69 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    function isAdmin() {
+    function isValidEnvironment(environment) {
+      return environment in ['dev', 'prod'];
+    }
+
+    function userDoc(environment) {
+      return firestore.get(
+        /databases/(default)/documents/environments/$(environment)/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isAdmin(environment) {
       return request.auth != null
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && firestore.exists(
+          /databases/(default)/documents/environments/$(environment)/users/$(request.auth.uid)
+        )
+        && userDoc(environment).role == 'admin';
     }
 
-    match /users/{userId}/profile.jpg {
-      allow read: if request.auth != null;
+    match /environments/{environment}/users/{userId}/profile.jpg {
+      allow read: if isValidEnvironment(environment) && request.auth != null;
 
-      allow write: if request.auth != null
+      allow write: if isValidEnvironment(environment)
+        && request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 
-    match /businesses/{businessId}/cover.jpg {
-      allow read: if request.auth != null;
+    match /environments/{environment}/businesses/{businessId}/cover.jpg {
+      allow read: if isValidEnvironment(environment) && request.auth != null;
 
-      allow write: if isAdmin()
+      allow write: if isValidEnvironment(environment)
+        && isAdmin(environment)
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
 
-      allow delete: if isAdmin();
+      allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
 
-    match /news/{newsId}/cover.jpg {
-      allow read: if request.auth != null;
+    match /environments/{environment}/news/{newsId}/cover.jpg {
+      allow read: if isValidEnvironment(environment) && request.auth != null;
 
-      allow write: if isAdmin()
+      allow write: if isValidEnvironment(environment)
+        && isAdmin(environment)
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
 
-      allow delete: if isAdmin();
+      allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
 
-    match /payments/{userId}/{paymentId}/{fileName} {
-      allow read: if request.auth != null
-        && (request.auth.uid == userId || isAdmin());
+    match /environments/{environment}/payments/{userId}/{paymentId}/{fileName} {
+      allow read: if isValidEnvironment(environment)
+        && request.auth != null
+        && (request.auth.uid == userId || isAdmin(environment));
 
-      allow write: if request.auth != null
+      allow write: if isValidEnvironment(environment)
+        && request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
 
-      allow delete: if isAdmin();
+      allow delete: if isValidEnvironment(environment)
+        && (request.auth.uid == userId || isAdmin(environment));
     }
   }
 }

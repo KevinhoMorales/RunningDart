@@ -15,6 +15,20 @@ class BusinessHoursHelpers {
     7: 'Dom',
   };
 
+  static const weekdayLetters = {
+    1: 'L',
+    2: 'M',
+    3: 'X',
+    4: 'J',
+    5: 'V',
+    6: 'S',
+    7: 'D',
+  };
+
+  static const weekdaysPresetWeekdays = [1, 2, 3, 4, 5];
+  static const weekdaysPresetWeekend = [6, 7];
+  static const weekdaysPresetAll = [1, 2, 3, 4, 5, 6, 7];
+
   static String periodLabel(BusinessDayPeriod period) => period.displayName;
 
   static String formatTime(TimeOfDay time) {

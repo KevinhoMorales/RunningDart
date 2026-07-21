@@ -8,6 +8,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/secure_delete_flow.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 
@@ -75,9 +76,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
     if (success) {
       context.go('/login');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tu cuenta fue eliminada.')),
-      );
+      AppSnackBar.show(context, 'Tu cuenta fue eliminada.');
       return;
     }
 

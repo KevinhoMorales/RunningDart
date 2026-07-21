@@ -17,7 +17,9 @@ import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
 import '../../services/payment_service.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/haptic_controls.dart';
+import '../../widgets/international_phone_field.dart';
 import '../../widgets/modality_chip.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/receipt_viewer.dart';
@@ -45,10 +47,12 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   String? _selectedBusinessId;
   String? _error;
   DateTime? _expiresAt;
+  final _whatsappFieldKey = GlobalKey<InternationalPhoneFieldState>();
   final _whatsappController = TextEditingController();
   final _nationalIdController = TextEditingController();
   final _internalNotesController = TextEditingController();
   final _paymentService = PaymentService();
+  String? _initialWhatsapp;
 
   static const _noBusinessValue = '__none__';
 
@@ -94,7 +98,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
               ? MembershipHelpers.defaultOfficialExpiry()
               : null);
       _selectedBusinessId = user?.businessId;
-      _whatsappController.text = user?.whatsapp ?? '';
+      _initialWhatsapp = user?.whatsapp;
       _nationalIdController.text = user?.nationalIdLast4 ?? '';
       _internalNotesController.text = user?.internalNotes ?? '';
       _isLoading = false;
@@ -110,13 +114,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (success) {
       await _loadUser();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Membresía aprobada.')),
-      );
+      AppSnackBar.show(context, 'Membresía aprobada.');
     } else if (admin.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(admin.error!)),
-      );
+      AppSnackBar.showError(context, admin.error);
     }
   }
 
@@ -128,13 +128,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (success) {
       await _loadUser();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Solicitud rechazada.')),
-      );
+      AppSnackBar.show(context, 'Solicitud rechazada.');
     } else if (admin.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(admin.error!)),
-      );
+      AppSnackBar.showError(context, admin.error);
     }
   }
 
@@ -145,7 +141,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       modality: _selectedModality,
       status: _selectedMembershipStatus,
       expiresAt: _expiresAt,
-      whatsapp: _whatsappController.text.trim(),
+      whatsapp: _formatWhatsappForSave(),
       nationalIdLast4: _nationalIdController.text.trim(),
       internalNotes: _internalNotesController.text.trim(),
     );
@@ -154,14 +150,19 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (success) {
       await _loadUser();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Membresía actualizada.')),
-      );
+      AppSnackBar.show(context, 'Membresía actualizada.');
     } else if (admin.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(admin.error!)),
-      );
+      AppSnackBar.showError(context, admin.error);
     }
+  }
+
+  String? _formatWhatsappForSave() {
+    final local = _whatsappController.text.trim();
+    if (local.isEmpty) {
+      return null;
+    }
+    return _whatsappFieldKey.currentState?.formatForStorage() ??
+        MembershipHelpers.formatWhatsappForStorage(local);
   }
 
   Future<void> _registerManualPayment() async {
@@ -270,16 +271,12 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pago registrado.')),
-      );
+      AppSnackBar.show(context, 'Pago registrado.');
     } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo registrar el pago.')),
-      );
+      AppSnackBar.show(context, 'No se pudo registrar el pago.');
     }
   }
 
@@ -341,17 +338,12 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
         _isActive = value;
         _user = user.copyWith(isActive: value);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            value ? 'Cuenta activada.' : 'Cuenta desactivada.',
-          ),
-        ),
+      AppSnackBar.show(
+        context,
+        value ? 'Cuenta activada.' : 'Cuenta desactivada.',
       );
     } else if (admin.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(admin.error!)),
-      );
+      AppSnackBar.showError(context, admin.error);
     }
   }
 
@@ -383,9 +375,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       }
       if (!success) {
         if (admin.error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(admin.error!)),
-          );
+          AppSnackBar.showError(context, admin.error);
         }
         return;
       }
@@ -401,9 +391,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       }
       if (!success) {
         if (admin.error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(admin.error!)),
-          );
+          AppSnackBar.showError(context, admin.error);
         }
         return;
       }
@@ -415,9 +403,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cambios guardados.')),
-    );
+    AppSnackBar.show(context, 'Cambios guardados.');
   }
 
   @override
@@ -573,15 +559,18 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.sm),
-                            TextField(
+                            InternationalPhoneField(
+                              key: _whatsappFieldKey,
                               controller: _whatsappController,
-                              decoration: const InputDecoration(
-                                labelText: 'WhatsApp',
-                              ),
+                              labelText: 'WhatsApp',
+                              initialStoredNumber: _initialWhatsapp,
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             TextField(
                               controller: _nationalIdController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters:
+                                  MembershipHelpers.nationalIdLast4InputFormatters,
                               decoration: const InputDecoration(
                                 labelText: 'Últimos 4 dígitos cédula',
                               ),

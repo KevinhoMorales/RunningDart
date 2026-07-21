@@ -33,8 +33,25 @@ class AdminSearchField extends StatelessWidget {
         style: TextStyle(color: palette.textPrimary),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: TextStyle(color: palette.textMuted),
-          prefixIcon: Icon(Icons.search_rounded, color: palette.textMuted),
+          hintStyle: TextStyle(
+            color: palette.textMuted,
+            fontSize: 13,
+            letterSpacing: -0.1,
+          ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.md,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: palette.textMuted,
+            size: 20,
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 38,
+            maxWidth: 38,
+          ),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
                   tooltip: 'Limpiar',

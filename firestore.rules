@@ -3,6 +3,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isValidEnvironment(environment) {
+      return environment in ['dev', 'prod'];
+    }
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,30 +15,30 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function userDoc(environment) {
+      return get(/databases/$(database)/documents/environments/$(environment)/users/$(request.auth.uid)).data;
     }
 
-    function isAdmin() {
+    function isAdmin(environment) {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && userDoc().role == 'admin';
+        && exists(/databases/$(database)/documents/environments/$(environment)/users/$(request.auth.uid))
+        && userDoc(environment).role == 'admin';
     }
 
-    function isCoach() {
+    function isCoach(environment) {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && userDoc().role == 'coach';
+        && exists(/databases/$(database)/documents/environments/$(environment)/users/$(request.auth.uid))
+        && userDoc(environment).role == 'coach';
     }
 
-    function canManageClubSettings() {
-      return isAdmin() || isCoach();
+    function canManageClubSettings(environment) {
+      return isAdmin(environment) || isCoach(environment);
     }
 
-    function isBusinessOperator() {
+    function isBusinessOperator(environment) {
       return isSignedIn()
-        && userDoc().businessId != null
-        && userDoc().businessId != '';
+        && userDoc(environment).businessId != null
+        && userDoc(environment).businessId != '';
     }
 
     function isActiveMember(userData) {
@@ -43,8 +47,8 @@ service cloud.firestore {
         && userData.get('membershipStatus', 'active') == 'active';
     }
 
-    function scannedUserDoc(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function scannedUserDoc(environment, userId) {
+      return get(/databases/$(database)/documents/environments/$(environment)/users/$(userId)).data;
     }
 
     function ownerProtectedFieldsUnchanged() {
@@ -60,60 +64,72 @@ service cloud.firestore {
             == resource.data.get('expiresAt', null);
     }
 
-    match /users/{userId} {
-      allow read: if isOwner(userId)
-        || isAdmin()
-        || (isBusinessOperator() && isActiveMember(resource.data));
+    match /environments/{environment}/users/{userId} {
+      allow read: if isValidEnvironment(environment)
+        && (isOwner(userId)
+          || isAdmin(environment)
+          || (isBusinessOperator(environment) && isActiveMember(resource.data)));
 
-      allow create: if isOwner(userId)
+      allow create: if isValidEnvironment(environment)
+        && isOwner(userId)
         && request.resource.data.role == 'user'
         && request.resource.data.isActive == true
         && request.resource.data.membershipStatus in ['pending', 'active'];
 
-      allow update: if (isAdmin()
-          && (userId != request.auth.uid
-              || request.resource.data.role == resource.data.role))
-        || (isOwner(userId) && ownerProtectedFieldsUnchanged());
+      allow update: if isValidEnvironment(environment)
+        && ((isAdmin(environment)
+            && (userId != request.auth.uid
+                || request.resource.data.role == resource.data.role))
+          || (isOwner(userId) && ownerProtectedFieldsUnchanged()));
 
-      allow delete: if false;
+      allow delete: if isValidEnvironment(environment)
+        && (isOwner(userId) || isAdmin(environment));
     }
 
-    match /businesses/{businessId} {
-      allow read: if isSignedIn();
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
+    match /environments/{environment}/businesses/{businessId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create, update: if isValidEnvironment(environment) && isAdmin(environment);
+      allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
 
-    match /news/{newsId} {
-      allow read: if isSignedIn() && resource.data.isPublished == true;
-      allow read: if isAdmin();
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
+    match /environments/{environment}/news/{newsId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.isPublished == true;
+      allow read: if isValidEnvironment(environment) && isAdmin(environment);
+      allow create, update: if isValidEnvironment(environment) && isAdmin(environment);
+      allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
 
-    match /payments/{paymentId} {
-      allow read: if isAdmin()
-        || (isSignedIn() && resource.data.userId == request.auth.uid);
+    match /environments/{environment}/payments/{paymentId} {
+      allow read: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isSignedIn() && resource.data.userId == request.auth.uid));
 
-      allow create: if isAdmin()
-        || (isSignedIn()
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.status == 'pending');
+      allow create: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isSignedIn()
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.status == 'pending'));
 
-      allow update, delete: if isAdmin();
+      allow update, delete: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isSignedIn() && resource.data.userId == request.auth.uid));
     }
 
-    match /visits/{visitId} {
-      allow read: if isAdmin()
-        || (isBusinessOperator()
-          && resource.data.businessId == userDoc().businessId);
+    match /environments/{environment}/visits/{visitId} {
+      allow read: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isBusinessOperator(environment)
+            && resource.data.businessId == userDoc(environment).businessId));
 
-      allow create: if isBusinessOperator()
-        && request.resource.data.businessId == userDoc().businessId
+      allow create: if isValidEnvironment(environment)
+        && isBusinessOperator(environment)
+        && request.resource.data.businessId == userDoc(environment).businessId
         && request.resource.data.scannedByUserId == request.auth.uid
         && request.resource.data.userId != request.auth.uid
-        && scannedUserDoc(request.resource.data.userId).get('businessId', '')
-            != userDoc().businessId
+        && scannedUserDoc(environment, request.resource.data.userId).get('businessId', '')
+            != userDoc(environment).businessId
         && request.resource.data.keys().hasAll([
           'userId',
           'businessId',
@@ -127,10 +143,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    match /club_settings/{docId} {
-      allow read: if isSignedIn();
-      allow create, update: if canManageClubSettings();
-      allow delete: if isAdmin();
+    match /environments/{environment}/club_settings/{docId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create, update: if isValidEnvironment(environment)
+        && canManageClubSettings(environment);
+      allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
   }
 }

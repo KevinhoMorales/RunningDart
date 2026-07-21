@@ -22,6 +22,7 @@ class BusinessModel {
     this.longitude,
     this.whatsapp,
     this.instagram,
+    this.meniuzMenuUrl,
     this.conditions,
     this.allianceStatus = AllianceStatus.active,
     this.validUntil,
@@ -43,6 +44,7 @@ class BusinessModel {
   final double? longitude;
   final String? whatsapp;
   final String? instagram;
+  final String? meniuzMenuUrl;
   final String? conditions;
   final AllianceStatus allianceStatus;
   final DateTime? validUntil;
@@ -78,6 +80,7 @@ class BusinessModel {
       'longitude': longitude,
       'whatsapp': whatsapp,
       'instagram': instagram,
+      'meniuzMenuUrl': meniuzMenuUrl,
       'conditions': conditions,
       'allianceStatus': allianceStatus.firestoreValue,
       'validUntil': validUntil?.toIso8601String(),
@@ -107,6 +110,8 @@ class BusinessModel {
       if (longitude != null) 'longitude': longitude,
       if (whatsapp != null && whatsapp!.isNotEmpty) 'whatsapp': whatsapp,
       if (instagram != null && instagram!.isNotEmpty) 'instagram': instagram,
+      if (meniuzMenuUrl != null && meniuzMenuUrl!.isNotEmpty)
+        'meniuzMenuUrl': meniuzMenuUrl,
       if (conditions != null && conditions!.isNotEmpty)
         'conditions': conditions,
       'allianceStatus': allianceStatus.firestoreValue,
@@ -136,6 +141,7 @@ class BusinessModel {
       longitude: (json['longitude'] as num?)?.toDouble(),
       whatsapp: json['whatsapp'] as String?,
       instagram: json['instagram'] as String?,
+      meniuzMenuUrl: json['meniuzMenuUrl'] as String?,
       conditions: json['conditions'] as String?,
       allianceStatus:
           AllianceStatus.fromFirestore(json['allianceStatus'] as String?),
@@ -168,6 +174,7 @@ class BusinessModel {
       longitude: (data['longitude'] as num?)?.toDouble(),
       whatsapp: data['whatsapp'] as String?,
       instagram: data['instagram'] as String?,
+      meniuzMenuUrl: data['meniuzMenuUrl'] as String?,
       conditions: data['conditions'] as String?,
       allianceStatus:
           AllianceStatus.fromFirestore(data['allianceStatus'] as String?),
@@ -203,6 +210,7 @@ class BusinessModel {
     double? longitude,
     String? whatsapp,
     String? instagram,
+    String? meniuzMenuUrl,
     String? conditions,
     AllianceStatus? allianceStatus,
     DateTime? validUntil,
@@ -224,6 +232,7 @@ class BusinessModel {
       longitude: longitude ?? this.longitude,
       whatsapp: whatsapp ?? this.whatsapp,
       instagram: instagram ?? this.instagram,
+      meniuzMenuUrl: meniuzMenuUrl ?? this.meniuzMenuUrl,
       conditions: conditions ?? this.conditions,
       allianceStatus: allianceStatus ?? this.allianceStatus,
       validUntil: validUntil ?? this.validUntil,

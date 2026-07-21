@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
@@ -13,11 +16,15 @@ import '../../theme/app_spacing.dart';
 import '../../utils/constants.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/business_hours_helpers.dart';
+import '../../utils/helpers.dart';
+import '../../utils/membership_helpers.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/business_hours_editor.dart';
 import '../../widgets/business_location_picker.dart';
-import '../../widgets/category_chip.dart';
+import '../../widgets/category_selector.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
+import '../../widgets/international_phone_field.dart';
 import '../../widgets/modern_text_field.dart';
 
 class AdminBusinessFormScreen extends StatefulWidget {
@@ -43,9 +50,12 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
   final _phoneController = TextEditingController();
   final _discountController = TextEditingController();
   final _benefitController = TextEditingController();
+  final _whatsappFieldKey = GlobalKey<InternationalPhoneFieldState>();
   final _whatsappController = TextEditingController();
   final _instagramController = TextEditingController();
+  final _meniuzMenuUrlController = TextEditingController();
   final _conditionsController = TextEditingController();
+  String? _initialWhatsapp;
 
   String _selectedCategory = AppConstants.businessCategories[1];
   final List<String> _benefits = [];
@@ -61,7 +71,9 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
   ];
   String? _legacyHours;
   bool _isLoading = false;
-  bool _uploadPhotoAfterCreate = false;
+  String? _existingImageUrl;
+  XFile? _selectedPhoto;
+  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -93,9 +105,11 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
           ? List<BusinessHoursSlot>.from(business.operatingHours.slots)
           : _operatingHoursSlots;
       _discountController.text = business.discount;
-      _whatsappController.text = business.whatsapp ?? '';
+      _initialWhatsapp = business.whatsapp;
       _instagramController.text = business.instagram ?? '';
+      _meniuzMenuUrlController.text = business.meniuzMenuUrl ?? '';
       _conditionsController.text = business.conditions ?? '';
+      _existingImageUrl = business.imageUrl;
       _selectedCategory = business.category;
       _benefits
         ..clear()
@@ -125,6 +139,7 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     _benefitController.dispose();
     _whatsappController.dispose();
     _instagramController.dispose();
+    _meniuzMenuUrlController.dispose();
     _conditionsController.dispose();
     super.dispose();
   }
@@ -144,25 +159,67 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     setState(() => _benefits.removeAt(index));
   }
 
+  Future<void> _pickPhoto() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+    );
+
+    if (picked != null && mounted) {
+      setState(() => _selectedPhoto = picked);
+    }
+  }
+
+  void _clearSelectedPhoto() {
+    setState(() => _selectedPhoto = null);
+  }
+
+  Future<bool> _uploadSelectedPhoto(String businessId) async {
+    final photo = _selectedPhoto;
+    if (photo == null) {
+      return true;
+    }
+
+    final adminBusiness = context.read<AdminBusinessProvider>();
+    final url = await adminBusiness.uploadPhoto(businessId, file: photo);
+    if (!mounted) {
+      return false;
+    }
+    if (url == null && adminBusiness.error != null) {
+      AppSnackBar.showError(context, adminBusiness.error);
+      return false;
+    }
+    return true;
+  }
+
+  String? _formatWhatsappForSave() {
+    final local = _whatsappController.text.trim();
+    if (local.isEmpty) {
+      return null;
+    }
+    return _whatsappFieldKey.currentState?.formatForStorage() ??
+        MembershipHelpers.formatWhatsappForStorage(local);
+  }
+
+  String? _formatMeniuzMenuUrlForSave() {
+    if (!Helpers.isRestaurantCategory(_selectedCategory)) {
+      return null;
+    }
+
+    final trimmed = _meniuzMenuUrlController.text.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    if (_selectedLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Marca la ubicación de la marca aliada en el mapa.'),
-        ),
-      );
-      return;
-    }
-
     final hoursError = BusinessHoursHelpers.validateSlots(_operatingHoursSlots);
     if (hoursError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(hoursError)),
-      );
+      AppSnackBar.show(context, hoursError);
       return;
     }
 
@@ -184,10 +241,11 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
       category: _selectedCategory,
       benefits: List.unmodifiable(_benefits),
       discount: _discountController.text.trim(),
-      latitude: _selectedLocation!.latitude,
-      longitude: _selectedLocation!.longitude,
-      whatsapp: _whatsappController.text.trim(),
+      latitude: _selectedLocation?.latitude,
+      longitude: _selectedLocation?.longitude,
+      whatsapp: _formatWhatsappForSave(),
       instagram: _instagramController.text.trim(),
+      meniuzMenuUrl: _formatMeniuzMenuUrlForSave(),
       conditions: _conditionsController.text.trim(),
       applicableModalities: allModalitiesSelected
           ? const []
@@ -200,17 +258,21 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
         return;
       }
       if (success) {
-        if (_uploadPhotoAfterCreate) {
-          await adminBusiness.uploadPhoto(business.id);
+        final photoUploaded = await _uploadSelectedPhoto(business.id);
+        if (!mounted) {
+          return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Marca aliada actualizada.')),
-        );
+        if (!photoUploaded) {
+          AppSnackBar.show(
+            context,
+            'Marca actualizada, pero no se pudo subir la foto.',
+          );
+          return;
+        }
+        AppSnackBar.show(context, 'Marca aliada actualizada.');
         context.pop();
       } else if (adminBusiness.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(adminBusiness.error!)),
-        );
+        AppSnackBar.showError(context, adminBusiness.error);
       }
       return;
     }
@@ -221,17 +283,21 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     }
 
     if (businessId != null) {
-      if (_uploadPhotoAfterCreate) {
-        await adminBusiness.uploadPhoto(businessId);
+      final photoUploaded = await _uploadSelectedPhoto(businessId);
+      if (!mounted) {
+        return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marca aliada creada correctamente.')),
-      );
+      if (!photoUploaded) {
+        AppSnackBar.show(
+          context,
+          'Marca creada, pero no se pudo subir la foto.',
+        );
+        return;
+      }
+      AppSnackBar.show(context, 'Marca aliada creada correctamente.');
       context.pop();
     } else if (adminBusiness.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(adminBusiness.error!)),
-      );
+      AppSnackBar.showError(context, adminBusiness.error);
     }
   }
 
@@ -320,10 +386,11 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                       },
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    ModernTextField(
+                    InternationalPhoneField(
+                      key: _whatsappFieldKey,
                       controller: _whatsappController,
                       labelText: 'WhatsApp',
-                      keyboardType: TextInputType.phone,
+                      initialStoredNumber: _initialWhatsapp,
                     ),
                     const SizedBox(height: AppSpacing.md),
                     ModernTextField(
@@ -362,31 +429,30 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      'Categoría',
-                      style: TextStyle(
-                        color: palette.textPrimary,
-                        fontWeight: FontWeight.w600,
+                    CategorySelector(
+                      selectedCategory: _selectedCategory,
+                      onCategorySelected: (category) {
+                        setState(() => _selectedCategory = category);
+                      },
+                    ),
+                    if (Helpers.isRestaurantCategory(_selectedCategory)) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      ModernTextField(
+                        controller: _meniuzMenuUrlController,
+                        labelText: 'Enlace de menú en Meniuz',
+                        keyboardType: TextInputType.url,
+                        validator: (value) {
+                          final trimmed = value?.trim() ?? '';
+                          if (trimmed.isEmpty) {
+                            return null;
+                          }
+                          if (!Helpers.isValidHttpUrl(trimmed)) {
+                            return 'Ingresa un enlace válido (https://...)';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: AppSpacing.sm,
-                      runSpacing: AppSpacing.sm,
-                      children: AppConstants.businessCategories
-                          .where((category) => category != 'Todos')
-                          .map(
-                            (category) => CategoryChip(
-                              label: category,
-                              category: category,
-                              isSelected: _selectedCategory == category,
-                              onSelected: () {
-                                setState(() => _selectedCategory = category);
-                              },
-                            ),
-                          )
-                          .toList(),
-                    ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       'Beneficios',
@@ -429,25 +495,11 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                       ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        'Subir foto de la marca',
-                        style: TextStyle(
-                          color: palette.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        widget.isEditing
-                            ? 'Selecciona una imagen para reemplazar la portada.'
-                            : 'Después de crear la marca se subirá la foto.',
-                        style: TextStyle(color: palette.textMuted),
-                      ),
-                      value: _uploadPhotoAfterCreate,
-                      onChanged: AppHaptics.wrapValue((value) {
-                        setState(() => _uploadPhotoAfterCreate = value);
-                      }),
+                    _BusinessPhotoSection(
+                      existingImageUrl: _existingImageUrl,
+                      selectedPhoto: _selectedPhoto,
+                      onPickPhoto: _pickPhoto,
+                      onClearPhoto: _selectedPhoto == null ? null : _clearSelectedPhoto,
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     PrimaryButton(
@@ -459,6 +511,115 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _BusinessPhotoSection extends StatelessWidget {
+  const _BusinessPhotoSection({
+    required this.existingImageUrl,
+    required this.selectedPhoto,
+    required this.onPickPhoto,
+    this.onClearPhoto,
+  });
+
+  final String? existingImageUrl;
+  final XFile? selectedPhoto;
+  final VoidCallback onPickPhoto;
+  final VoidCallback? onClearPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final previewUrl = selectedPhoto == null ? existingImageUrl : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Foto de la marca',
+          style: TextStyle(
+            color: palette.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Portada visible en el listado y detalle del negocio.',
+          style: TextStyle(color: palette.textMuted),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: selectedPhoto != null
+                ? Image.file(
+                    File(selectedPhoto!.path),
+                    fit: BoxFit.cover,
+                  )
+                : previewUrl != null && previewUrl.isNotEmpty
+                    ? Image.network(
+                        previewUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _PhotoPlaceholder(palette: palette),
+                      )
+                    : _PhotoPlaceholder(palette: palette),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: AppHaptics.wrap(onPickPhoto),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(
+                  previewUrl != null || selectedPhoto != null
+                      ? 'Cambiar imagen'
+                      : 'Seleccionar imagen',
+                ),
+              ),
+            ),
+            if (onClearPhoto != null) ...[
+              const SizedBox(width: AppSpacing.sm),
+              OutlinedButton(
+                onPressed: AppHaptics.wrap(onClearPhoto),
+                child: const Text('Quitar'),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PhotoPlaceholder extends StatelessWidget {
+  const _PhotoPlaceholder({required this.palette});
+
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: palette.inputFill,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.storefront_outlined,
+            size: 40,
+            color: palette.textMuted,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Sin foto',
+            style: TextStyle(color: palette.textMuted),
+          ),
+        ],
+      ),
     );
   }
 }

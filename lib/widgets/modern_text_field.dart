@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
@@ -22,6 +23,8 @@ class ModernTextField extends StatelessWidget {
     this.onChanged,
     this.enabled = true,
     this.maxLines = 1,
+    this.inputFormatters,
+    this.prefixText,
   });
 
   final TextEditingController controller;
@@ -37,6 +40,8 @@ class ModernTextField extends StatelessWidget {
   final void Function(String)? onChanged;
   final bool enabled;
   final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
+  final String? prefixText;
 
   @override
   Widget build(BuildContext context) {
@@ -50,12 +55,18 @@ class ModernTextField extends StatelessWidget {
       textCapitalization: textCapitalization,
       maxLines: maxLines,
       enabled: enabled,
+      inputFormatters: inputFormatters,
       onChanged: onChanged,
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
       style: TextStyle(color: palette.textPrimary),
       decoration: InputDecoration(
         labelText: labelText,
+        prefixText: prefixText,
+        prefixStyle: TextStyle(
+          color: palette.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
         prefixIcon: prefixIcon != null
             ? Icon(prefixIcon, color: palette.textMuted, size: 22)
             : null,
@@ -86,7 +97,7 @@ class PrimaryButton extends StatelessWidget {
           end: Alignment.centerRight,
           colors: AppConstants.brandGradientAccentColors,
         ),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
         boxShadow: [
           BoxShadow(
             color: AppConstants.primaryColor.withValues(alpha: 0.35),
@@ -100,7 +111,7 @@ class PrimaryButton extends StatelessWidget {
         child: InkWell(
           onTap: isLoading ? null : AppHaptics.wrap(onPressed),
           enableFeedback: false,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),

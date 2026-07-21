@@ -6,6 +6,7 @@ import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../utils/business_hours_helpers.dart';
+import '../utils/constants.dart';
 
 class BusinessHoursDisplay extends StatelessWidget {
   const BusinessHoursDisplay({
@@ -54,31 +55,55 @@ class BusinessHoursDisplay extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return _LegacyHoursRow(text: business.hours);
+    return _LegacyHoursRow(text: business.hours, compact: compact);
   }
 }
 
 class _LegacyHoursRow extends StatelessWidget {
-  const _LegacyHoursRow({required this.text});
+  const _LegacyHoursRow({required this.text, this.compact = false});
 
   final String text;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.schedule_rounded, size: 20, color: palette.accentPrimary),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            text,
-            style: AppTypography.body(context).copyWith(height: 1.45),
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? AppSpacing.sm : AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppConstants.primaryColor.withValues(alpha: 0.14),
+                  AppConstants.primaryColorLight.withValues(alpha: 0.08),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Icon(
+              Icons.schedule_rounded,
+              size: 18,
+              color: AppConstants.primaryColor,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                text,
+                style: AppTypography.body(
+                  context,
+                  weight: FontWeight.w500,
+                ).copyWith(height: 1.45),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

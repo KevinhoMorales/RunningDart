@@ -32,7 +32,7 @@ class NotificationService {
 
   bool _initialized = false;
   bool _isSubscribed = false;
-  bool _pushEnabled = true;
+  bool _pushEnabled = false;
 
   bool get pushEnabled => _pushEnabled;
 
@@ -56,7 +56,7 @@ class NotificationService {
     }
 
     _pushEnabled =
-        prefs.getBool(AppConstants.pushNotificationsEnabledKey) ?? true;
+        prefs.getBool(AppConstants.pushNotificationsEnabledKey) ?? false;
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
@@ -89,13 +89,11 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
-    await _requestPermissions();
-
     _initialized = true;
   }
 
-  Future<void> _requestPermissions() async {
-    await _messaging.requestPermission(
+  Future<bool> requestPermissions() async {
+    final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
@@ -109,6 +107,9 @@ class NotificationService {
           badge: true,
           sound: true,
         );
+
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
   void bindRouterHandlers() {
@@ -130,6 +131,11 @@ class NotificationService {
   }) async {
     _pushEnabled = enabled;
     await prefs.setBool(AppConstants.pushNotificationsEnabledKey, enabled);
+
+    if (enabled) {
+      await requestPermissions();
+    }
+
     await syncForUser(user);
   }
 

@@ -49,6 +49,24 @@ class Helpers {
     return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
+  static bool isRestaurantCategory(String category) {
+    return category == 'restaurante';
+  }
+
+  static bool isValidHttpUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return false;
+    }
+
+    return uri.scheme == 'http' || uri.scheme == 'https';
+  }
+
   static String categoryLabel(String category) {
     switch (category) {
       case 'café':
@@ -61,6 +79,10 @@ class Helpers {
         return 'Retail';
       case 'salud':
         return 'Salud';
+      case 'lifestyle':
+        return 'Lifestyle';
+      case 'servicios':
+        return 'Servicios';
       default:
         return category;
     }

@@ -7,9 +7,14 @@ const {
 } = require('@firebase/rules-unit-testing');
 
 const PROJECT_ID = 'running-dart-test';
+const ENV = 'prod';
 const rules = fs.readFileSync(path.resolve(__dirname, '../firestore.rules'), 'utf8');
 
 let testEnv;
+
+function envCollection(db, name) {
+  return db.collection('environments').doc(ENV).collection(name);
+}
 
 async function setup() {
   testEnv = await initializeTestEnvironment({
@@ -30,7 +35,7 @@ function authedDb(uid) {
 
 function seedUser(uid, data) {
   return testEnv.withSecurityRulesDisabled(async (context) => {
-    await context.firestore().collection('users').doc(uid).set({
+    await envCollection(context.firestore(), 'users').doc(uid).set({
       email: `${uid}@test.com`,
       displayName: 'Test User',
       qrCode: `RD-${uid}`,
@@ -51,7 +56,7 @@ async function runTests() {
     await testEnv.clearFirestore();
 
     await assertSucceeds(
-      authedDb('user-new').collection('users').doc('user-new').set({
+      envCollection(authedDb('user-new'), 'users').doc('user-new').set({
         email: 'new@test.com',
         displayName: 'New User',
         qrCode: 'RD-new',
@@ -63,7 +68,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('user-bad').collection('users').doc('user-bad').set({
+      envCollection(authedDb('user-bad'), 'users').doc('user-bad').set({
         email: 'bad@test.com',
         displayName: 'Bad User',
         qrCode: 'RD-bad',
@@ -88,90 +93,89 @@ async function runTests() {
     });
 
     await assertSucceeds(
-      authedDb('user-new').collection('users').doc('user-new').get(),
+      envCollection(authedDb('user-new'), 'users').doc('user-new').get(),
     );
 
     await assertFails(
-      authedDb('user-new').collection('users').doc('member-1').get(),
+      envCollection(authedDb('user-new'), 'users').doc('member-1').get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('users').doc('member-1').get(),
+      envCollection(authedDb('admin-1'), 'users').doc('member-1').get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('users').doc('admin-2').get(),
+      envCollection(authedDb('admin-1'), 'users').doc('admin-2').get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('users').doc('user-plain').get(),
+      envCollection(authedDb('admin-1'), 'users').doc('user-plain').get(),
     );
 
     await assertSucceeds(
-      authedDb('operator-1').collection('users').doc('member-1').get(),
+      envCollection(authedDb('operator-1'), 'users').doc('member-1').get(),
     );
 
     await assertFails(
-      authedDb('admin-1').collection('users').doc('admin-1').update({
+      envCollection(authedDb('admin-1'), 'users').doc('admin-1').update({
         role: 'member',
       }),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('users').doc('admin-1').update({
+      envCollection(authedDb('admin-1'), 'users').doc('admin-1').update({
         displayName: 'Admin One Updated',
       }),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('users').doc('user-plain').update({
+      envCollection(authedDb('admin-1'), 'users').doc('user-plain').update({
         role: 'member',
       }),
     );
 
     await assertSucceeds(
-      authedDb('user-plain').collection('users').doc('user-plain').update({
+      envCollection(authedDb('user-plain'), 'users').doc('user-plain').update({
         photoUrl: 'https://example.com/user.jpg',
       }),
     );
 
     await assertSucceeds(
-      authedDb('member-1').collection('users').doc('member-1').update({
+      envCollection(authedDb('member-1'), 'users').doc('member-1').update({
         photoUrl: 'https://example.com/member.jpg',
       }),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('users').doc('admin-1').update({
+      envCollection(authedDb('admin-1'), 'users').doc('admin-1').update({
         photoUrl: 'https://example.com/admin.jpg',
       }),
     );
 
     await assertSucceeds(
-      authedDb('operator-1').collection('users').doc('operator-1').update({
+      envCollection(authedDb('operator-1'), 'users').doc('operator-1').update({
         photoUrl: 'https://example.com/operator.jpg',
       }),
     );
 
     await assertFails(
-      authedDb('user-plain').collection('users').doc('user-plain').update({
+      envCollection(authedDb('user-plain'), 'users').doc('user-plain').update({
         role: 'admin',
       }),
     );
 
     await assertFails(
-      authedDb('operator-1').collection('users').doc('user-new').get(),
+      envCollection(authedDb('operator-1'), 'users').doc('user-new').get(),
     );
 
     await assertSucceeds(
-      authedDb('member-1')
-        .collection('news')
+      envCollection(authedDb('member-1'), 'news')
         .where('isPublished', '==', true)
         .get(),
     );
 
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await context.firestore().collection('news').doc('news-published').set({
+      await envCollection(context.firestore(), 'news').doc('news-published').set({
         title: 'Evento publicado',
         summary: 'Resumen',
         body: 'Cuerpo',
@@ -180,7 +184,7 @@ async function runTests() {
         updatedAt: new Date(),
         isPublished: true,
       });
-      await context.firestore().collection('news').doc('news-draft').set({
+      await envCollection(context.firestore(), 'news').doc('news-draft').set({
         title: 'Evento borrador',
         summary: 'Resumen',
         body: 'Cuerpo',
@@ -192,48 +196,45 @@ async function runTests() {
     });
 
     await assertSucceeds(
-      authedDb('member-1').collection('news').doc('news-published').get(),
+      envCollection(authedDb('member-1'), 'news').doc('news-published').get(),
     );
 
     await assertSucceeds(
-      authedDb('operator-1').collection('news').doc('news-published').get(),
+      envCollection(authedDb('operator-1'), 'news').doc('news-published').get(),
     );
 
     await assertFails(
-      authedDb('operator-1').collection('news').doc('news-draft').get(),
+      envCollection(authedDb('operator-1'), 'news').doc('news-draft').get(),
     );
 
     await assertFails(
-      authedDb('member-1').collection('news').doc('news-draft').get(),
+      envCollection(authedDb('member-1'), 'news').doc('news-draft').get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('news').doc('news-draft').get(),
+      envCollection(authedDb('admin-1'), 'news').doc('news-draft').get(),
     );
 
     await assertSucceeds(
-      authedDb('member-1')
-        .collection('news')
+      envCollection(authedDb('member-1'), 'news')
         .where('isPublished', '==', true)
         .get(),
     );
 
     await assertSucceeds(
-      authedDb('operator-1')
-        .collection('news')
+      envCollection(authedDb('operator-1'), 'news')
         .where('isPublished', '==', true)
         .get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1')
-        .collection('news')
+      envCollection(authedDb('admin-1'), 'news')
         .orderBy('eventDate', 'desc')
         .get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('news').doc('news-new').set({
+      envCollection(authedDb('admin-1'), 'news').doc('news-new').set({
         title: 'Nuevo evento',
         summary: 'Resumen',
         body: 'Cuerpo',
@@ -245,7 +246,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('member-1').collection('news').doc('news-blocked').set({
+      envCollection(authedDb('member-1'), 'news').doc('news-blocked').set({
         title: 'Bloqueado',
         summary: 'Resumen',
         body: 'Cuerpo',
@@ -257,7 +258,7 @@ async function runTests() {
     );
 
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await context.firestore().collection('businesses').doc('biz-001').set({
+      await envCollection(context.firestore(), 'businesses').doc('biz-001').set({
         name: 'Cafe Test',
         description: 'Desc',
         address: 'Addr',
@@ -270,11 +271,11 @@ async function runTests() {
     });
 
     await assertSucceeds(
-      authedDb('member-1').collection('businesses').doc('biz-001').get(),
+      envCollection(authedDb('member-1'), 'businesses').doc('biz-001').get(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('businesses').doc('biz-new').set({
+      envCollection(authedDb('admin-1'), 'businesses').doc('biz-new').set({
         name: 'New Biz',
         description: 'Desc',
         address: 'Addr',
@@ -287,7 +288,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('member-1').collection('businesses').doc('biz-new-2').set({
+      envCollection(authedDb('member-1'), 'businesses').doc('biz-new-2').set({
         name: 'Blocked',
         description: 'Desc',
         address: 'Addr',
@@ -300,23 +301,23 @@ async function runTests() {
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('news').doc('news-published').delete(),
+      envCollection(authedDb('admin-1'), 'news').doc('news-published').delete(),
     );
 
     await assertFails(
-      authedDb('member-1').collection('news').doc('news-draft').delete(),
+      envCollection(authedDb('member-1'), 'news').doc('news-draft').delete(),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('businesses').doc('biz-001').delete(),
+      envCollection(authedDb('admin-1'), 'businesses').doc('biz-001').delete(),
     );
 
     await assertFails(
-      authedDb('member-1').collection('businesses').doc('biz-new').delete(),
+      envCollection(authedDb('member-1'), 'businesses').doc('biz-new').delete(),
     );
 
     await assertSucceeds(
-      authedDb('operator-1').collection('visits').doc('visit-1').set({
+      envCollection(authedDb('operator-1'), 'visits').doc('visit-1').set({
         userId: 'member-1',
         businessId: 'biz-001',
         visitedAt: new Date(),
@@ -328,7 +329,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('operator-1').collection('visits').doc('visit-self').set({
+      envCollection(authedDb('operator-1'), 'visits').doc('visit-self').set({
         userId: 'operator-1',
         businessId: 'biz-001',
         visitedAt: new Date(),
@@ -340,7 +341,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('operator-1').collection('visits').doc('visit-colleague').set({
+      envCollection(authedDb('operator-1'), 'visits').doc('visit-colleague').set({
         userId: 'operator-2',
         businessId: 'biz-001',
         visitedAt: new Date(),
@@ -352,7 +353,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('operator-1').collection('visits').doc('visit-2').set({
+      envCollection(authedDb('operator-1'), 'visits').doc('visit-2').set({
         userId: 'member-1',
         businessId: 'biz-other',
         visitedAt: new Date(),
@@ -364,15 +365,15 @@ async function runTests() {
     );
 
     await assertSucceeds(
-      authedDb('operator-1').collection('visits').doc('visit-1').get(),
+      envCollection(authedDb('operator-1'), 'visits').doc('visit-1').get(),
     );
 
     await assertFails(
-      authedDb('member-1').collection('visits').doc('visit-1').get(),
+      envCollection(authedDb('member-1'), 'visits').doc('visit-1').get(),
     );
 
     await assertSucceeds(
-      authedDb('member-1').collection('payments').doc('pay-self').set({
+      envCollection(authedDb('member-1'), 'payments').doc('pay-self').set({
         userId: 'member-1',
         modality: 'official',
         amount: 5,
@@ -382,7 +383,7 @@ async function runTests() {
     );
 
     await assertFails(
-      authedDb('member-1').collection('payments').doc('pay-other').set({
+      envCollection(authedDb('member-1'), 'payments').doc('pay-other').set({
         userId: 'user-plain',
         modality: 'official',
         amount: 5,
@@ -392,7 +393,7 @@ async function runTests() {
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('payments').doc('pay-admin').set({
+      envCollection(authedDb('admin-1'), 'payments').doc('pay-admin').set({
         userId: 'member-1',
         modality: 'official',
         amount: 5,
@@ -402,15 +403,15 @@ async function runTests() {
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('payments').doc('pay-admin').get(),
+      envCollection(authedDb('admin-1'), 'payments').doc('pay-admin').get(),
     );
 
     await assertSucceeds(
-      authedDb('member-1').collection('payments').doc('pay-admin').get(),
+      envCollection(authedDb('member-1'), 'payments').doc('pay-admin').get(),
     );
 
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await context.firestore().collection('payments').doc('pay-other-user').set({
+      await envCollection(context.firestore(), 'payments').doc('pay-other-user').set({
         userId: 'user-plain',
         modality: 'official',
         amount: 5,
@@ -420,37 +421,53 @@ async function runTests() {
     });
 
     await assertFails(
-      authedDb('member-1').collection('payments').doc('pay-other-user').get(),
+      envCollection(authedDb('member-1'), 'payments').doc('pay-other-user').get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'payments').doc('pay-self').delete(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'payments').doc('pay-other-user').delete(),
     );
 
     await seedUser('coach-1', { role: 'coach' });
 
     await assertSucceeds(
-      authedDb('member-1').collection('club_settings').doc('training_schedule').get(),
+      envCollection(authedDb('member-1'), 'club_settings')
+        .doc('training_schedule')
+        .get(),
     );
 
     await assertSucceeds(
-      authedDb('coach-1').collection('club_settings').doc('training_schedule').set({
-        location: 'Jelen Tenka',
-        venue: 'Quito',
-        sections: [],
-      }),
+      envCollection(authedDb('coach-1'), 'club_settings')
+        .doc('training_schedule')
+        .set({
+          location: 'Jelen Tenka',
+          venue: 'Quito',
+          sections: [],
+        }),
     );
 
     await assertFails(
-      authedDb('member-1').collection('club_settings').doc('training_schedule').set({
-        location: 'Hack',
-        venue: 'Hack',
-        sections: [],
-      }),
+      envCollection(authedDb('member-1'), 'club_settings')
+        .doc('training_schedule')
+        .set({
+          location: 'Hack',
+          venue: 'Hack',
+          sections: [],
+        }),
     );
 
     await assertSucceeds(
-      authedDb('admin-1').collection('club_settings').doc('training_schedule').set({
-        location: 'Jelen Tenka',
-        venue: 'Quito',
-        sections: [],
-      }),
+      envCollection(authedDb('admin-1'), 'club_settings')
+        .doc('training_schedule')
+        .set({
+          location: 'Jelen Tenka',
+          venue: 'Quito',
+          sections: [],
+        }),
     );
 
     console.log('All Firestore rules tests passed.');

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../config/firebase_paths.dart';
 import '../models/business_model.dart';
 import '../models/membership_status.dart';
 import '../models/user_model.dart';
@@ -58,22 +59,25 @@ class VisitService implements VisitServiceBase {
   final FirebaseFirestore _firestore;
   final QRService _qrService;
 
-  static const _visitsCollection = 'visits';
-  static const _usersCollection = 'users';
-  static const _businessesCollection = 'businesses';
+  CollectionReference<Map<String, dynamic>> get _visits =>
+      FirebasePaths.collection(_firestore, 'visits');
+
+  CollectionReference<Map<String, dynamic>> get _users =>
+      FirebasePaths.collection(_firestore, 'users');
+
+  CollectionReference<Map<String, dynamic>> get _businesses =>
+      FirebasePaths.collection(_firestore, 'businesses');
 
   @override
   Stream<List<VisitModel>> watchVisitsForBusiness(String businessId) {
-    return _firestore
-        .collection(_visitsCollection)
+    return _visits
         .where('businessId', isEqualTo: businessId)
         .snapshots()
         .map(_mapVisitSnapshot);
   }
 
   Stream<List<VisitModel>> watchAllVisits() {
-    return _firestore
-        .collection(_visitsCollection)
+    return _visits
         .snapshots()
         .map(_mapVisitSnapshot);
   }
@@ -94,8 +98,7 @@ class VisitService implements VisitServiceBase {
   }) async {
     final payload = _qrService.parsePayload(rawQrValue);
 
-    final userSnapshot =
-        await _firestore.collection(_usersCollection).doc(payload.userId).get();
+    final userSnapshot = await _users.doc(payload.userId).get();
 
     if (!userSnapshot.exists) {
       return ScanValidationResult(
@@ -135,8 +138,7 @@ class VisitService implements VisitServiceBase {
       );
     }
 
-    final businessSnapshot =
-        await _firestore.collection(_businessesCollection).doc(businessId).get();
+    final businessSnapshot = await _businesses.doc(businessId).get();
     final business = businessSnapshot.exists
         ? BusinessModel.fromFirestore(businessSnapshot)
         : null;
@@ -236,7 +238,7 @@ class VisitService implements VisitServiceBase {
     required ValidationResult validationResult,
     String? benefitUsed,
   }) async {
-    final visitRef = _firestore.collection(_visitsCollection).doc();
+    final visitRef = _visits.doc();
     final visit = VisitModel(
       id: visitRef.id,
       userId: member.id,

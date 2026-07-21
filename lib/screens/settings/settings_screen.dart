@@ -50,6 +50,18 @@ class SettingsScreen extends StatelessWidget {
                   const _PushNotificationsTile(),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
+                    'Contacto',
+                    style: AppTypography.sectionTitle(context),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ProfileActionTile(
+                    icon: Icons.support_agent_outlined,
+                    title: 'Contacto SAINTS',
+                    subtitle: AppConstants.supportWhatsAppDisplay,
+                    onTap: () => context.push('/settings/contact'),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
                     'Legal',
                     style: AppTypography.sectionTitle(context),
                   ),
@@ -114,7 +126,7 @@ class _PushNotificationsTile extends StatelessWidget {
           style: AppTypography.title(context, weight: FontWeight.w600),
         ),
         subtitle: Text(
-          'Recibe alertas cuando se publique contenido nuevo',
+          'Avisos de nuevas marcas aliadas y eventos de la comunidad',
           style: AppTypography.caption(context),
         ),
         value: preferences.enabled,

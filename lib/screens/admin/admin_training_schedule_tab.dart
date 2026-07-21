@@ -10,7 +10,9 @@ import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/constants.dart';
 import '../../utils/schedule_helpers.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/haptic_controls.dart';
+import '../../widgets/modern_text_field.dart';
 import '../../widgets/schedule_card.dart';
 
 class AdminTrainingScheduleTab extends StatefulWidget {
@@ -107,14 +109,13 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
         ),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Horarios publicados.')),
-        );
+        AppSnackBar.show(context, 'Horarios publicados correctamente.');
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudieron guardar los horarios.')),
+        AppSnackBar.show(
+          context,
+          'No se pudieron guardar los horarios.',
         );
       }
     } finally {
@@ -130,41 +131,84 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
     );
     final venueController = TextEditingController(text: _venueController.text);
 
-    final saved = await showDialog<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ubicación'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: locationController,
-              decoration: const InputDecoration(
-                labelText: 'Lugar',
-                hintText: 'Ej. Jelen Tenka',
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final palette = sheetContext.palette;
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: palette.bottomSheetBackground,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppSpacing.radiusLg),
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: venueController,
-              decoration: const InputDecoration(
-                labelText: 'Ciudad / sede',
-                hintText: 'Ej. Santo Domingo',
-              ),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.lg,
             ),
-          ],
-        ),
-        actions: [
-          HapticTextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: palette.inputBorder,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Ubicación del club',
+                  style: AppTypography.sectionTitle(sheetContext),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Así se verá en la vista pública de horarios.',
+                  style: AppTypography.muted(sheetContext),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ModernTextField(
+                  controller: locationController,
+                  labelText: 'Ciudad / región',
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ModernTextField(
+                  controller: venueController,
+                  labelText: 'Sede / lugar',
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                PrimaryButton(
+                  label: 'Guardar ubicación',
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                HapticTextButton(
+                  onPressed: () => Navigator.pop(sheetContext, false),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: palette.textMuted),
+                  ),
+                ),
+              ],
+            ),
           ),
-          HapticFilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Listo'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (saved == true && mounted) {
@@ -248,13 +292,51 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
                 onTap: _isSaving ? null : AppHaptics.wrap(_editVenue),
                 enableFeedback: false,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                child: ScheduleLocationBanner(
-                  location: _locationController.text.trim().isEmpty
-                      ? AppConstants.clubLocation
-                      : _locationController.text.trim(),
-                  venue: _venueController.text.trim().isEmpty
-                      ? AppConstants.clubVenue
-                      : _venueController.text.trim(),
+                child: Stack(
+                  children: [
+                    ScheduleLocationBanner(
+                      location: _locationController.text.trim().isEmpty
+                          ? AppConstants.clubLocation
+                          : _locationController.text.trim(),
+                      venue: _venueController.text.trim().isEmpty
+                          ? AppConstants.clubVenue
+                          : _venueController.text.trim(),
+                    ),
+                    Positioned(
+                      top: AppSpacing.sm,
+                      right: AppSpacing.sm,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.cardBackground.withValues(alpha: 0.92),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSm),
+                          border: Border.all(color: palette.cardBorder),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.edit_location_alt_outlined,
+                              size: 14,
+                              color: palette.accentPrimary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Editar',
+                              style: AppTypography.micro(
+                                context,
+                                color: palette.accentPrimary,
+                              ).copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -286,27 +368,22 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
             AppSpacing.md,
           ),
           decoration: BoxDecoration(
-            color: palette.cardBackground,
+            color: palette.scaffoldBackground,
             border: Border(top: BorderSide(color: palette.cardBorder)),
+            boxShadow: [
+              BoxShadow(
+                color: palette.navBarShadow,
+                blurRadius: 12,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
           child: SafeArea(
             top: false,
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isSaving ? null : AppHaptics.wrap(_save),
-                icon: _isSaving
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: palette.accentPrimary,
-                        ),
-                      )
-                    : const Icon(Icons.publish_rounded, size: 18),
-                label: Text(_isSaving ? 'Publicando...' : 'Publicar cambios'),
-              ),
+            child: PrimaryButton(
+              label: _isSaving ? 'Publicando...' : 'Publicar cambios',
+              isLoading: _isSaving,
+              onPressed: _isSaving ? null : _save,
             ),
           ),
         ),
@@ -388,179 +465,368 @@ class _AdminSectionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final preview = editor.toSection();
+    final title = preview.title.isEmpty ? 'Modalidad ${index + 1}' : preview.title;
+    final icon = ScheduleHelpers.iconFor(editor.iconName);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: palette.cardBackground,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: AppHaptics.wrap(onToggle),
-          enableFeedback: false,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: palette.cardBackground,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: isExpanded ? palette.accentPrimary : palette.cardBorder,
+            width: isExpanded ? 1.5 : 1,
+          ),
+          boxShadow: isExpanded
+              ? [
+                  BoxShadow(
+                    color: palette.accentPrimary.withValues(alpha: 0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : palette.softShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.sm,
-                  AppSpacing.sm,
-                  AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      ScheduleHelpers.iconFor(editor.iconName),
-                      size: 18,
-                      color: palette.accentPrimary,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        preview.title.isEmpty
-                            ? 'Modalidad ${index + 1}'
-                            : preview.title,
-                        style: AppTypography.title(context),
-                      ),
-                    ),
-                    Icon(
-                      isExpanded
-                          ? Icons.expand_less_rounded
-                          : Icons.edit_outlined,
-                      size: 20,
-                      color: palette.textMuted,
-                    ),
-                  ],
+              Container(
+                height: 3,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: AppConstants.brandGradientAccentColors,
+                  ),
                 ),
               ),
-              if (!isExpanded) ...[
-                if (preview.subtitle.isNotEmpty)
-                  Padding(
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: AppHaptics.wrap(onToggle),
+                  enableFeedback: false,
+                  child: Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.md,
-                      0,
                       AppSpacing.md,
-                      AppSpacing.xs,
+                      AppSpacing.md,
+                      AppSpacing.sm,
                     ),
-                    child: Text(
-                      preview.subtitle,
-                      style: AppTypography.caption(context),
-                    ),
-                  ),
-                if (preview.lines.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md,
-                      0,
-                      AppSpacing.md,
-                      AppSpacing.md,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: preview.lines.take(2).map((line) {
-                        final parsed = ScheduleHelpers.parseLine(line);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            parsed.secondary != null
-                                ? '${parsed.primary} · ${parsed.secondary}'
-                                : parsed.primary,
-                            style: AppTypography.caption(
-                              context,
-                              color: palette.textMuted,
-                            ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          decoration: BoxDecoration(
+                            color: palette.accentPrimary.withValues(alpha: 0.1),
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusSm),
                           ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-              ],
-              if (isExpanded) ...[
-                Divider(height: 1, color: palette.cardBorder),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: editor.titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Título',
-                          isDense: true,
+                          child: Icon(
+                            icon,
+                            size: 20,
+                            color: palette.accentPrimary,
+                          ),
                         ),
-                        onChanged: (_) => onChanged(),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextField(
-                        controller: editor.subtitleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Descripción breve',
-                          isDense: true,
-                        ),
-                        onChanged: (_) => onChanged(),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Horarios',
-                        style: AppTypography.caption(
-                          context,
-                          color: palette.textMuted,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      ...editor.lineControllers.asMap().entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                          child: Row(
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: entry.value,
-                                  decoration: InputDecoration(
-                                    hintText: entry.key == 0
-                                        ? 'Ej. Martes y jueves · 7:00 p.m.'
-                                        : 'Ej. Jelen Tenka',
-                                    isDense: true,
-                                  ),
-                                  onChanged: (_) => onChanged(),
+                              Text(title, style: AppTypography.title(context)),
+                              if (preview.subtitle.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  preview.subtitle,
+                                  style: AppTypography.muted(context),
+                                  maxLines: isExpanded ? 2 : 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isExpanded
+                                ? palette.accentPrimary.withValues(alpha: 0.12)
+                                : palette.inputFill,
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusSm),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isExpanded
+                                    ? Icons.expand_less_rounded
+                                    : Icons.edit_outlined,
+                                size: 16,
+                                color: isExpanded
+                                    ? palette.accentPrimary
+                                    : palette.textMuted,
                               ),
-                              HapticIconButton(
-                                onPressed: editor.lineControllers.length > 1
-                                    ? AppHaptics.wrap(() {
-                                        editor.removeLine(entry.key);
-                                        onChanged();
-                                      })
-                                    : null,
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  size: 18,
-                                  color: palette.textMuted,
-                                ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isExpanded ? 'Cerrar' : 'Editar',
+                                style: AppTypography.micro(
+                                  context,
+                                  color: isExpanded
+                                      ? palette.accentPrimary
+                                      : palette.textMuted,
+                                ).copyWith(fontWeight: FontWeight.w600),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: HapticTextButtonIcon(
-                          onPressed: () {
-                            editor.addLine();
-                            onChanged();
-                          },
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Agregar línea'),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ],
+              ),
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 220),
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstCurve: Curves.easeOutCubic,
+                secondCurve: Curves.easeOutCubic,
+                sizeCurve: Curves.easeOutCubic,
+                firstChild: _CollapsedSchedulePreview(lines: preview.lines),
+                secondChild: _ExpandedScheduleEditor(
+                  editor: editor,
+                  onChanged: onChanged,
+                ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CollapsedSchedulePreview extends StatelessWidget {
+  const _CollapsedSchedulePreview({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    if (lines.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        child: Text(
+          'Sin líneas de horario. Toca Editar para agregar.',
+          style: AppTypography.caption(context),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines.take(3).map((line) {
+          final parsed = ScheduleHelpers.parseLine(line);
+          final icon = parsed.isTimeSlot
+              ? Icons.calendar_today_rounded
+              : parsed.isLocation
+                  ? Icons.place_outlined
+                  : Icons.notes_rounded;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 14, color: palette.accentPrimary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    parsed.secondary != null
+                        ? '${parsed.primary} · ${parsed.secondary}'
+                        : parsed.primary,
+                    style: AppTypography.caption(context),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ExpandedScheduleEditor extends StatelessWidget {
+  const _ExpandedScheduleEditor({
+    required this.editor,
+    required this.onChanged,
+  });
+
+  final _SectionEditor editor;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Divider(height: 1, color: palette.cardBorder),
+          const SizedBox(height: AppSpacing.md),
+          ModernTextField(
+            controller: editor.titleController,
+            labelText: 'Título',
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => onChanged(),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ModernTextField(
+            controller: editor.subtitleController,
+            labelText: 'Descripción breve',
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => onChanged(),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Horarios',
+            style: AppTypography.title(context),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Usa el formato "Días · Hora" en la primera línea cuando aplique.',
+            style: AppTypography.caption(context, color: palette.textMuted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...editor.lineControllers.asMap().entries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: _ScheduleLineEditorRow(
+                controller: entry.value,
+                index: entry.key,
+                canRemove: editor.lineControllers.length > 1,
+                onChanged: onChanged,
+                onRemove: () {
+                  editor.removeLine(entry.key);
+                  onChanged();
+                },
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: AppHaptics.wrap(() {
+              editor.addLine();
+              onChanged();
+            }),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Agregar línea'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleLineEditorRow extends StatelessWidget {
+  const _ScheduleLineEditorRow({
+    required this.controller,
+    required this.index,
+    required this.canRemove,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final TextEditingController controller;
+  final int index;
+  final bool canRemove;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final parsed = ScheduleHelpers.parseLine(controller.text);
+
+    IconData lineIcon;
+    if (parsed.isTimeSlot) {
+      lineIcon = Icons.calendar_today_rounded;
+    } else if (parsed.isLocation) {
+      lineIcon = Icons.place_outlined;
+    } else {
+      lineIcon = Icons.notes_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: palette.inputFill,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.inputBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: palette.accentPrimary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(lineIcon, size: 16, color: palette.accentPrimary),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: ModernTextField(
+              controller: controller,
+              labelText: index == 0 ? 'Horario principal' : 'Línea ${index + 1}',
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => onChanged(),
+            ),
+          ),
+          HapticIconButton(
+            onPressed: canRemove ? AppHaptics.wrap(onRemove) : null,
+            icon: Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: canRemove ? palette.textMuted : palette.inputBorder,
+            ),
+          ),
+        ],
       ),
     );
   }

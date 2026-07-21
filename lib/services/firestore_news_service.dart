@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../config/firebase_paths.dart';
 import '../models/news_model.dart';
 import '../utils/helpers.dart';
 import 'news_service.dart';
@@ -15,10 +16,8 @@ class FirestoreNewsService implements NewsService {
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  static const _collection = 'news';
-
   CollectionReference<Map<String, dynamic>> get _news =>
-      _firestore.collection(_collection);
+      FirebasePaths.collection(_firestore, 'news');
 
   @override
   Stream<List<NewsModel>> watchPublishedNews() {
@@ -105,7 +104,10 @@ class FirestoreNewsService implements NewsService {
     await _news.doc(id).delete();
 
     try {
-      await _storage.ref().child('news/$id/cover.jpg').delete();
+      await FirebasePaths.storageRef(
+        _storage,
+        'news/$id/cover.jpg',
+      ).delete();
     } catch (_) {
       // Cover may not exist.
     }

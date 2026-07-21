@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'config/app_environment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/admin_business_provider.dart';
 import 'providers/admin_news_provider.dart';
 import 'providers/admin_provider.dart';
+import 'providers/app_update_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/business_provider.dart';
 import 'providers/news_provider.dart';
@@ -30,6 +32,8 @@ import 'screens/business/business_detail_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/news/news_detail_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/onboarding/notifications_onboarding_screen.dart';
+import 'screens/settings/contact_screen.dart';
 import 'screens/settings/delete_account_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'services/business_service.dart';
@@ -39,13 +43,18 @@ import 'services/news_service.dart';
 import 'services/notification_service.dart';
 import 'services/user_service.dart';
 import 'services/visit_service.dart';
-import 'theme/app_theme.dart';
+import '../theme/app_theme.dart';
+import 'widgets/app_startup_loading.dart';
+import 'widgets/environment_banner.dart';
+import 'widgets/force_update_gate.dart';
+import 'widgets/router_error_screen.dart';
 
 class RunningDartApp extends StatefulWidget {
   const RunningDartApp({
     super.key,
     required this.authProvider,
     required this.themeProvider,
+    this.appUpdateProvider,
     this.notificationService,
     this.sharedPreferences,
     this.adminProvider,
@@ -58,6 +67,7 @@ class RunningDartApp extends StatefulWidget {
 
   final AuthProvider authProvider;
   final ThemeProvider themeProvider;
+  final AppUpdateProvider? appUpdateProvider;
   final NotificationService? notificationService;
   final SharedPreferences? sharedPreferences;
   final AdminProvider? adminProvider;
@@ -78,17 +88,12 @@ class _RunningDartAppState extends State<RunningDartApp> {
   late final AdminBusinessProvider _adminBusinessProvider;
   late final AdminNewsProvider _adminNewsProvider;
   late final VisitProvider _visitProvider;
+  late final AppUpdateProvider _appUpdateProvider;
   late final NotificationPreferencesProvider? _notificationPreferencesProvider;
   late final GoRouter _router;
 
   String _initialLocation(AuthProvider auth) {
-    if (auth.canAccessApp) {
-      return '/home';
-    }
-    if (auth.isAccountDisabled) {
-      return '/account-disabled';
-    }
-    return '/login';
+    return auth.postAuthRoute;
   }
 
   bool _isAdminRoute(String location) {
@@ -107,6 +112,8 @@ class _RunningDartAppState extends State<RunningDartApp> {
     _adminNewsProvider =
         widget.adminNewsProvider ?? AdminNewsProvider(_newsService);
     _visitProvider = widget.visitProvider ?? VisitProvider(VisitService());
+    _appUpdateProvider =
+        widget.appUpdateProvider ?? AppUpdateProvider.notRequired();
     if (widget.notificationService != null && widget.sharedPreferences != null) {
       _notificationPreferencesProvider = NotificationPreferencesProvider(
         widget.sharedPreferences!,
@@ -118,15 +125,22 @@ class _RunningDartAppState extends State<RunningDartApp> {
 
     _router = GoRouter(
       initialLocation: _initialLocation(widget.authProvider),
-      refreshListenable: widget.authProvider,
+      refreshListenable: Listenable.merge([
+        widget.authProvider,
+        if (_notificationPreferencesProvider != null)
+          _notificationPreferencesProvider,
+      ]),
+      errorBuilder: (context, state) => RouterErrorScreen(error: state.error),
       redirect: (context, state) {
         final auth = widget.authProvider;
         final location = state.matchedLocation;
         final isAuthRoute =
             location == '/login' || location == '/register';
+        final isOnboardingRoute = location == '/onboarding/notifications';
         final isDisabledRoute = location == '/account-disabled';
         final isProtectedRoute = location == '/home' ||
             location == '/settings' ||
+            location == '/settings/contact' ||
             location == '/settings/delete-account' ||
             location == '/profile' ||
             location == '/membership-pending' ||
@@ -150,6 +164,24 @@ class _RunningDartAppState extends State<RunningDartApp> {
           return '/account-disabled';
         }
 
+        final notifications = _notificationPreferencesProvider;
+        if (notifications != null &&
+            notifications.onboardingPending &&
+            !isOnboardingRoute) {
+          return '/onboarding/notifications';
+        }
+
+        if (auth.isMembershipPending) {
+          if (location == '/membership-pending') {
+            return null;
+          }
+          return '/membership-pending';
+        }
+
+        if (location == '/membership-pending') {
+          return '/home';
+        }
+
         if (_isAdminRoute(location) && !auth.canAccessAdminPanel) {
           if (location == '/admin/training-schedule' &&
               auth.canManageSchedules) {
@@ -162,9 +194,19 @@ class _RunningDartAppState extends State<RunningDartApp> {
           return '/home';
         }
 
+        if (isOnboardingRoute) {
+          return null;
+        }
+
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/onboarding/notifications',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: NotificationsOnboardingScreen(),
+          ),
+        ),
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
@@ -204,6 +246,10 @@ class _RunningDartAppState extends State<RunningDartApp> {
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/settings/contact',
+          builder: (context, state) => const ContactScreen(),
         ),
         GoRoute(
           path: '/settings/delete-account',
@@ -289,6 +335,7 @@ class _RunningDartAppState extends State<RunningDartApp> {
       providers: [
         ChangeNotifierProvider.value(value: widget.themeProvider),
         ChangeNotifierProvider.value(value: widget.authProvider),
+        ChangeNotifierProvider.value(value: _appUpdateProvider),
         ChangeNotifierProvider(
           create: (_) => BusinessProvider(_businessService),
         ),
@@ -307,7 +354,7 @@ class _RunningDartAppState extends State<RunningDartApp> {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           return MaterialApp.router(
-            title: 'SAINTS',
+            title: AppEnvironment.appTitle,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
@@ -315,9 +362,13 @@ class _RunningDartAppState extends State<RunningDartApp> {
             routerConfig: _router,
             builder: (context, child) {
               final brightness = Theme.of(context).brightness;
-              return AnnotatedRegion<SystemUiOverlayStyle>(
-                value: AppTheme.systemOverlayStyle(brightness),
-                child: child ?? const SizedBox.shrink(),
+              return ForceUpdateGate(
+                child: EnvironmentBanner(
+                  child: AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: AppTheme.systemOverlayStyle(brightness),
+                    child: child ?? const AppStartupLoading(),
+                  ),
+                ),
               );
             },
           );

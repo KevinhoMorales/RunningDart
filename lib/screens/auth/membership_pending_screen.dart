@@ -11,6 +11,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/receipt_upload_helper.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/modern_text_field.dart';
 
@@ -26,6 +27,25 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
   final _paymentService = PaymentService();
   final _picker = ImagePicker();
   bool _isUploading = false;
+
+  Future<void> _handleRefresh() async {
+    await context.read<AuthProvider>().refreshAccountStatus();
+    if (!mounted) {
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    if (!auth.isMembershipPending && auth.canAccessApp) {
+      context.go('/home');
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    await context.read<AuthProvider>().logout();
+    if (mounted) {
+      context.go('/login');
+    }
+  }
 
   Future<void> _uploadReceipt() async {
     final auth = context.read<AuthProvider>();
@@ -48,18 +68,16 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
         receiptFile: file,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Comprobante enviado. SAINTS lo revisará pronto.'),
-          ),
+        AppSnackBar.show(
+          context,
+          'Comprobante enviado. SAINTS lo revisará pronto.',
         );
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo subir el comprobante. Intenta de nuevo.'),
-          ),
+        AppSnackBar.show(
+          context,
+          'No se pudo subir el comprobante. Intenta de nuevo.',
         );
       }
     } finally {
@@ -113,7 +131,7 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'Estamos revisando tu membresía',
+                    'Estamos esperando tu verificación',
                     textAlign: TextAlign.center,
                     style: AppTypography.sectionTitle(context),
                   ),
@@ -125,7 +143,8 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'SAINTS validará tu comprobante y activará tu credencial digital con QR cuando apruebe tu solicitud.',
+                    'SAINTS revisará tu solicitud y comprobante de pago. '
+                    'Te avisaremos cuando activemos tu credencial digital con QR.',
                     textAlign: TextAlign.center,
                     style: AppTypography.muted(context).copyWith(height: 1.45),
                   ),
@@ -202,14 +221,13 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
             ],
             const Spacer(),
             PrimaryButton(
-              label: 'Explorar la app',
-              onPressed: () => context.go('/home'),
+              label: 'Revisar estado',
+              isLoading: auth.isLoading,
+              onPressed: auth.isLoading ? null : _handleRefresh,
             ),
             const SizedBox(height: AppSpacing.sm),
             OutlinedButton(
-              onPressed: AppHaptics.wrap(
-                () => context.read<AuthProvider>().logout(),
-              ),
+              onPressed: auth.isLoading ? null : AppHaptics.wrap(_handleLogout),
               child: const Text('Cerrar sesión'),
             ),
           ],

@@ -10,22 +10,43 @@ class NotificationPreferencesProvider extends ChangeNotifier {
     this._prefs,
     this._notificationService,
   ) {
-    _enabled =
-        _prefs.getBool(AppConstants.pushNotificationsEnabledKey) ?? true;
+    _loadFromPrefs();
   }
 
   NotificationPreferencesProvider.test(this._prefs)
       : _notificationService = null {
-    _enabled =
-        _prefs.getBool(AppConstants.pushNotificationsEnabledKey) ?? true;
+    _loadFromPrefs();
   }
 
   final SharedPreferences _prefs;
   final NotificationService? _notificationService;
 
-  bool _enabled = true;
+  bool _enabled = false;
+  bool _onboardingCompleted = false;
+  bool _onboardingPending = false;
 
   bool get enabled => _enabled;
+
+  bool get onboardingCompleted => _onboardingCompleted;
+
+  bool get onboardingPending => _onboardingPending;
+
+  Future<void> markOnboardingPending() async {
+    _onboardingPending = true;
+    await _prefs.setBool(AppConstants.notificationsOnboardingPendingKey, true);
+    notifyListeners();
+  }
+
+  Future<void> completeOnboarding({
+    required bool enabled,
+    UserModel? user,
+  }) async {
+    _onboardingPending = false;
+    _onboardingCompleted = true;
+    await _prefs.setBool(AppConstants.notificationsOnboardingPendingKey, false);
+    await _prefs.setBool(AppConstants.notificationsOnboardingCompletedKey, true);
+    await setEnabled(enabled, user: user);
+  }
 
   Future<void> setEnabled(bool value, {UserModel? user}) async {
     _enabled = value;
@@ -38,5 +59,15 @@ class NotificationPreferencesProvider extends ChangeNotifier {
       );
     }
     notifyListeners();
+  }
+
+  void _loadFromPrefs() {
+    _enabled =
+        _prefs.getBool(AppConstants.pushNotificationsEnabledKey) ?? false;
+    _onboardingCompleted =
+        _prefs.getBool(AppConstants.notificationsOnboardingCompletedKey) ??
+            false;
+    _onboardingPending =
+        _prefs.getBool(AppConstants.notificationsOnboardingPendingKey) ?? false;
   }
 }

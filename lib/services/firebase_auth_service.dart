@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../config/app_environment.dart';
+import '../config/firebase_paths.dart';
 import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
+import '../utils/user_messages.dart';
 import 'auth_service.dart';
 import 'account_deletion_service.dart';
 
@@ -30,8 +34,12 @@ class FirebaseAuthService implements AuthService {
 
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
+  String? _listeningProfileUid;
+  UserModel? _cachedUser;
+  bool _suppressProfileValidation = false;
 
-  static const _usersCollection = 'users';
+  CollectionReference<Map<String, dynamic>> get _users =>
+      FirebasePaths.collection(_firestore, 'users');
 
   @override
   Stream<UserModel?> get userChanges => _userController.stream;
@@ -47,7 +55,30 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Future<UserModel?> refreshCurrentUser() => getCurrentUser();
+  Future<UserModel?> refreshCurrentUser() => resolveStartupSession();
+
+  @override
+  Future<UserModel?> resolveStartupSession() async {
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser == null) {
+      _logStartupProfileCheck(null, found: false);
+      return null;
+    }
+
+    final documentPath =
+        FirebasePaths.firestoreUserDocumentPath(firebaseUser.uid);
+    final profile = await _fetchUserProfile(firebaseUser.uid);
+    if (profile == null) {
+      _logStartupProfileCheck(documentPath, found: false);
+      await _invalidateSessionDueToMissingProfile();
+      return null;
+    }
+
+    _logStartupProfileCheck(documentPath, found: true);
+    await _attachProfileListener(firebaseUser.uid);
+    _emitUser(profile);
+    return profile;
+  }
 
   @override
   Future<UserModel> register({
@@ -55,17 +86,40 @@ class FirebaseAuthService implements AuthService {
     required String password,
     required RegisterProfileData profile,
   }) async {
+    _suppressProfileValidation = true;
     User? firebaseUser;
+    var createdAuthUser = false;
 
     try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      try {
+        final credential = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        );
 
-      firebaseUser = credential.user;
+        firebaseUser = credential.user;
+        createdAuthUser = true;
+      } on FirebaseAuthException catch (e) {
+        if (e.code != 'email-already-in-use') {
+          throw AuthException(_mapFirebaseAuthError(e));
+        }
+
+        final credential = await _auth.signInWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        );
+        firebaseUser = credential.user;
+      }
+
       if (firebaseUser == null) {
         throw AuthException('No se pudo crear la cuenta. Intenta de nuevo.');
+      }
+
+      final existingProfile = await _fetchUserProfile(firebaseUser.uid);
+      if (existingProfile != null) {
+        throw AuthException(
+          'Ya tienes una cuenta en ${AppEnvironment.displayName} con este correo.',
+        );
       }
 
       final now = DateTime.now();
@@ -89,15 +143,9 @@ class FirebaseAuthService implements AuthService {
       );
 
       try {
-        await _firestore
-            .collection(_usersCollection)
-            .doc(firebaseUser.uid)
-            .set(user.toFirestore());
+        await _users.doc(firebaseUser.uid).set(user.toFirestore());
 
-        final snapshot = await _firestore
-            .collection(_usersCollection)
-            .doc(firebaseUser.uid)
-            .get();
+        final snapshot = await _users.doc(firebaseUser.uid).get();
 
         if (!snapshot.exists) {
           throw AuthException(
@@ -105,23 +153,30 @@ class FirebaseAuthService implements AuthService {
           );
         }
 
-        return UserModel.fromFirestore(snapshot);
+        final createdUser = UserModel.fromFirestore(snapshot);
+        await _attachProfileListener(firebaseUser.uid);
+        _emitUser(createdUser);
+        return createdUser;
       } on AuthException {
-        await firebaseUser.delete();
+        if (createdAuthUser) {
+          await firebaseUser.delete();
+        }
         rethrow;
       } on FirebaseException catch (e) {
-        await firebaseUser.delete();
+        if (createdAuthUser) {
+          await firebaseUser.delete();
+        }
         throw AuthException(_mapFirestoreError(e));
       } catch (_) {
-        await firebaseUser.delete();
+        if (createdAuthUser) {
+          await firebaseUser.delete();
+        }
         throw AuthException(
           'No se pudo crear tu perfil. Intenta de nuevo.',
         );
       }
-    } on FirebaseAuthException catch (e) {
-      throw AuthException(_mapFirebaseAuthError(e));
-    } on AuthException {
-      rethrow;
+    } finally {
+      _suppressProfileValidation = false;
     }
   }
 
@@ -130,6 +185,7 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
+    _suppressProfileValidation = true;
     try {
       final credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -143,16 +199,22 @@ class FirebaseAuthService implements AuthService {
 
       final profile = await _fetchUserProfile(firebaseUser.uid);
       if (profile == null) {
+        await _auth.signOut();
         throw AuthException(
-          'Tu perfil no está disponible. Contacta al administrador.',
+          'Tu perfil no está disponible en ${AppEnvironment.displayName}. '
+          'Regístrate en esta app para crear tu perfil.',
         );
       }
 
+      _emitUser(profile);
+      await _attachProfileListener(firebaseUser.uid);
       return profile;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
     } on FirebaseException catch (e) {
       throw AuthException(_mapFirestoreError(e));
+    } finally {
+      _suppressProfileValidation = false;
     }
   }
 
@@ -173,74 +235,180 @@ class FirebaseAuthService implements AuthService {
       throw AuthException(
         'No se pudo eliminar la cuenta. Intenta de nuevo.',
       );
-    } finally {
-      if (_auth.currentUser != null) {
-        await _auth.signOut();
-      }
+    }
+
+    if (_auth.currentUser != null) {
+      await _auth.signOut();
     }
   }
 
   Future<void> _handleAuthStateChanged(User? firebaseUser) async {
-    await _profileSubscription?.cancel();
-    _profileSubscription = null;
-
-    if (firebaseUser == null) {
-      _userController.add(null);
+    if (_suppressProfileValidation) {
       return;
     }
 
-    _profileSubscription = _firestore
-        .collection(_usersCollection)
-        .doc(firebaseUser.uid)
-        .snapshots()
-        .listen(
+    if (firebaseUser == null) {
+      // Ignora eventos null transitorios durante registro/login.
+      await Future<void>.delayed(Duration.zero);
+      if (_auth.currentUser != null) {
+        return;
+      }
+
+      await _profileSubscription?.cancel();
+      _profileSubscription = null;
+      _listeningProfileUid = null;
+      _cachedUser = null;
+      if (!_userController.isClosed) {
+        _userController.add(null);
+      }
+      return;
+    }
+
+    if (_listeningProfileUid == firebaseUser.uid &&
+        _profileSubscription != null) {
+      return;
+    }
+
+    await _syncProfileFromUid(firebaseUser.uid);
+    if (_auth.currentUser?.uid != firebaseUser.uid) {
+      return;
+    }
+
+    await _attachProfileListener(firebaseUser.uid);
+  }
+
+  Future<void> _attachProfileListener(String uid) async {
+    if (_listeningProfileUid == uid && _profileSubscription != null) {
+      return;
+    }
+
+    await _profileSubscription?.cancel();
+    _profileSubscription = null;
+    _listeningProfileUid = uid;
+
+    _profileSubscription = _users.doc(uid).snapshots().listen(
       (snapshot) {
-        if (!snapshot.exists) {
-          _userController.add(null);
+        if (_auth.currentUser?.uid != uid) {
           return;
         }
 
-        _userController.add(UserModel.fromFirestore(snapshot));
+        if (snapshot.exists) {
+          try {
+            _emitUser(UserModel.fromFirestore(snapshot));
+          } catch (error, stackTrace) {
+            debugPrint(
+              'Failed to parse user profile snapshot: $error\n$stackTrace',
+            );
+          }
+          return;
+        }
+
+        unawaited(_invalidateSessionDueToMissingProfile());
       },
-      onError: (_) {
-        _userController.add(null);
+      onError: (error, stackTrace) {
+        debugPrint('User profile listener failed: $error\n$stackTrace');
+        if (_auth.currentUser?.uid == uid) {
+          unawaited(_syncProfileFromUid(uid));
+        }
       },
     );
   }
 
-  Future<UserModel?> _fetchUserProfile(String uid) async {
-    final snapshot =
-        await _firestore.collection(_usersCollection).doc(uid).get();
-
-    if (!snapshot.exists) {
-      return null;
+  Future<void> _invalidateSessionDueToMissingProfile() async {
+    if (_suppressProfileValidation) {
+      return;
     }
 
-    return UserModel.fromFirestore(snapshot);
+    await _profileSubscription?.cancel();
+    _profileSubscription = null;
+    _listeningProfileUid = null;
+    _cachedUser = null;
+
+    if (_auth.currentUser != null) {
+      await _auth.signOut();
+    }
+
+    if (!_userController.isClosed) {
+      _userController.add(null);
+    }
+  }
+
+  void _emitUser(UserModel? user) {
+    if (user != null) {
+      _cachedUser = user;
+      if (!_userController.isClosed) {
+        _userController.add(_cachedUser);
+      }
+      return;
+    }
+
+    if (_auth.currentUser == null) {
+      _cachedUser = null;
+      if (!_userController.isClosed) {
+        _userController.add(null);
+      }
+      return;
+    }
+
+    unawaited(_invalidateSessionDueToMissingProfile());
+  }
+
+  Future<void> _syncProfileFromUid(String uid) async {
+    if (_auth.currentUser?.uid != uid) {
+      return;
+    }
+
+    final profile = await _fetchUserProfile(uid);
+    if (_auth.currentUser?.uid != uid) {
+      return;
+    }
+
+    if (profile != null) {
+      _emitUser(profile);
+      return;
+    }
+
+    await _invalidateSessionDueToMissingProfile();
+  }
+
+  Future<UserModel?> _fetchUserProfile(String uid) async {
+    try {
+      final snapshot = await _users.doc(uid).get();
+
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      return UserModel.fromFirestore(snapshot);
+    } on FirebaseException {
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   String _mapFirebaseAuthError(FirebaseAuthException exception) {
-    return switch (exception.code) {
-      'email-already-in-use' => 'Ya existe una cuenta con este correo.',
-      'invalid-email' => 'Correo inválido.',
-      'weak-password' => 'La contraseña debe tener al menos 6 caracteres.',
-      'user-not-found' ||
-      'invalid-credential' ||
-      'wrong-password' =>
-        'Correo o contraseña incorrectos.',
-      'user-disabled' => 'Esta cuenta ha sido deshabilitada.',
-      'too-many-requests' =>
-        'Demasiados intentos. Espera un momento e intenta de nuevo.',
-      _ => 'Ocurrió un error inesperado. Intenta de nuevo.',
-    };
+    return UserMessages.auth(exception);
   }
 
   String _mapFirestoreError(FirebaseException exception) {
-    return switch (exception.code) {
-      'permission-denied' =>
-        'No tienes permisos para completar esta acción.',
-      _ => 'Ocurrió un error inesperado. Intenta de nuevo.',
-    };
+    return UserMessages.firestore(exception);
+  }
+
+  void _logStartupProfileCheck(String? documentPath, {required bool found}) {
+    if (!AppEnvironment.isDev) {
+      return;
+    }
+
+    if (documentPath == null) {
+      debugPrint('[SAINTS Dev] Startup Firestore: sin Auth');
+      return;
+    }
+
+    debugPrint(
+      '[SAINTS Dev] Startup Firestore: $documentPath → '
+      '${found ? "existe" : "no existe"}',
+    );
   }
 
   void dispose() {

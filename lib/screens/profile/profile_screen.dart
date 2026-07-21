@@ -9,6 +9,8 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/helpers.dart';
+import '../../utils/constants.dart';
+import '../../utils/whatsapp_launcher.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/membership_credential_card.dart';
@@ -31,19 +33,9 @@ class ProfilePage extends StatelessWidget {
           HapticIconButton(
             onPressed: () => context.push('/settings'),
             tooltip: 'Ajustes',
-            icon: Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: palette.iconButtonBackground,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                border: Border.all(color: palette.cardBorder),
-                boxShadow: palette.iconButtonShadow,
-              ),
-              child: Icon(
-                Icons.settings_rounded,
-                size: 20,
-                color: palette.textPrimary,
-              ),
+            icon: Icon(
+              Icons.settings_rounded,
+              color: palette.textPrimary,
             ),
           ),
         ],
@@ -90,6 +82,16 @@ class ProfileScreen extends StatelessWidget {
             title: 'Horarios de entrenamiento',
             subtitle: 'Comunidad, Oficial y Pro Team',
             onTap: () => context.push('/training-schedule'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ProfileActionTile(
+            icon: Icons.groups_rounded,
+            title: 'Grupo Comunidad SAINTS',
+            subtitle: 'Avisos, coordinación y fines de semana',
+            onTap: () => launchWhatsAppGroupInviteFromContext(
+              context,
+              AppConstants.communityWhatsAppGroupUrl,
+            ),
           ),
           if (auth.isProTeamMember) ...[
             const SizedBox(height: AppSpacing.sm),

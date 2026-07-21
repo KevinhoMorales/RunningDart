@@ -13,6 +13,15 @@ initializeApp();
 
 const TOPIC_NEW_BUSINESSES = "saints_new_businesses";
 const TOPIC_NEW_EVENTS = "saints_new_events";
+const VALID_ENVIRONMENTS = new Set(["dev", "prod"]);
+
+function usersCollection(db, environment) {
+  return db.collection("environments").doc(environment).collection("users");
+}
+
+function paymentsCollection(db, environment) {
+  return db.collection("environments").doc(environment).collection("payments");
+}
 
 async function sendTopicNotification({ topic, title, body, type, id }) {
   await getMessaging().send({
@@ -42,8 +51,13 @@ async function sendTopicNotification({ topic, title, body, type, id }) {
 }
 
 exports.onBusinessCreated = onDocumentCreated(
-  "businesses/{businessId}",
+  "environments/{environment}/businesses/{businessId}",
   async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
+
     const data = event.data?.data();
     if (!data) {
       return;
@@ -62,47 +76,63 @@ exports.onBusinessCreated = onDocumentCreated(
   },
 );
 
-exports.onNewsCreated = onDocumentCreated("news/{newsId}", async (event) => {
-  const data = event.data?.data();
-  if (!data || data.isPublished !== true) {
-    return;
-  }
+exports.onNewsCreated = onDocumentCreated(
+  "environments/{environment}/news/{newsId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
 
-  const newsId = event.params.newsId;
-  const title = typeof data.title === "string" ? data.title.trim() : "";
+    const data = event.data?.data();
+    if (!data || data.isPublished !== true) {
+      return;
+    }
 
-  await sendTopicNotification({
-    topic: TOPIC_NEW_EVENTS,
-    title: "Nuevo evento",
-    body: title || "Hay un nuevo evento en SAINTS",
-    type: "news",
-    id: newsId,
-  });
-});
+    const newsId = event.params.newsId;
+    const title = typeof data.title === "string" ? data.title.trim() : "";
 
-exports.onNewsPublished = onDocumentUpdated("news/{newsId}", async (event) => {
-  const before = event.data?.before.data();
-  const after = event.data?.after.data();
+    await sendTopicNotification({
+      topic: TOPIC_NEW_EVENTS,
+      title: "Nuevo evento",
+      body: title || "Hay un nuevo evento en SAINTS",
+      type: "news",
+      id: newsId,
+    });
+  },
+);
 
-  if (!before || !after) {
-    return;
-  }
+exports.onNewsPublished = onDocumentUpdated(
+  "environments/{environment}/news/{newsId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
 
-  if (before.isPublished === true || after.isPublished !== true) {
-    return;
-  }
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
 
-  const newsId = event.params.newsId;
-  const title = typeof after.title === "string" ? after.title.trim() : "";
+    if (!before || !after) {
+      return;
+    }
 
-  await sendTopicNotification({
-    topic: TOPIC_NEW_EVENTS,
-    title: "Nuevo evento",
-    body: title || "Hay un nuevo evento en SAINTS",
-    type: "news",
-    id: newsId,
-  });
-});
+    if (before.isPublished === true || after.isPublished !== true) {
+      return;
+    }
+
+    const newsId = event.params.newsId;
+    const title = typeof after.title === "string" ? after.title.trim() : "";
+
+    await sendTopicNotification({
+      topic: TOPIC_NEW_EVENTS,
+      title: "Nuevo evento",
+      body: title || "Hay un nuevo evento en SAINTS",
+      type: "news",
+      id: newsId,
+    });
+  },
+);
 
 async function deleteStoragePrefix(bucket, prefix) {
   const [files] = await bucket.getFiles({ prefix });
@@ -111,6 +141,36 @@ async function deleteStoragePrefix(bucket, prefix) {
       file.delete().catch(() => undefined),
     ),
   );
+}
+
+async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
+  const userRef = usersCollection(db, environment).doc(uid);
+  const userSnapshot = await userRef.get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError(
+      "failed-precondition",
+      "No se encontró el perfil del usuario en este ambiente.",
+    );
+  }
+
+  const paymentsSnapshot = await paymentsCollection(db, environment)
+    .where("userId", "==", uid)
+    .get();
+
+  await Promise.all(
+    paymentsSnapshot.docs.map((doc) => doc.ref.delete()),
+  );
+
+  await deleteStoragePrefix(
+    bucket,
+    `environments/${environment}/payments/${uid}/`,
+  );
+  await bucket
+    .file(`environments/${environment}/users/${uid}/profile.jpg`)
+    .delete()
+    .catch(() => undefined);
+
+  await userRef.delete();
 }
 
 exports.deleteMyAccount = onCall(async (request) => {
@@ -122,25 +182,11 @@ exports.deleteMyAccount = onCall(async (request) => {
   }
 
   const uid = request.auth.uid;
+  const environment = request.data?.environment === "dev" ? "dev" : "prod";
   const db = getFirestore();
   const bucket = getStorage().bucket();
 
-  const paymentsSnapshot = await db
-    .collection("payments")
-    .where("userId", "==", uid)
-    .get();
-
-  await Promise.all(
-    paymentsSnapshot.docs.map((doc) => doc.ref.delete()),
-  );
-
-  await deleteStoragePrefix(bucket, `payments/${uid}/`);
-  await bucket
-    .file(`users/${uid}/profile.jpg`)
-    .delete()
-    .catch(() => undefined);
-
-  await db.collection("users").doc(uid).delete();
+  await deleteEnvironmentAccountData(db, bucket, environment, uid);
 
   try {
     await getAuth().deleteUser(uid);
@@ -153,5 +199,5 @@ exports.deleteMyAccount = onCall(async (request) => {
     }
   }
 
-  return { success: true };
+  return { success: true, environment };
 });

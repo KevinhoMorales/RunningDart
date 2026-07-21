@@ -10,6 +10,7 @@ import '../theme/category_style.dart';
 import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../utils/membership_helpers.dart';
 
 class BusinessCard extends StatelessWidget {
   const BusinessCard({
@@ -24,8 +25,13 @@ class BusinessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final canUseMembership =
-        context.watch<AuthProvider>().canUseMembershipFeatures;
+    final auth = context.watch<AuthProvider>();
+    final canRedeemBenefits = MembershipHelpers.canRedeemBusinessBenefits(
+      canUseMembershipFeatures: auth.canUseMembershipFeatures,
+      membershipModality: auth.user?.membershipModality,
+      business: business,
+      isAdmin: auth.isAdmin,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -163,7 +169,7 @@ class BusinessCard extends StatelessWidget {
                         const SizedBox(height: AppSpacing.sm),
                         _BusinessCardDiscount(
                           discount: business.discount,
-                          canUseMembership: canUseMembership,
+                          canUseMembership: canRedeemBenefits,
                         ),
                       ],
                     ],

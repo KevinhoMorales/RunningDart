@@ -9,8 +9,11 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../theme/category_style.dart';
+import '../../utils/app_haptics.dart';
 import '../../utils/constants.dart';
+import '../../utils/external_url_launcher.dart';
 import '../../utils/helpers.dart';
+import '../../utils/membership_helpers.dart';
 import '../../widgets/business_hours_display.dart';
 import '../../widgets/business_location_section.dart';
 import '../../widgets/custom_app_bar.dart';
@@ -147,7 +150,14 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final auth = context.watch<AuthProvider>();
-    final canUseMembership = auth.canUseMembershipFeatures;
+    final canRedeemBenefits = _business == null
+        ? false
+        : MembershipHelpers.canRedeemBusinessBenefits(
+            canUseMembershipFeatures: auth.canUseMembershipFeatures,
+            membershipModality: auth.user?.membershipModality,
+            business: _business!,
+            isAdmin: auth.isAdmin,
+          );
     final isAdmin = auth.isAdmin;
 
     if (_isLoading) {
@@ -300,14 +310,18 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
               const SizedBox(height: AppSpacing.md),
               _DiscountHighlightCard(
                 discount: business.discount,
-                canUseMembership: canUseMembership,
+                canUseMembership: canRedeemBenefits,
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
             _BusinessDetailsCard(
               business: business,
-              canUseMembership: canUseMembership,
+              canUseMembership: canRedeemBenefits,
               onMembershipInfo: _showMembershipInfo,
+              showMembershipUpsell: !auth.isAdmin &&
+                  !canRedeemBenefits &&
+                  business.discount.isEmpty &&
+                  business.benefits.isEmpty,
             ),
             const SizedBox(height: AppSpacing.md),
           ],
@@ -337,7 +351,10 @@ class _DiscountHighlightCard extends StatelessWidget {
     if (!canUseMembership) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
         decoration: BoxDecoration(
           color: palette.cardBackground,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -347,14 +364,15 @@ class _DiscountHighlightCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
                 color: palette.iconButtonBackground,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               child: Icon(
                 Icons.lock_rounded,
                 color: palette.textMuted,
+                size: 20,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -364,11 +382,11 @@ class _DiscountHighlightCard extends StatelessWidget {
                 children: [
                   Text(
                     'Beneficio exclusivo para miembros',
-                    style: AppTypography.title(context),
+                    style: AppTypography.title(context).copyWith(fontSize: 16),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Activa tu membresía para ver el descuento de esta marca aliada.',
+                    'Hazte miembro Oficial o Pro Team para ver y usar el descuento.',
                     style: AppTypography.muted(context).copyWith(height: 1.35),
                   ),
                 ],
@@ -500,17 +518,23 @@ class _BusinessDetailsCard extends StatelessWidget {
     required this.business,
     required this.canUseMembership,
     required this.onMembershipInfo,
+    required this.showMembershipUpsell,
   });
 
   final BusinessModel business;
   final bool canUseMembership;
   final VoidCallback onMembershipInfo;
+  final bool showMembershipUpsell;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final hasSocialLinks = _hasSocialLinks(business);
+    final hasMeniuzMenu = _hasMeniuzMenu(business);
     final hasBenefits = canUseMembership && business.benefits.isNotEmpty;
+    final hasContactInfo = business.address.trim().isNotEmpty ||
+        business.hasHoursDisplay ||
+        (business.conditions != null && business.conditions!.trim().isNotEmpty);
 
     return Container(
       width: double.infinity,
@@ -528,35 +552,55 @@ class _BusinessDetailsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            business.description,
-            style: AppTypography.muted(context).copyWith(height: 1.5),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Contacto', style: AppTypography.title(context)),
-          const SizedBox(height: AppSpacing.md),
-          _DetailRow(
-            icon: Icons.location_on_rounded,
-            text: business.address,
-          ),
-          if (business.hasHoursDisplay) ...[
+          if (business.description.trim().isNotEmpty) ...[
+            Text('Acerca de', style: AppTypography.title(context)),
             const SizedBox(height: AppSpacing.sm),
-            BusinessHoursDisplay(business: business, compact: true),
-          ],
-          if (business.conditions != null &&
-              business.conditions!.trim().isNotEmpty)
-            _DetailRow(
-              icon: Icons.rule_rounded,
-              text: business.conditions!,
+            Text(
+              business.description,
+              style: AppTypography.muted(context).copyWith(height: 1.5),
             ),
+          ],
+          if (hasContactInfo) ...[
+            if (business.description.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Divider(color: palette.cardBorder, height: 1),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            Text('Contacto', style: AppTypography.title(context)),
+            const SizedBox(height: AppSpacing.md),
+            if (business.address.trim().isNotEmpty)
+              _DetailRow(
+                icon: Icons.location_on_rounded,
+                text: business.address,
+              ),
+            if (business.hasHoursDisplay)
+              BusinessHoursDisplay(business: business, compact: true),
+            if (business.conditions != null &&
+                business.conditions!.trim().isNotEmpty)
+              _DetailRow(
+                icon: Icons.rule_rounded,
+                text: business.conditions!,
+              ),
+          ],
           if (hasSocialLinks) ...[
-            const SizedBox(height: AppSpacing.sm),
+            if (hasContactInfo || business.description.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+            ] else ...[
+              Text('Contacto', style: AppTypography.title(context)),
+              const SizedBox(height: AppSpacing.md),
+            ],
             SocialLinksRow(
               whatsapp: business.whatsapp,
               instagram: business.instagram,
               phone: business.phone,
               compact: true,
             ),
+          ],
+          if (hasMeniuzMenu) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Divider(color: palette.cardBorder, height: 1),
+            const SizedBox(height: AppSpacing.lg),
+            _MeniuzMenuSection(menuUrl: business.meniuzMenuUrl!.trim()),
           ],
           if (business.hasLocation) ...[
             const SizedBox(height: AppSpacing.lg),
@@ -594,7 +638,7 @@ class _BusinessDetailsCard extends StatelessWidget {
                 ),
               ),
             ),
-          ] else if (!canUseMembership) ...[
+          ] else if (showMembershipUpsell) ...[
             const SizedBox(height: AppSpacing.lg),
             Divider(color: palette.cardBorder, height: 1),
             const SizedBox(height: AppSpacing.lg),
@@ -610,6 +654,90 @@ class _BusinessDetailsCard extends StatelessWidget {
         (business.instagram != null && business.instagram!.trim().isNotEmpty) ||
         business.phone.trim().isNotEmpty;
   }
+
+  bool _hasMeniuzMenu(BusinessModel business) {
+    return Helpers.isRestaurantCategory(business.category) &&
+        business.meniuzMenuUrl != null &&
+        business.meniuzMenuUrl!.trim().isNotEmpty;
+  }
+}
+
+class _MeniuzMenuSection extends StatelessWidget {
+  const _MeniuzMenuSection({required this.menuUrl});
+
+  final String menuUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Menú en Meniuz', style: AppTypography.title(context)),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Consulta la carta del restaurante en Meniuz.',
+          style: AppTypography.muted(context),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Material(
+          color: palette.accentPrimary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: InkWell(
+            onTap: AppHaptics.wrap(
+              () => launchExternalUrlFromContext(context, menuUrl),
+            ),
+            enableFeedback: false,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: palette.accentPrimary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Icon(
+                      Icons.restaurant_menu_rounded,
+                      color: palette.accentPrimary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Disfruta el menú',
+                          style: AppTypography.title(context).copyWith(
+                            color: palette.accentPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Abrir en Meniuz',
+                          style: AppTypography.caption(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.open_in_new_rounded,
+                    color: palette.accentPrimary,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _DetailRow extends StatelessWidget {
@@ -624,23 +752,11 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppConstants.primaryColor.withValues(alpha: 0.14),
-                  AppConstants.primaryColorLight.withValues(alpha: 0.08),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            child: Icon(icon, size: 18, color: AppConstants.primaryColor),
-          ),
+          _DetailIcon(icon: icon),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Padding(
@@ -653,6 +769,29 @@ class _DetailRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DetailIcon extends StatelessWidget {
+  const _DetailIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppConstants.primaryColor.withValues(alpha: 0.14),
+            AppConstants.primaryColorLight.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Icon(icon, size: 18, color: AppConstants.primaryColor),
     );
   }
 }

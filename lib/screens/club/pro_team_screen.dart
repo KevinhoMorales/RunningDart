@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/constants.dart';
+import '../../utils/whatsapp_launcher.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/profile_action_tile.dart';
 
@@ -31,6 +33,16 @@ class ProTeamScreen extends StatelessWidget {
             style: AppTypography.muted(context).copyWith(height: 1.4),
           ),
           const SizedBox(height: AppSpacing.lg),
+          ProfileActionTile(
+            icon: Icons.groups_rounded,
+            title: 'Grupo WhatsApp Pro Team',
+            subtitle: 'Coordinación con el coach y el equipo',
+            onTap: () => launchWhatsAppGroupInviteFromContext(
+              context,
+              AppConstants.proTeamWhatsAppGroupUrl,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
           ProfileActionTile(
             icon: Icons.schedule_rounded,
             title: 'Horarios Pro Team',

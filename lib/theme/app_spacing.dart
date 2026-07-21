@@ -8,4 +8,7 @@ class AppSpacing {
   static const double radiusSm = 12;
   static const double radiusMd = 16;
   static const double radiusLg = 24;
+
+  /// Shared corner radius for all button variants.
+  static const double buttonRadius = radiusMd;
 }

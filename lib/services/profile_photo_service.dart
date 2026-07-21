@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../config/firebase_paths.dart';
+import '../utils/user_messages.dart';
+
 class ProfilePhotoException implements Exception {
   ProfilePhotoException(this.message);
 
@@ -26,7 +29,8 @@ class ProfilePhotoService {
   final FirebaseStorage _storage;
   final ImagePicker _picker;
 
-  static const _usersCollection = 'users';
+  CollectionReference<Map<String, dynamic>> get _users =>
+      FirebasePaths.collection(_firestore, 'users');
 
   Future<String?> pickAndUploadProfilePhoto(String userId) async {
     final pickedFile = await _picker.pickImage(
@@ -42,7 +46,8 @@ class ProfilePhotoService {
 
     try {
       final file = File(pickedFile.path);
-      final storageRef = _storage.ref().child('users/$userId/profile.jpg');
+      final storageRef =
+          FirebasePaths.storageRef(_storage, 'users/$userId/profile.jpg');
 
       await storageRef.putFile(
         file,
@@ -51,7 +56,7 @@ class ProfilePhotoService {
 
       final downloadUrl = await storageRef.getDownloadURL();
 
-      await _firestore.collection(_usersCollection).doc(userId).update({
+      await _users.doc(userId).update({
         'photoUrl': downloadUrl,
       });
 
@@ -69,11 +74,6 @@ class ProfilePhotoService {
   }
 
   String _mapFirebaseError(FirebaseException exception) {
-    return switch (exception.code) {
-      'unauthorized' || 'permission-denied' =>
-        'No tienes permisos para subir esta foto.',
-      'object-not-found' => 'No se encontró la imagen seleccionada.',
-      _ => 'No se pudo subir la foto. Intenta de nuevo.',
-    };
+    return UserMessages.storage(exception);
   }
 }

@@ -138,10 +138,6 @@ class AccountDisabledScreen extends StatelessWidget {
                               vertical: AppSpacing.md,
                             ),
                             side: BorderSide(color: palette.cardBorder),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.radiusMd),
-                            ),
                           ),
                           child: Text(
                             'Cerrar sesión',

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../config/firebase_paths.dart';
 import '../models/payment_model.dart';
 
 class PaymentService {
@@ -15,11 +16,11 @@ class PaymentService {
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  static const _collection = 'payments';
+  CollectionReference<Map<String, dynamic>> get _payments =>
+      FirebasePaths.collection(_firestore, 'payments');
 
   Stream<List<PaymentModel>> watchPaymentsForUser(String userId) {
-    return _firestore
-        .collection(_collection)
+    return _payments
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
@@ -31,8 +32,8 @@ class PaymentService {
 
   Future<String> createPayment(PaymentModel payment) async {
     final docRef = payment.id.isEmpty
-        ? _firestore.collection(_collection).doc()
-        : _firestore.collection(_collection).doc(payment.id);
+        ? _payments.doc()
+        : _payments.doc(payment.id);
     await docRef.set(payment.toFirestore());
     return docRef.id;
   }
@@ -42,7 +43,7 @@ class PaymentService {
     required PaymentStatus status,
     String? notes,
   }) async {
-    await _firestore.collection(_collection).doc(paymentId).update({
+    await _payments.doc(paymentId).update({
       'status': status.firestoreValue,
       if (notes != null) 'notes': notes,
     });
@@ -54,7 +55,10 @@ class PaymentService {
     required Uint8List bytes,
     required String contentType,
   }) async {
-    final ref = _storage.ref().child('payments/$userId/$paymentId/receipt.jpg');
+    final ref = FirebasePaths.storageRef(
+      _storage,
+      'payments/$userId/$paymentId/receipt.jpg',
+    );
     await ref.putData(bytes, SettableMetadata(contentType: contentType));
     return ref.getDownloadURL();
   }

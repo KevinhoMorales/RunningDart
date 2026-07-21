@@ -4,6 +4,7 @@ import '../services/biometric_auth_service.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import '../widgets/app_snackbar.dart';
 import '../widgets/haptic_controls.dart';
 
 class SecureDeleteFlow {
@@ -217,9 +218,7 @@ Future<void> showSecureDeleteFeedback(
   String? deleteError,
 }) async {
   if (result.userMessage != null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.userMessage!)),
-    );
+    AppSnackBar.show(context, result.userMessage!);
     return;
   }
 
@@ -227,13 +226,10 @@ Future<void> showSecureDeleteFeedback(
     return;
   }
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        deleteSucceeded
-            ? 'Eliminado correctamente.'
-            : deleteError ?? 'No se pudo completar la eliminación.',
-      ),
-    ),
+  AppSnackBar.show(
+    context,
+    deleteSucceeded
+        ? 'Eliminado correctamente.'
+        : deleteError ?? 'No se pudo completar la eliminación.',
   );
 }

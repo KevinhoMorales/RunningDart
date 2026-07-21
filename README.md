@@ -22,7 +22,7 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 
 ### Registro y membresía
 - Formulario enriquecido: WhatsApp, últimos 4 dígitos de cédula, fecha de nacimiento, modalidad, T&C
-- Upload de comprobante (Oficial / Pro Team) → Storage `payments/{uid}/...`
+- Upload de comprobante (Oficial / Pro Team) → Storage `environments/{env}/payments/{uid}/...`
 - Estado **Pendiente** hasta aprobación admin; pantalla "Solicitud en revisión"
 
 ### Credencial digital
@@ -48,7 +48,50 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 ### Horarios de entrenamiento
 - Pantalla estática Comunidad / Oficial / Pro Team en Jelen Tenka (`/training-schedule`)
 
+## Ambientes (prod / dev)
+
+Un solo proyecto Firebase con datos aislados por prefijo de ambiente:
+
+| Recurso | Producción | Desarrollo |
+|---|---|---|
+| Firestore | `environments/prod/{colección}/{id}` | `environments/dev/{colección}/{id}` |
+| Storage | `environments/prod/{colección}/...` | `environments/dev/{colección}/...` |
+| Firebase Auth | Compartido entre flavors | Compartido entre flavors |
+
+- **Registro / login**: el perfil Firestore se crea y consulta solo en el ambiente activo (`environments/prod/...` o `environments/dev/...`). Mismo correo en Auth puede tener perfil en prod y otro distinto en dev.
+- **Firebase Console (Firestore)**: perfiles en `environments/prod/users` o `environments/dev/users`. Si el documento no existe en el ambiente del build, la app no mantiene sesión.
+- **Cold start** (dev y prod): al abrir la app se consulta `environments/{env}/users/{uid}`; si no existe, sign-out y pantalla de login. En builds **dev**, el log de consola muestra la ruta consultada y si el perfil existe.
+- **Auto-login al reabrir la app** (dev y prod): si Firebase Auth restaura sesión **y** existe el documento `environments/{env}/users/{uid}`, entra directo; si el perfil fue eliminado, hace sign-out y muestra login.
+- **Login manual** (otro dispositivo): siempre correo + contraseña; valida que exista perfil en el ambiente activo. Si Auth es válido pero no hay perfil en ese ambiente, cierra sesión y muestra mensaje para registrarse.
+- **Registro con correo ya usado en Auth**: si el correo existe en Auth pero no hay perfil en este ambiente, crea solo el documento Firestore (no duplica en el otro ambiente).
+- **Storage**: comprobantes y fotos usan `environments/prod/...` o `environments/dev/...` (misma convención que Firestore). Objetos legacy bajo `prod/` o `dev/` en la raíz del bucket no se migran.
+- **Eliminar cuenta**: borra pagos, storage y perfil del ambiente activo; la cuenta Auth se elimina vía Cloud Function (o fallback local en dev).
+
+`APP_ENV` se inyecta automáticamente al compilar:
+
+| Build | APP_ENV |
+|---|---|
+| Android flavor `dev` / iOS scheme `dev` | `dev` |
+| Android flavor `prod` / iOS scheme `prod` | `prod` |
+
+### Ejecutar
+
+```bash
+# Producción
+flutter run --flavor prod --dart-define-from-file=config/env/prod.json
+
+# Desarrollo
+flutter run --flavor dev --dart-define-from-file=config/env/dev.json
+```
+
+También puedes ejecutar desde Xcode (scheme `dev` o `prod`) o Android Studio (variant `dev` / `prod`); el ambiente Firestore queda alineado con el flavor/scheme.
+
+Android: build variants `dev` / `prod` (`com.devlokos.runningdart.dev` en dev).  
+iOS: schemes `dev` / `prod` con bundle IDs distintos. Banner naranja **DEV** visible solo en desarrollo.
+
 ## Colecciones Firestore
+
+Todas viven bajo `environments/{prod|dev}/`:
 
 - **users**: perfil + `whatsapp`, `nationalIdLast4`, `birthDate`, `membershipModality`, `membershipStatus`, `expiresAt`, `activatedAt`, `internalNotes`, `acceptedTermsAt`, `qrCode`, `role`, `businessId`
 - **businesses**: marcas aliadas + `whatsapp`, `instagram`, `conditions`, `allianceStatus`, `validUntil`, `applicableModalities[]`
@@ -67,6 +110,7 @@ firebase deploy --only firestore:rules,storage
 
 ```bash
 flutter test
+flutter test --dart-define=APP_ENV=dev test/app_environment_dev_test.dart
 node tests/firestore.rules.test.js
 ```
 
@@ -74,8 +118,8 @@ node tests/firestore.rules.test.js
 
 1. `flutter pub get`
 2. Configurar Firebase (Auth, Firestore, Storage, FCM)
-3. Primer admin: en Console, `users/{uid}` → `role: "admin"`, `isActive: true`
-4. `flutter run`
+3. Primer admin: en Console, `environments/prod/users/{uid}` → `role: "admin"`, `isActive: true`
+4. `flutter run --flavor prod --dart-define-from-file=config/env/prod.json`
 
 ## Estructura relevante
 

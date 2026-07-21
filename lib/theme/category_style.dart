@@ -15,6 +15,10 @@ class CategoryStyle {
         return const [Color(0xFF7B1FA2), Color(0xFFF48FB1)];
       case 'salud':
         return const [Color(0xFF2E7D32), Color(0xFF4DB6AC)];
+      case 'lifestyle':
+        return const [Color(0xFF5D4037), Color(0xFFBCAAA4)];
+      case 'servicios':
+        return const [Color(0xFF37474F), Color(0xFF78909C)];
       default:
         return AppConstants.brandGradientAccentColors;
     }
@@ -32,6 +36,10 @@ class CategoryStyle {
         return Icons.shopping_bag_rounded;
       case 'salud':
         return Icons.health_and_safety_rounded;
+      case 'lifestyle':
+        return Icons.spa_rounded;
+      case 'servicios':
+        return Icons.handyman_rounded;
       default:
         return Icons.store_rounded;
     }
