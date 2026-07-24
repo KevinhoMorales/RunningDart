@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/social_service.dart';
+import '../../services/username_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/category_chip.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/user_list_tile.dart';
@@ -20,6 +23,9 @@ class AdminUsersTab extends StatefulWidget {
 
 class _AdminUsersTabState extends State<AdminUsersTab> {
   final _searchController = TextEditingController();
+  final _socialService = SocialService();
+  final _usernameService = UsernameService();
+  bool _isSyncingProfiles = false;
 
   @override
   void initState() {
@@ -60,6 +66,50 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _syncPublicProfiles() async {
+    final users = context.read<AdminProvider>().users;
+    if (users.isEmpty) {
+      return;
+    }
+
+    setState(() => _isSyncingProfiles = true);
+    try {
+      final assigned = await _usernameService.assignMissingUsernames(users);
+      final updated = [
+        for (final user in users)
+          assigned.containsKey(user.id)
+              ? user.copyWith(username: assigned[user.id])
+              : user,
+      ];
+      final total = await _socialService.backfillPublicProfiles(updated);
+      if (!mounted) {
+        return;
+      }
+      AppSnackBar.show(
+        context,
+        assigned.isEmpty
+            ? '$total perfiles publicados en Comunidad.'
+            : '$total perfiles publicados, '
+                '${assigned.length} nombres de usuario asignados.',
+      );
+    } on SocialServiceException catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, e.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          'No se pudieron sincronizar los perfiles. Intenta de nuevo.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncingProfiles = false);
+      }
+    }
   }
 
   Widget _refreshableScroll({
@@ -114,29 +164,60 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
             AppSpacing.md,
             AppSpacing.sm,
           ),
-          child: TextField(
-            controller: _searchController,
-            onChanged: admin.setSearchQuery,
-            style: TextStyle(color: palette.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Buscar por nombre o correo',
-              hintStyle: TextStyle(color: palette.textMuted),
-              prefixIcon: Icon(Icons.search_rounded, color: palette.textMuted),
-              filled: true,
-              fillColor: palette.cardBackground,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: BorderSide(color: palette.cardBorder),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: admin.setSearchQuery,
+                  style: TextStyle(color: palette.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por nombre o correo',
+                    hintStyle: TextStyle(color: palette.textMuted),
+                    prefixIcon:
+                        Icon(Icons.search_rounded, color: palette.textMuted),
+                    filled: true,
+                    fillColor: palette.cardBackground,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      borderSide: BorderSide(color: palette.cardBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      borderSide: BorderSide(color: palette.cardBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      borderSide: BorderSide(color: palette.accentPrimary),
+                    ),
+                  ),
+                ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: BorderSide(color: palette.cardBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: BorderSide(color: palette.accentPrimary),
-              ),
-            ),
+              const SizedBox(width: AppSpacing.sm),
+              _isSyncingProfiles
+                  ? const SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  : HapticIconButton(
+                      onPressed: _syncPublicProfiles,
+                      tooltip: 'Publicar perfiles en Comunidad',
+                      icon: Icon(
+                        Icons.sync_rounded,
+                        color: palette.textMuted,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: palette.cardBackground,
+                      ),
+                    ),
+            ],
           ),
         ),
         const SizedBox(height: AppSpacing.sm),

@@ -5,23 +5,21 @@ const { getStorage } = require("firebase-admin/storage");
 const { getMessaging } = require("firebase-admin/messaging");
 const {
   onDocumentCreated,
+  onDocumentDeleted,
   onDocumentUpdated,
+  onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
+
+const { deleteEnvironmentAccountData } = require("./account_deletion");
+const { deletePostLikes, syncPostLikeSummary } = require("./post_likes");
 
 initializeApp();
 
 const TOPIC_NEW_BUSINESSES = "saints_new_businesses";
 const TOPIC_NEW_EVENTS = "saints_new_events";
 const VALID_ENVIRONMENTS = new Set(["dev", "prod"]);
-
-function usersCollection(db, environment) {
-  return db.collection("environments").doc(environment).collection("users");
-}
-
-function paymentsCollection(db, environment) {
-  return db.collection("environments").doc(environment).collection("payments");
-}
 
 async function sendTopicNotification({ topic, title, body, type, id }) {
   await getMessaging().send({
@@ -134,46 +132,39 @@ exports.onNewsPublished = onDocumentUpdated(
   },
 );
 
-async function deleteStoragePrefix(bucket, prefix) {
-  const [files] = await bucket.getFiles({ prefix });
-  await Promise.all(
-    files.map((file) =>
-      file.delete().catch(() => undefined),
-    ),
-  );
-}
+exports.onPostLikeWritten = onDocumentWritten(
+  "environments/{environment}/post_likes/{likeId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
 
-async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
-  const userRef = usersCollection(db, environment).doc(uid);
-  const userSnapshot = await userRef.get();
-  if (!userSnapshot.exists) {
-    throw new HttpsError(
-      "failed-precondition",
-      "No se encontró el perfil del usuario en este ambiente.",
-    );
-  }
+    const after = event.data?.after?.data();
+    const before = event.data?.before?.data();
+    const postId = after?.postId ?? before?.postId;
 
-  const paymentsSnapshot = await paymentsCollection(db, environment)
-    .where("userId", "==", uid)
-    .get();
+    if (typeof postId !== "string" || postId.length === 0) {
+      return;
+    }
 
-  await Promise.all(
-    paymentsSnapshot.docs.map((doc) => doc.ref.delete()),
-  );
+    await syncPostLikeSummary(getFirestore(), environment, postId);
+  },
+);
 
-  await deleteStoragePrefix(
-    bucket,
-    `environments/${environment}/payments/${uid}/`,
-  );
-  await bucket
-    .file(`environments/${environment}/users/${uid}/profile.jpg`)
-    .delete()
-    .catch(() => undefined);
+exports.onPostDeleted = onDocumentDeleted(
+  "environments/{environment}/posts/{postId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
 
-  await userRef.delete();
-}
+    await deletePostLikes(getFirestore(), environment, event.params.postId);
+  },
+);
 
-exports.deleteMyAccount = onCall(async (request) => {
+exports.deleteMyAccount = onCall({ timeoutSeconds: 540 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError(
       "unauthenticated",
@@ -186,7 +177,14 @@ exports.deleteMyAccount = onCall(async (request) => {
   const db = getFirestore();
   const bucket = getStorage().bucket();
 
-  await deleteEnvironmentAccountData(db, bucket, environment, uid);
+  const deleted = await deleteEnvironmentAccountData(
+    db,
+    bucket,
+    environment,
+    uid,
+  );
+
+  logger.info("deleteMyAccount completed", { uid, environment, deleted });
 
   try {
     await getAuth().deleteUser(uid);
@@ -199,5 +197,5 @@ exports.deleteMyAccount = onCall(async (request) => {
     }
   }
 
-  return { success: true, environment };
+  return { success: true, environment, deleted };
 });

@@ -11,6 +11,9 @@ import 'package:running_dart/services/mock_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // AuthProvider construye WatchSyncService, que registra un MethodChannel.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('UserModel.toFirestore', () {
     test('includes required fields for new registration', () {
       final user = UserModel(
@@ -78,6 +81,7 @@ void main() {
         password: 'secret123',
         profile: RegisterProfileData(
           displayName: 'Comunidad User',
+          username: 'comunidaduser',
           whatsapp: '+593991234567',
           nationalIdLast4: '5678',
           birthDate: DateTime(1995, 5, 10),
@@ -93,12 +97,50 @@ void main() {
       expect(authProvider.user?.membershipStatus, MembershipStatus.active);
     });
 
+    test('derives the username from the email when none was given', () async {
+      final success = await authProvider.register(
+        email: 'Kevin.Mora@example.com',
+        password: 'secret123',
+        profile: RegisterProfileData(
+          displayName: 'Kevin Mora',
+          username: '',
+          whatsapp: '+593991234567',
+          nationalIdLast4: '5678',
+          birthDate: DateTime(1995, 5, 10),
+          modality: MembershipModality.community,
+          acceptedTerms: true,
+        ),
+      );
+
+      expect(success, isTrue);
+      expect(authProvider.user?.username, 'kevin.mora');
+    });
+
+    test('leaves the cooldown unstarted so the first change is free', () async {
+      await authProvider.register(
+        email: 'community@example.com',
+        password: 'secret123',
+        profile: RegisterProfileData(
+          displayName: 'Comunidad User',
+          username: 'comunidaduser',
+          whatsapp: '+593991234567',
+          nationalIdLast4: '5678',
+          birthDate: DateTime(1995, 5, 10),
+          modality: MembershipModality.community,
+          acceptedTerms: true,
+        ),
+      );
+
+      expect(authProvider.user?.usernameUpdatedAt, isNull);
+    });
+
     test('creates pending user for paid modality', () async {
       final success = await authProvider.register(
         email: 'new@example.com',
         password: 'secret123',
         profile: RegisterProfileData(
           displayName: 'Nuevo Usuario',
+          username: 'nuevousuario',
           whatsapp: '+593991234567',
           nationalIdLast4: '1234',
           birthDate: DateTime(1995, 5, 10),

@@ -46,6 +46,9 @@ class _StaticAuthService implements AuthService {
   }
 
   @override
+  Future<void> reauthenticate(String password) async {}
+
+  @override
   Future<void> deleteAccount() async {}
 }
 

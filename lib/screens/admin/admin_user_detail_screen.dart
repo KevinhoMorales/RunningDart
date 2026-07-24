@@ -16,7 +16,10 @@ import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
+import '../../utils/username_helpers.dart';
 import '../../services/payment_service.dart';
+import '../../services/social_service.dart';
+import '../../services/username_service.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/international_phone_field.dart';
@@ -52,7 +55,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final _nationalIdController = TextEditingController();
   final _internalNotesController = TextEditingController();
   final _paymentService = PaymentService();
+  final _usernameService = UsernameService();
+  final _socialService = SocialService();
   String? _initialWhatsapp;
+  bool _isChangingUsername = false;
 
   static const _noBusinessValue = '__none__';
 
@@ -104,6 +110,95 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       _isLoading = false;
       _error = user == null ? 'Usuario no encontrado.' : null;
     });
+  }
+
+  Future<void> _changeUsername() async {
+    final user = _user;
+    if (user == null) {
+      return;
+    }
+
+    final controller = TextEditingController(text: user.username ?? '');
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Cambiar nombre de usuario'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              inputFormatters: UsernameHelpers.inputFormatters,
+              validator: UsernameHelpers.validationError,
+              decoration: const InputDecoration(
+                labelText: 'Nombre de usuario',
+                prefixText: '@',
+                helperText: 'Como admin no aplica la espera de 30 días.',
+              ),
+            ),
+          ),
+          actions: [
+            HapticTextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            HapticFilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    final newUsername = UsernameHelpers.normalize(controller.text);
+    controller.dispose();
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _isChangingUsername = true);
+    try {
+      await _usernameService.changeUsername(
+        userId: user.id,
+        newUsername: newUsername,
+        currentUsername: user.username,
+        bypassCooldown: true,
+      );
+      // changeUsername solo escribe los campos del username. Si el perfil
+      // público aún no existía quedaría sin nombre, así que se completa aquí.
+      await _socialService.upsertPublicProfile(
+        userId: user.id,
+        displayName: user.displayName,
+        photoUrl: user.photoUrl,
+        bio: user.bio,
+        username: newUsername,
+      );
+      if (!mounted) {
+        return;
+      }
+      await _loadUser();
+      if (!mounted) {
+        return;
+      }
+      AppSnackBar.show(context, 'Nombre de usuario actualizado.');
+    } on UsernameException catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, e.message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isChangingUsername = false);
+      }
+    }
   }
 
   Future<void> _approveMembership() async {
@@ -479,6 +574,31 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                             _DetailRow(
                               label: 'Registro',
                               value: Helpers.formatDate(_user!.createdAt),
+                            ),
+                            _DetailRow(
+                              label: 'Usuario',
+                              value: _user!.username == null
+                                  ? 'Sin asignar'
+                                  : '@${_user!.username}',
+                            ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: HapticTextButtonIcon(
+                                onPressed: _isChangingUsername
+                                    ? null
+                                    : _changeUsername,
+                                icon: const Icon(
+                                  Icons.alternate_email_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Cambiar nombre de usuario'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
                             ),
                           ],
                         ),

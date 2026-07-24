@@ -4,6 +4,7 @@ import '../models/membership_modality.dart';
 class RegisterProfileData {
   const RegisterProfileData({
     required this.displayName,
+    required this.username,
     required this.whatsapp,
     required this.nationalIdLast4,
     required this.birthDate,
@@ -12,6 +13,7 @@ class RegisterProfileData {
   });
 
   final String displayName;
+  final String username;
   final String whatsapp;
   final String nationalIdLast4;
   final DateTime birthDate;
@@ -36,6 +38,11 @@ abstract class AuthService {
     required String password,
   });
   Future<void> logout();
+
+  /// Vuelve a validar la contraseña de la sesión activa. Se usa como respaldo de
+  /// la biometría antes de acciones irreversibles como eliminar la cuenta.
+  Future<void> reauthenticate(String password);
+
   Future<void> deleteAccount();
   Future<UserModel?> refreshCurrentUser();
 }

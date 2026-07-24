@@ -27,6 +27,7 @@ class ProfileService {
     required String whatsapp,
     required String nationalIdLast4,
     required DateTime birthDate,
+    String? bio,
   }) async {
     try {
       await _users.doc(userId).update({
@@ -34,6 +35,7 @@ class ProfileService {
         'whatsapp': whatsapp,
         'nationalIdLast4': nationalIdLast4,
         'birthDate': Timestamp.fromDate(birthDate),
+        'bio': (bio == null || bio.trim().isEmpty) ? null : bio.trim(),
       });
     } on FirebaseException catch (e) {
       throw ProfileUpdateException(UserMessages.firestore(e));

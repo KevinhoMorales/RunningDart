@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/notification_preferences_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/payment_service.dart';
+import '../../services/username_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
@@ -16,6 +17,7 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
 import '../../utils/receipt_upload_helper.dart';
+import '../../utils/username_helpers.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/gradient_background.dart';
@@ -35,12 +37,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _whatsappFieldKey = GlobalKey<InternationalPhoneFieldState>();
   final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _emailController = TextEditingController();
   final _nationalIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _paymentService = PaymentService();
+  final _usernameService = UsernameService();
   final _picker = ImagePicker();
 
   MembershipModality _selectedModality = MembershipModality.official;
@@ -50,16 +54,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirm = true;
   XFile? _receiptFile;
   bool _isUploadingReceipt = false;
+  bool _isCheckingUsername = false;
+  bool _usernameTouched = false;
 
   @override
   void dispose() {
     _nameController.dispose();
+    _usernameController.dispose();
     _whatsappController.dispose();
     _emailController.dispose();
     _nationalIdController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  /// Propone el username mientras se escribe el correo, hasta que la persona
+  /// decida escribirlo ella misma.
+  void _suggestUsernameFromEmail(String value) {
+    if (_usernameTouched) {
+      return;
+    }
+    final email = value.trim();
+    if (!Helpers.isValidEmail(email)) {
+      return;
+    }
+    final suggestion = UsernameHelpers.suggestFromEmail(email);
+    if (suggestion != _usernameController.text) {
+      _usernameController.text = suggestion;
+    }
+  }
+
+  void _markUsernameTouched(String _) {
+    if (!_usernameTouched) {
+      setState(() => _usernameTouched = true);
+    }
   }
 
   Future<void> _pickBirthDate() async {
@@ -108,9 +137,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    final email = _emailController.text.trim();
+    var username = UsernameHelpers.normalize(_usernameController.text);
+    setState(() => _isCheckingUsername = true);
+    try {
+      if (!await _usernameService.isAvailable(username)) {
+        if (_usernameTouched) {
+          if (!mounted) {
+            return;
+          }
+          setState(() => _isCheckingUsername = false);
+          AppSnackBar.showError(
+            context,
+            'Ese nombre de usuario ya está tomado.',
+          );
+          return;
+        }
+        // Lo propuso la app, así que se corre al siguiente libre en silencio.
+        username = await _usernameService.suggestAvailableFromEmail(email);
+        _usernameController.text = username;
+      }
+    } on UsernameException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isCheckingUsername = false);
+      AppSnackBar.showError(context, e.message);
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isCheckingUsername = false);
+
     final auth = context.read<AuthProvider>();
     final profile = RegisterProfileData(
       displayName: _nameController.text.trim(),
+      username: username,
       whatsapp: _whatsappFieldKey.currentState!.formatForStorage(),
       nationalIdLast4: _nationalIdController.text.trim(),
       birthDate: _birthDate!,
@@ -119,7 +183,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     final success = await auth.register(
-      email: _emailController.text.trim(),
+      email: email,
       password: _passwordController.text,
       profile: profile,
     );
@@ -188,7 +252,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final palette = context.palette;
-    final isBusy = auth.isLoading || _isUploadingReceipt;
+    final isBusy =
+        auth.isLoading || _isUploadingReceipt || _isCheckingUsername;
 
     return Scaffold(
       body: GradientBackground(
@@ -249,16 +314,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         : null,
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              InternationalPhoneField(
-                                key: _whatsappFieldKey,
-                                controller: _whatsappController,
-                                labelText: 'WhatsApp',
-                              ),
-                              const SizedBox(height: AppSpacing.md),
                               ModernTextField(
                                 controller: _emailController,
                                 labelText: 'Correo electrónico',
                                 keyboardType: TextInputType.emailAddress,
+                                onChanged: _suggestUsernameFromEmail,
                                 validator: (value) {
                                   if (value == null || value.trim().isEmpty) {
                                     return 'Ingresa tu correo';
@@ -268,6 +328,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   }
                                   return null;
                                 },
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              ModernTextField(
+                                controller: _usernameController,
+                                labelText: 'Nombre de usuario',
+                                prefixText: '@',
+                                inputFormatters:
+                                    UsernameHelpers.inputFormatters,
+                                onChanged: _markUsernameTouched,
+                                validator: UsernameHelpers.validationError,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              _UsernameHint(isAutomatic: !_usernameTouched),
+                              const SizedBox(height: AppSpacing.md),
+                              InternationalPhoneField(
+                                key: _whatsappFieldKey,
+                                controller: _whatsappController,
+                                labelText: 'WhatsApp',
                               ),
                               const SizedBox(height: AppSpacing.md),
                               ModernTextField(
@@ -424,6 +502,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _UsernameHint extends StatelessWidget {
+  const _UsernameHint({required this.isAutomatic});
+
+  final bool isAutomatic;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.sm),
+      child: Text(
+        isAutomatic
+            ? 'Lo generamos desde tu correo. Puedes cambiarlo si prefieres otro.'
+            : 'Así te encontrarán en la comunidad.',
+        style: AppTypography.caption(context, color: palette.textMuted),
       ),
     );
   }

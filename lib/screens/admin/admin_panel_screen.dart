@@ -11,7 +11,7 @@ import 'admin_stats_tab.dart';
 import 'admin_training_schedule_tab.dart';
 import 'admin_users_tab.dart';
 
-const adminPanelHomeTabIndex = 2;
+const adminPanelHomeTabIndex = 3;
 const adminPanelUsersTabIndex = 0;
 const adminPanelEventsTabIndex = 1;
 const adminPanelBusinessesTabIndex = 2;

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
+import '../utils/username_helpers.dart';
 import 'auth_service.dart';
 import 'local_storage_service.dart';
 
@@ -47,6 +48,10 @@ class MockAuthService implements AuthService {
       id: userId,
       email: email.trim().toLowerCase(),
       displayName: profile.displayName.trim(),
+      username: profile.username.trim().isEmpty
+          ? UsernameHelpers.suggestFromEmail(email)
+          : UsernameHelpers.normalize(profile.username),
+      usernameUpdatedAt: null,
       qrCode: 'RD-${_uuid.v4()}',
       createdAt: DateTime.now(),
       isActive: true,
@@ -90,6 +95,17 @@ class MockAuthService implements AuthService {
   Future<void> logout() async {
     await _storage.clearSession();
     _userController.add(null);
+  }
+
+  @override
+  Future<void> reauthenticate(String password) async {
+    final user = await _storage.getCurrentUser();
+    if (user == null) {
+      throw AuthException('No hay sesión activa.');
+    }
+    if (user.password != password) {
+      throw AuthException('La contraseña no es correcta.');
+    }
   }
 
   @override

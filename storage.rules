@@ -52,6 +52,20 @@ service firebase.storage {
       allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
 
+    match /environments/{environment}/posts/{userId}/{fileName} {
+      allow read: if isValidEnvironment(environment) && request.auth != null;
+
+      allow write: if isValidEnvironment(environment)
+        && request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if isValidEnvironment(environment)
+        && request.auth != null
+        && (request.auth.uid == userId || isAdmin(environment));
+    }
+
     match /environments/{environment}/payments/{userId}/{paymentId}/{fileName} {
       allow read: if isValidEnvironment(environment)
         && request.auth != null

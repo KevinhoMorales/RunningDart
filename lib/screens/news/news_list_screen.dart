@@ -10,9 +10,9 @@ import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/news_card.dart';
 
-const adminNewsHomeTabIndex = 1;
-const memberNewsHomeTabIndex = 1;
-const operatorNewsHomeTabIndex = 3;
+const adminNewsHomeTabIndex = 2;
+const memberNewsHomeTabIndex = 2;
+const operatorNewsHomeTabIndex = 2;
 
 class NewsListScreen extends StatefulWidget {
   const NewsListScreen({super.key});

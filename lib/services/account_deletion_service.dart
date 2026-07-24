@@ -8,6 +8,32 @@ import '../config/firebase_paths.dart';
 import '../utils/user_messages.dart';
 import 'auth_service.dart';
 
+/// Cuánto contenido tiene el usuario, para poder decírselo con números antes de
+/// que confirme la eliminación.
+class AccountDataFootprint {
+  const AccountDataFootprint({
+    required this.posts,
+    required this.followers,
+    required this.following,
+    required this.payments,
+    required this.likes,
+  });
+
+  static const empty = AccountDataFootprint(
+    posts: 0,
+    followers: 0,
+    following: 0,
+    payments: 0,
+    likes: 0,
+  );
+
+  final int posts;
+  final int followers;
+  final int following;
+  final int payments;
+  final int likes;
+}
+
 class AccountDeletionService {
   AccountDeletionService({
     FirebaseFunctions? functions,
@@ -23,6 +49,46 @@ class AccountDeletionService {
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
   final FirebaseAuth _auth;
+
+  /// Las visitas no se pueden contar aquí: las reglas solo permiten leerlas a
+  /// administradores y operadores de marca.
+  Future<AccountDataFootprint> summarizeMyData() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw AuthException('Debes iniciar sesión para eliminar tu cuenta.');
+    }
+
+    final follows = FirebasePaths.collection(_firestore, 'follows');
+    final counts = await Future.wait([
+      _count(
+        FirebasePaths.collection(_firestore, 'posts')
+            .where('authorId', isEqualTo: uid),
+      ),
+      _count(follows.where('followedId', isEqualTo: uid)),
+      _count(follows.where('followerId', isEqualTo: uid)),
+      _count(
+        FirebasePaths.collection(_firestore, 'payments')
+            .where('userId', isEqualTo: uid),
+      ),
+      _count(
+        FirebasePaths.collection(_firestore, 'post_likes')
+            .where('userId', isEqualTo: uid),
+      ),
+    ]);
+
+    return AccountDataFootprint(
+      posts: counts[0],
+      followers: counts[1],
+      following: counts[2],
+      payments: counts[3],
+      likes: counts[4],
+    );
+  }
+
+  Future<int> _count(Query<Map<String, dynamic>> query) async {
+    final snapshot = await query.count().get();
+    return snapshot.count ?? 0;
+  }
 
   Future<void> deleteMyAccount() async {
     try {
@@ -56,47 +122,67 @@ class AccountDeletionService {
     };
   }
 
+  /// Limpieza desde el cliente, solo para desarrollo cuando la Cloud Function no
+  /// está disponible. NO es equivalente a `deleteMyAccount`: las reglas de
+  /// Firestore impiden que el dueño toque los `follows` en los que otros lo
+  /// siguen, los `post_reports` y las `visits`. Esa parte solo la puede hacer la
+  /// función con el Admin SDK.
   Future<void> _deleteEnvironmentData(AppEnvironment environment) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
       throw AuthException('Debes iniciar sesión para eliminar tu cuenta.');
     }
 
-    final users = FirebasePaths.collectionForEnvironment(
-      _firestore,
-      environment,
-      'users',
-    );
+    CollectionReference<Map<String, dynamic>> collection(String name) {
+      return FirebasePaths.collectionForEnvironment(
+        _firestore,
+        environment,
+        name,
+      );
+    }
 
+    final users = collection('users');
     final userSnapshot = await users.doc(uid).get();
     if (!userSnapshot.exists) {
       throw AuthException(
         'No se encontró tu perfil en ${environment.label}.',
       );
     }
+    final username = userSnapshot.data()?['username'] as String?;
 
-    final payments = FirebasePaths.collectionForEnvironment(
-      _firestore,
-      environment,
-      'payments',
+    await _deleteQuery(collection('posts').where('authorId', isEqualTo: uid));
+    await _deleteStoragePrefix(FirebasePaths.storagePath('posts/$uid/'));
+
+    await _deleteQuery(
+      collection('follows').where('followerId', isEqualTo: uid),
     );
-    final paymentsSnapshot =
-        await payments.where('userId', isEqualTo: uid).get();
+    await _deleteQuery(collection('blocks').where('blockerId', isEqualTo: uid));
+    await _deleteQuery(
+      collection('post_likes').where('userId', isEqualTo: uid),
+    );
 
-    for (final payment in paymentsSnapshot.docs) {
-      await payment.reference.delete();
+    await _deleteQuery(collection('payments').where('userId', isEqualTo: uid));
+    await _deleteStoragePrefix(FirebasePaths.storagePath('payments/$uid/'));
+
+    await collection('public_profiles').doc(uid).delete().catchError((_) {});
+
+    if (username != null && username.trim().isNotEmpty) {
+      await collection('usernames')
+          .doc(username.trim().toLowerCase())
+          .delete()
+          .catchError((_) {});
     }
 
-    await _deleteStoragePrefix(
-      FirebasePaths.storagePath('payments/$uid/'),
-    );
-
-    await FirebasePaths.storageRef(
-      _storage,
-      'users/$uid/profile.jpg',
-    ).delete().catchError((_) {});
+    await _deleteStoragePrefix(FirebasePaths.storagePath('users/$uid/'));
 
     await users.doc(uid).delete();
+  }
+
+  Future<void> _deleteQuery(Query<Map<String, dynamic>> query) async {
+    final snapshot = await query.get();
+    for (final doc in snapshot.docs) {
+      await doc.reference.delete().catchError((_) {});
+    }
   }
 
   Future<void> _deleteAuthUser() async {
@@ -115,17 +201,16 @@ class AccountDeletionService {
     }
   }
 
-  Future<void> _deleteStoragePrefix(String relativePrefix) async {
-    final root = _storage.ref().child(relativePrefix);
+  /// [prefix] es la ruta completa dentro del bucket, ya con `environments/{env}/`.
+  Future<void> _deleteStoragePrefix(String prefix) async {
+    final root = _storage.ref().child(prefix);
     final listing = await root.listAll();
     await Future.wait(
       listing.items.map((item) => item.delete().catchError((_) {})),
     );
 
     for (final nested in listing.prefixes) {
-      await _deleteStoragePrefix(
-        nested.fullPath.split('/').skip(1).join('/'),
-      );
+      await _deleteStoragePrefix(nested.fullPath);
     }
   }
 

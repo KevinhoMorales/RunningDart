@@ -138,6 +138,10 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> reauthenticate(String password) async {
+    return _runAuthAction(() => _authService.reauthenticate(password));
+  }
+
   Future<bool> deleteAccount() async {
     return _runAuthAction(() async {
       await _notificationService?.unsubscribeAll();

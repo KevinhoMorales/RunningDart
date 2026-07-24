@@ -44,6 +44,9 @@ class _LoginMissingProfileAuthService implements AuthService {
   Future<void> logout() async {}
 
   @override
+  Future<void> reauthenticate(String password) async {}
+
+  @override
   Future<void> deleteAccount() async {}
 }
 

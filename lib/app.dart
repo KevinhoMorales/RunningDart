@@ -12,7 +12,9 @@ import 'providers/admin_provider.dart';
 import 'providers/app_update_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/business_provider.dart';
+import 'providers/feed_provider.dart';
 import 'providers/news_provider.dart';
+import 'providers/social_provider.dart';
 import 'providers/notification_preferences_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/visit_provider.dart';
@@ -29,6 +31,7 @@ import 'screens/admin/admin_training_schedule_screen.dart';
 import 'screens/club/pro_team_screen.dart';
 import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
+import 'screens/feed/create_post_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/news/news_detail_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
@@ -37,11 +40,16 @@ import 'screens/onboarding/notifications_onboarding_screen.dart';
 import 'screens/settings/contact_screen.dart';
 import 'screens/settings/delete_account_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/social/follow_list_screen.dart';
+import 'screens/social/user_profile_screen.dart';
 import 'services/business_service.dart';
 import 'services/firestore_business_service.dart';
 import 'services/firestore_news_service.dart';
+import 'services/firestore_post_service.dart';
 import 'services/news_service.dart';
 import 'services/notification_service.dart';
+import 'services/post_service.dart';
+import 'services/social_service.dart';
 import 'services/user_service.dart';
 import 'services/visit_service.dart';
 import '../theme/app_theme.dart';
@@ -64,6 +72,8 @@ class RunningDartApp extends StatefulWidget {
     this.visitProvider,
     this.businessService,
     this.newsService,
+    this.postService,
+    this.socialService,
   });
 
   final AuthProvider authProvider;
@@ -77,6 +87,8 @@ class RunningDartApp extends StatefulWidget {
   final VisitProvider? visitProvider;
   final BusinessService? businessService;
   final NewsService? newsService;
+  final PostService? postService;
+  final SocialService? socialService;
 
   @override
   State<RunningDartApp> createState() => _RunningDartAppState();
@@ -85,6 +97,8 @@ class RunningDartApp extends StatefulWidget {
 class _RunningDartAppState extends State<RunningDartApp> {
   late final BusinessService _businessService;
   late final NewsService _newsService;
+  late final PostService _postService;
+  late final SocialService _socialService;
   late final AdminProvider _adminProvider;
   late final AdminBusinessProvider _adminBusinessProvider;
   late final AdminNewsProvider _adminNewsProvider;
@@ -107,6 +121,8 @@ class _RunningDartAppState extends State<RunningDartApp> {
     _businessService =
         widget.businessService ?? FirestoreBusinessService();
     _newsService = widget.newsService ?? FirestoreNewsService();
+    _postService = widget.postService ?? FirestorePostService();
+    _socialService = widget.socialService ?? SocialService();
     _adminProvider = widget.adminProvider ?? AdminProvider(UserService());
     _adminBusinessProvider = widget.adminBusinessProvider ??
         AdminBusinessProvider(_businessService);
@@ -148,8 +164,10 @@ class _RunningDartAppState extends State<RunningDartApp> {
             location == '/membership-pending' ||
             location == '/training-schedule' ||
             location == '/pro-team' ||
+            location == '/post/new' ||
             location.startsWith('/business/') ||
             location.startsWith('/news/') ||
+            location.startsWith('/user/') ||
             _isAdminRoute(location);
 
         if (!auth.hasSession) {
@@ -280,6 +298,37 @@ class _RunningDartAppState extends State<RunningDartApp> {
           },
         ),
         GoRoute(
+          path: '/post/new',
+          builder: (context, state) => const CreatePostScreen(),
+        ),
+        GoRoute(
+          path: '/user/:id/followers',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return FollowListScreen(
+              userId: id,
+              mode: FollowListMode.followers,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/user/:id/following',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return FollowListScreen(
+              userId: id,
+              mode: FollowListMode.following,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/user/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return UserProfileScreen(userId: id);
+          },
+        ),
+        GoRoute(
           path: '/admin/users/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
@@ -347,6 +396,12 @@ class _RunningDartAppState extends State<RunningDartApp> {
         ),
         ChangeNotifierProvider(
           create: (_) => NewsProvider(_newsService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => FeedProvider(_postService, _socialService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SocialProvider(_socialService),
         ),
         ChangeNotifierProvider.value(value: _adminProvider),
         ChangeNotifierProvider.value(value: _adminBusinessProvider),

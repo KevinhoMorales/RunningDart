@@ -64,6 +64,13 @@ service cloud.firestore {
             == resource.data.get('expiresAt', null);
     }
 
+    function usernameCooldownOk() {
+      return request.resource.data.get('username', null)
+            == resource.data.get('username', null)
+        || resource.data.get('usernameUpdatedAt', null) == null
+        || request.time > resource.data.usernameUpdatedAt + duration.value(30, 'd');
+    }
+
     match /environments/{environment}/users/{userId} {
       allow read: if isValidEnvironment(environment)
         && (isOwner(userId)
@@ -80,7 +87,9 @@ service cloud.firestore {
         && ((isAdmin(environment)
             && (userId != request.auth.uid
                 || request.resource.data.role == resource.data.role))
-          || (isOwner(userId) && ownerProtectedFieldsUnchanged()));
+          || (isOwner(userId)
+            && ownerProtectedFieldsUnchanged()
+            && usernameCooldownOk()));
 
       allow delete: if isValidEnvironment(environment)
         && (isOwner(userId) || isAdmin(environment));
@@ -148,6 +157,82 @@ service cloud.firestore {
       allow create, update: if isValidEnvironment(environment)
         && canManageClubSettings(environment);
       allow delete: if isValidEnvironment(environment) && isAdmin(environment);
+    }
+
+    match /environments/{environment}/public_profiles/{userId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create, update: if isValidEnvironment(environment)
+        && (isOwner(userId) || isAdmin(environment));
+      allow delete: if isValidEnvironment(environment)
+        && (isOwner(userId) || isAdmin(environment));
+    }
+
+    match /environments/{environment}/usernames/{username} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (request.resource.data.userId == request.auth.uid
+          || isAdmin(environment));
+      allow update: if false;
+      allow delete: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin(environment));
+    }
+
+    match /environments/{environment}/posts/{postId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isSignedIn() && resource.data.authorId == request.auth.uid));
+      allow delete: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isSignedIn() && resource.data.authorId == request.auth.uid));
+    }
+
+    match /environments/{environment}/follows/{followId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.followerId == request.auth.uid;
+    }
+
+    match /environments/{environment}/post_likes/{likeId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && likeId == request.resource.data.postId + '_' + request.auth.uid;
+      allow update: if false;
+      allow delete: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /environments/{environment}/blocks/{blockId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.blockerId == request.auth.uid;
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.blockerId == request.auth.uid;
+      allow delete: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.blockerId == request.auth.uid;
+    }
+
+    match /environments/{environment}/post_reports/{reportId} {
+      allow read: if isValidEnvironment(environment) && isAdmin(environment);
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.reportedByUserId == request.auth.uid;
+      allow update, delete: if isValidEnvironment(environment)
+        && isAdmin(environment);
     }
   }
 }

@@ -15,6 +15,9 @@ class UserModel {
     this.role = UserRole.user,
     this.businessId,
     this.photoUrl,
+    this.bio,
+    this.username,
+    this.usernameUpdatedAt,
     this.password,
     this.whatsapp,
     this.nationalIdLast4,
@@ -36,6 +39,9 @@ class UserModel {
   final UserRole role;
   final String? businessId;
   final String? photoUrl;
+  final String? bio;
+  final String? username;
+  final DateTime? usernameUpdatedAt;
   final String? password;
   final String? whatsapp;
   final String? nationalIdLast4;
@@ -80,6 +86,9 @@ class UserModel {
       'role': role.firestoreValue,
       'businessId': businessId,
       'photoUrl': photoUrl,
+      'bio': bio,
+      'username': username,
+      'usernameUpdatedAt': usernameUpdatedAt?.toIso8601String(),
       'password': password,
       'whatsapp': whatsapp,
       'nationalIdLast4': nationalIdLast4,
@@ -103,6 +112,10 @@ class UserModel {
       'role': role.firestoreValue,
       if (businessId != null) 'businessId': businessId,
       if (photoUrl != null) 'photoUrl': photoUrl,
+      if (bio != null && bio!.isNotEmpty) 'bio': bio,
+      if (username != null && username!.isNotEmpty) 'username': username,
+      if (usernameUpdatedAt != null)
+        'usernameUpdatedAt': Timestamp.fromDate(usernameUpdatedAt!),
       if (whatsapp != null && whatsapp!.isNotEmpty) 'whatsapp': whatsapp,
       if (nationalIdLast4 != null && nationalIdLast4!.isNotEmpty)
         'nationalIdLast4': nationalIdLast4,
@@ -129,6 +142,11 @@ class UserModel {
       role: UserRole.fromFirestore(json['role'] as String?),
       businessId: json['businessId'] as String?,
       photoUrl: json['photoUrl'] as String?,
+      bio: json['bio'] as String?,
+      username: json['username'] as String?,
+      usernameUpdatedAt: json['usernameUpdatedAt'] != null
+          ? DateTime.parse(json['usernameUpdatedAt'] as String)
+          : null,
       password: json['password'] as String?,
       whatsapp: json['whatsapp'] as String?,
       nationalIdLast4: json['nationalIdLast4'] as String?,
@@ -189,6 +207,9 @@ class UserModel {
       role: role,
       businessId: data['businessId'] as String?,
       photoUrl: data['photoUrl'] as String?,
+      bio: data['bio'] as String?,
+      username: data['username'] as String?,
+      usernameUpdatedAt: readOptionalDate(data['usernameUpdatedAt']),
       whatsapp: data['whatsapp'] as String?,
       nationalIdLast4: data['nationalIdLast4'] as String?,
       birthDate: readOptionalDate(data['birthDate']),
@@ -233,6 +254,9 @@ class UserModel {
     UserRole? role,
     String? businessId,
     String? photoUrl,
+    String? bio,
+    String? username,
+    DateTime? usernameUpdatedAt,
     String? password,
     String? whatsapp,
     String? nationalIdLast4,
@@ -254,6 +278,9 @@ class UserModel {
       role: role ?? this.role,
       businessId: businessId ?? this.businessId,
       photoUrl: photoUrl ?? this.photoUrl,
+      bio: bio ?? this.bio,
+      username: username ?? this.username,
+      usernameUpdatedAt: usernameUpdatedAt ?? this.usernameUpdatedAt,
       password: password ?? this.password,
       whatsapp: whatsapp ?? this.whatsapp,
       nationalIdLast4: nationalIdLast4 ?? this.nationalIdLast4,

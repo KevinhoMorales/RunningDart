@@ -15,6 +15,7 @@ import '../../widgets/user_avatar.dart';
 import '../admin/admin_panel_screen.dart';
 import '../business/business_list_screen.dart';
 import '../business/operator_scan_screen.dart';
+import '../feed/feed_screen.dart';
 import '../news/news_list_screen.dart';
 
 enum _HomeMode { member, operator, admin }
@@ -50,19 +51,22 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (mode) {
       case _HomeMode.operator:
         return const [
-          OperatorScanScreen(),
           BusinessListScreen(),
+          FeedScreen(),
           NewsListScreen(),
+          OperatorScanScreen(),
         ];
       case _HomeMode.admin:
         return const [
           BusinessListScreen(),
+          FeedScreen(),
           NewsListScreen(),
           AdminPanelScreen(),
         ];
       case _HomeMode.member:
         return const [
           BusinessListScreen(),
+          FeedScreen(),
           NewsListScreen(),
         ];
     }
@@ -73,19 +77,24 @@ class _HomeScreenState extends State<HomeScreen> {
       case _HomeMode.operator:
         return const [
           NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner_rounded),
-            label: 'Escanear',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront_rounded),
             label: 'Marcas',
           ),
           NavigationDestination(
+            icon: Icon(Icons.people_alt_outlined),
+            selectedIcon: Icon(Icons.people_alt_rounded),
+            label: 'Comunidad',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
             selectedIcon: Icon(Icons.event_rounded),
             label: 'Noticias',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.qr_code_scanner_outlined),
+            selectedIcon: Icon(Icons.qr_code_scanner_rounded),
+            label: 'Escanear',
           ),
         ];
       case _HomeMode.admin:
@@ -94,6 +103,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront_rounded),
             label: 'Marcas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_alt_outlined),
+            selectedIcon: Icon(Icons.people_alt_rounded),
+            label: 'Comunidad',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
@@ -112,6 +126,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(Icons.storefront_rounded),
             label: 'Marcas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_alt_outlined),
+            selectedIcon: Icon(Icons.people_alt_rounded),
+            label: 'Comunidad',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
@@ -159,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final showAdminNewsFab = mode == _HomeMode.admin &&
         safeIndex == adminNewsHomeTabIndex &&
         adminUpcomingNewsCount > 0;
+    final showPublishFab = safeIndex == communityHomeTabIndex;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -177,19 +197,25 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: showAdminBusinessFab
+      floatingActionButton: showPublishFab
           ? HapticFloatingActionButton(
-              onPressed: () => context.push('/admin/businesses/new'),
+              onPressed: () => context.push('/post/new'),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Marca'),
+              label: const Text('Publicar'),
             )
-          : showAdminNewsFab
+          : showAdminBusinessFab
               ? HapticFloatingActionButton(
-                  onPressed: () => context.push('/admin/news/new'),
+                  onPressed: () => context.push('/admin/businesses/new'),
                   icon: const Icon(Icons.add_rounded),
-                  label: const Text('Evento'),
+                  label: const Text('Marca'),
                 )
-              : null,
+              : showAdminNewsFab
+                  ? HapticFloatingActionButton(
+                      onPressed: () => context.push('/admin/news/new'),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Evento'),
+                    )
+                  : null,
       body: IndexedStack(
         index: safeIndex,
         children: pages,

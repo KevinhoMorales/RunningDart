@@ -8,72 +8,68 @@ import '../../services/qr_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
-import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/constants.dart';
 import '../../utils/whatsapp_launcher.dart';
 import '../../widgets/custom_app_bar.dart';
-import '../../widgets/haptic_controls.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
 import '../../widgets/profile_action_tile.dart';
-import '../../widgets/user_avatar.dart';
+import '../social/user_profile_screen.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Scaffold(
-      backgroundColor: palette.scaffoldBackground,
-      appBar: CustomAppBar(
-        title: 'Mi cuenta',
-        actions: [
-          HapticIconButton(
-            onPressed: () => context.push('/settings'),
-            tooltip: 'Ajustes',
-            icon: Icon(
-              Icons.settings_rounded,
-              color: palette.textPrimary,
-            ),
-          ),
-        ],
-      ),
-      body: const ProfileScreen(),
-    );
-  }
-}
-
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final user = auth.user;
-    final palette = context.palette;
+    final user = context.watch<AuthProvider>().user;
 
     if (user == null) {
-      return Center(
-        child: Text(
-          'No hay sesión activa',
-          style: AppTypography.muted(context),
+      return Scaffold(
+        backgroundColor: context.palette.scaffoldBackground,
+        appBar: const CustomAppBar(title: 'Mi cuenta'),
+        body: Center(
+          child: Text(
+            'No hay sesión activa',
+            style: AppTypography.muted(context),
+          ),
         ),
       );
     }
 
+    return UserProfileScreen(
+      key: ValueKey(user.id),
+      userId: user.id,
+      isAccountView: true,
+    );
+  }
+}
+
+/// Credencial, membresía y accesos de la cuenta. Se muestra embebido dentro del
+/// perfil propio, por eso no incluye Scaffold ni scroll propio.
+class AccountSections extends StatelessWidget {
+  const AccountSections({super.key, required this.user});
+
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final palette = context.palette;
+
     final qrService = QRService();
     final qrPayload = qrService.generatePayload(user);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ProfileIdentityHeader(user: user),
-          const SizedBox(height: AppSpacing.lg),
           MembershipCredentialCard(user: user, qrPayload: qrPayload),
           const SizedBox(height: AppSpacing.md),
           _ContextBanner(auth: auth),
@@ -133,71 +129,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _ProfileIdentityHeader extends StatelessWidget {
-  const _ProfileIdentityHeader({required this.user});
-
-  final UserModel user;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Material(
-      color: palette.cardBackground,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      child: InkWell(
-        onTap: AppHaptics.wrap(() => context.push('/profile/edit')),
-        enableFeedback: false,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: palette.cardBorder),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              UserAvatar(
-                displayName: user.displayName,
-                photoUrl: user.photoUrl,
-                radius: 32,
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.displayName,
-                      style: AppTypography.sectionTitle(context),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      user.email,
-                      style:
-                          AppTypography.body(context, color: palette.textMuted),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: palette.textMuted,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -8,27 +8,34 @@ import 'package:uuid/uuid.dart';
 import '../config/app_environment.dart';
 import '../config/firebase_paths.dart';
 import '../models/membership_status.dart';
+import '../models/public_profile.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import '../utils/user_messages.dart';
+import '../utils/username_helpers.dart';
 import 'auth_service.dart';
 import 'account_deletion_service.dart';
+import 'username_service.dart';
 
 class FirebaseAuthService implements AuthService {
   FirebaseAuthService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
     AccountDeletionService? accountDeletionService,
+    UsernameService? usernameService,
   })  : _auth = auth ?? FirebaseAuth.instance,
         _firestore = firestore ?? FirebaseFirestore.instance,
         _accountDeletionService =
-            accountDeletionService ?? AccountDeletionService() {
+            accountDeletionService ?? AccountDeletionService(),
+        _usernameService =
+            usernameService ?? UsernameService(firestore: firestore) {
     _authSubscription = _auth.authStateChanges().listen(_handleAuthStateChanged);
   }
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
   final AccountDeletionService _accountDeletionService;
+  final UsernameService _usernameService;
   final _uuid = const Uuid();
   final _userController = StreamController<UserModel?>.broadcast();
 
@@ -36,6 +43,7 @@ class FirebaseAuthService implements AuthService {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
   String? _listeningProfileUid;
   UserModel? _cachedUser;
+  String? _syncedPublicProfile;
   bool _suppressProfileValidation = false;
 
   CollectionReference<Map<String, dynamic>> get _users =>
@@ -122,12 +130,34 @@ class FirebaseAuthService implements AuthService {
         );
       }
 
+      final desiredUsername = profile.username.trim().isEmpty
+          ? UsernameHelpers.suggestFromEmail(email)
+          : UsernameHelpers.normalize(profile.username);
+      final String username;
+      try {
+        // Si alguien tomó el nombre entre la validación y este punto, se
+        // concede el siguiente libre en vez de perder el registro completo.
+        username = await _usernameService.reserveAvailable(
+          desired: desiredUsername,
+          userId: firebaseUser.uid,
+        );
+      } on UsernameException catch (e) {
+        if (createdAuthUser) {
+          await firebaseUser.delete();
+        }
+        throw AuthException(e.message);
+      }
+
       final now = DateTime.now();
       final requiresApproval = profile.modality.requiresPayment;
       final user = UserModel(
         id: firebaseUser.uid,
         email: email.trim().toLowerCase(),
         displayName: profile.displayName.trim(),
+        username: username,
+        // Se deja sin marcar a propósito: el cooldown de 30 días solo debe
+        // empezar cuando la persona cambie el nombre por su cuenta.
+        usernameUpdatedAt: null,
         qrCode: 'RD-${_uuid.v4()}',
         createdAt: now,
         isActive: true,
@@ -158,16 +188,19 @@ class FirebaseAuthService implements AuthService {
         _emitUser(createdUser);
         return createdUser;
       } on AuthException {
+        await _usernameService.release(username);
         if (createdAuthUser) {
           await firebaseUser.delete();
         }
         rethrow;
       } on FirebaseException catch (e) {
+        await _usernameService.release(username);
         if (createdAuthUser) {
           await firebaseUser.delete();
         }
         throw AuthException(_mapFirestoreError(e));
       } catch (_) {
+        await _usernameService.release(username);
         if (createdAuthUser) {
           await firebaseUser.delete();
         }
@@ -221,6 +254,40 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<void> logout() async {
     await _auth.signOut();
+  }
+
+  @override
+  Future<void> reauthenticate(String password) async {
+    final firebaseUser = _auth.currentUser;
+    final email = firebaseUser?.email;
+    if (firebaseUser == null || email == null || email.isEmpty) {
+      throw AuthException('No hay sesión activa.');
+    }
+
+    _suppressProfileValidation = true;
+    try {
+      await firebaseUser.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: password),
+      );
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapReauthenticationError(e));
+    } catch (_) {
+      throw AuthException(
+        'No se pudo verificar tu contraseña. Intenta de nuevo.',
+      );
+    } finally {
+      _suppressProfileValidation = false;
+    }
+  }
+
+  String _mapReauthenticationError(FirebaseAuthException exception) {
+    return switch (exception.code) {
+      'wrong-password' || 'invalid-credential' || 'invalid-login-credentials' =>
+        'La contraseña no es correcta.',
+      'too-many-requests' =>
+        'Demasiados intentos fallidos. Espera unos minutos e intenta de nuevo.',
+      _ => _mapFirebaseAuthError(exception),
+    };
   }
 
   @override
@@ -336,6 +403,7 @@ class FirebaseAuthService implements AuthService {
   void _emitUser(UserModel? user) {
     if (user != null) {
       _cachedUser = user;
+      unawaited(_syncPublicProfile(user));
       if (!_userController.isClosed) {
         _userController.add(_cachedUser);
       }
@@ -344,6 +412,7 @@ class FirebaseAuthService implements AuthService {
 
     if (_auth.currentUser == null) {
       _cachedUser = null;
+      _syncedPublicProfile = null;
       if (!_userController.isClosed) {
         _userController.add(null);
       }
@@ -351,6 +420,48 @@ class FirebaseAuthService implements AuthService {
     }
 
     unawaited(_invalidateSessionDueToMissingProfile());
+  }
+
+  /// `public_profiles` es lo único que los demás socios pueden leer: las reglas
+  /// no permiten leer el `users/{uid}` de otra persona. Si no se mantiene al
+  /// día, el usuario aparece sin nombre en seguidores, búsquedas y feed.
+  Future<void> _syncPublicProfile(UserModel user) async {
+    final displayName = user.displayName.trim();
+    if (displayName.isEmpty) {
+      return;
+    }
+
+    final signature = [
+      user.id,
+      displayName,
+      user.photoUrl ?? '',
+      user.bio ?? '',
+      user.username ?? '',
+    ].join('|');
+    if (signature == _syncedPublicProfile) {
+      return;
+    }
+    _syncedPublicProfile = signature;
+
+    try {
+      await FirebasePaths.collection(_firestore, 'public_profiles')
+          .doc(user.id)
+          .set(
+            PublicProfile(
+              id: user.id,
+              displayName: displayName,
+              photoUrl: user.photoUrl,
+              bio: user.bio,
+              username: user.username,
+            ).toFirestore(),
+            SetOptions(merge: true),
+          );
+    } catch (error) {
+      // Que falle no debe bloquear la sesión; se reintenta en la próxima
+      // emisión del perfil.
+      _syncedPublicProfile = null;
+      debugPrint('Failed to sync public profile: $error');
+    }
   }
 
   Future<void> _syncProfileFromUid(String uid) async {

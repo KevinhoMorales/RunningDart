@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -13,14 +14,19 @@ import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
+import '../../utils/username_helpers.dart';
 import '../../services/profile_photo_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/social_service.dart';
+import '../../services/username_service.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/international_phone_field.dart';
 import '../../widgets/modern_text_field.dart';
 import '../../widgets/user_avatar.dart';
+
+const _bioMaxLength = 150;
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -32,18 +38,25 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _nationalIdController = TextEditingController();
   final _whatsappController = TextEditingController();
+  final _bioController = TextEditingController();
   final _whatsappFieldKey = GlobalKey<InternationalPhoneFieldState>();
 
   final _picker = ImagePicker();
   final _photoService = ProfilePhotoService();
   final _profileService = ProfileService();
+  final _socialService = SocialService();
+  final _usernameService = UsernameService();
 
   DateTime? _birthDate;
   XFile? _selectedPhoto;
   bool _isSaving = false;
   bool _initialized = false;
+  String? _currentUsername;
+  int _daysUntilUsernameChange = 0;
+  int _bioLength = 0;
 
   @override
   void didChangeDependencies() {
@@ -55,7 +68,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (user != null) {
       _nameController.text = user.displayName;
       _nationalIdController.text = user.nationalIdLast4 ?? '';
+      _bioController.text = user.bio ?? '';
+      _bioLength = _bioController.text.trim().length;
       _birthDate = user.birthDate;
+      _currentUsername = user.username;
+      _usernameController.text = user.username?.isNotEmpty == true
+          ? user.username!
+          : UsernameHelpers.suggestFromEmail(user.email);
+      _daysUntilUsernameChange = (user.username?.isNotEmpty ?? false)
+          ? UsernameHelpers.daysUntilChangeAllowed(user.usernameUpdatedAt)
+          : 0;
     }
     _initialized = true;
   }
@@ -63,8 +85,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _usernameController.dispose();
     _nationalIdController.dispose();
     _whatsappController.dispose();
+    _bioController.dispose();
     super.dispose();
   }
 
@@ -113,16 +137,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       final photo = _selectedPhoto;
+      var photoUrl = user.photoUrl;
       if (photo != null) {
-        await _photoService.uploadProfilePhoto(user.id, photo);
+        photoUrl = await _photoService.uploadProfilePhoto(user.id, photo) ??
+            photoUrl;
+      }
+
+      final displayName = _nameController.text.trim();
+      final bio = _bioController.text.trim();
+      final username = UsernameHelpers.normalize(_usernameController.text);
+
+      if (username != UsernameHelpers.normalize(_currentUsername ?? '')) {
+        await _usernameService.changeUsername(
+          userId: user.id,
+          newUsername: username,
+          currentUsername: _currentUsername,
+          bypassCooldown: false,
+          usernameUpdatedAt: user.usernameUpdatedAt,
+        );
+        _currentUsername = username;
       }
 
       await _profileService.updateProfile(
         userId: user.id,
-        displayName: _nameController.text.trim(),
+        displayName: displayName,
         whatsapp: _whatsappFieldKey.currentState!.formatForStorage(),
         nationalIdLast4: _nationalIdController.text.trim(),
         birthDate: _birthDate!,
+        bio: bio,
+      );
+
+      await _socialService.upsertPublicProfile(
+        userId: user.id,
+        displayName: displayName,
+        photoUrl: photoUrl,
+        bio: bio,
+        username: username,
       );
 
       await auth.refreshAccountStatus();
@@ -132,6 +182,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       AppSnackBar.show(context, 'Perfil actualizado.');
       context.pop();
+    } on UsernameException catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, e.message);
+      }
     } on ProfilePhotoException catch (e) {
       if (mounted) {
         AppSnackBar.showError(context, e.message);
@@ -201,6 +255,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ? 'Ingresa tu nombre'
                               : null,
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    ModernTextField(
+                      controller: _usernameController,
+                      labelText: 'Nombre de usuario',
+                      prefixText: '@',
+                      prefixIcon: Icons.alternate_email_rounded,
+                      enabled: !_isSaving && _daysUntilUsernameChange == 0,
+                      inputFormatters: UsernameHelpers.inputFormatters,
+                      validator: UsernameHelpers.validationError,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    _UsernameHint(daysRemaining: _daysUntilUsernameChange),
+                    const SizedBox(height: AppSpacing.md),
+                    ModernTextField(
+                      controller: _bioController,
+                      labelText: 'Descripción',
+                      textCapitalization: TextCapitalization.sentences,
+                      prefixIcon: Icons.notes_rounded,
+                      maxLines: 3,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(_bioMaxLength),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _bioLength = value.trim().length),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    _BioHint(length: _bioLength, maxLength: _bioMaxLength),
                     const SizedBox(height: AppSpacing.md),
                     InternationalPhoneField(
                       key: _whatsappFieldKey,
@@ -308,6 +389,83 @@ class _PhotoEditor extends StatelessWidget {
           style: AppTypography.caption(context, color: palette.textMuted),
         ),
       ],
+    );
+  }
+}
+
+class _BioHint extends StatelessWidget {
+  const _BioHint({required this.length, required this.maxLength});
+
+  final int length;
+  final int maxLength;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 14,
+            color: palette.textMuted,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              'Una línea sobre ti que verá toda la comunidad en tu perfil.',
+              style: AppTypography.caption(context, color: palette.textMuted),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            '$length/$maxLength',
+            style: AppTypography.caption(context, color: palette.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UsernameHint extends StatelessWidget {
+  const _UsernameHint({required this.daysRemaining});
+
+  final int daysRemaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final text = daysRemaining > 0
+        ? 'Podrás cambiarlo en $daysRemaining '
+            '${daysRemaining == 1 ? 'día' : 'días'}.'
+        : 'Debe ser único. Solo podrás cambiarlo cada '
+            '${UsernameHelpers.cooldownDays} días.';
+
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            daysRemaining > 0
+                ? Icons.lock_clock_rounded
+                : Icons.info_outline_rounded,
+            size: 14,
+            color: palette.textMuted,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.caption(context, color: palette.textMuted),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
