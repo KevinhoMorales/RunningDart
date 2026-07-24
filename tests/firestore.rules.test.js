@@ -168,6 +168,39 @@ async function runTests() {
       envCollection(authedDb('operator-1'), 'users').doc('user-new').get(),
     );
 
+    // Ingreso manual: un operador resuelve a un miembro activo por su qrCode.
+    // La query restringe los mismos campos que exige la regla (isActiveMember),
+    // de modo que sea "demostrable" para operaciones list.
+    await assertSucceeds(
+      envCollection(authedDb('operator-1'), 'users')
+        .where('qrCode', '==', 'RD-member-1')
+        .where('isActive', '==', true)
+        .where('role', 'in', ['member', 'admin'])
+        .where('membershipStatus', '==', 'active')
+        .limit(1)
+        .get(),
+    );
+
+    // Ingreso manual: un no-miembro simplemente no coincide (resultado vacio),
+    // mismo comportamiento efectivo que el escaneo (no se puede leer su doc).
+    await assertSucceeds(
+      envCollection(authedDb('operator-1'), 'users')
+        .where('qrCode', '==', 'RD-user-plain')
+        .where('isActive', '==', true)
+        .where('role', 'in', ['member', 'admin'])
+        .where('membershipStatus', '==', 'active')
+        .limit(1)
+        .get(),
+    );
+
+    // Sin las restricciones, la query no es demostrable y debe fallar.
+    await assertFails(
+      envCollection(authedDb('operator-1'), 'users')
+        .where('qrCode', '==', 'RD-member-1')
+        .limit(1)
+        .get(),
+    );
+
     await assertSucceeds(
       envCollection(authedDb('member-1'), 'news')
         .where('isPublished', '==', true)

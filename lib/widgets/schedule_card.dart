@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
-import '../utils/constants.dart';
 import '../utils/schedule_helpers.dart';
 
 class ScheduleLocationBanner extends StatelessWidget {
@@ -113,10 +112,8 @@ class ScheduleCard extends StatelessWidget {
         children: [
           Container(
             height: 3,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: AppConstants.brandGradientAccentColors,
-              ),
+            decoration: BoxDecoration(
+              color: palette.accentPrimary,
             ),
           ),
           Padding(

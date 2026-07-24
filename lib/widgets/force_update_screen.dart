@@ -59,9 +59,7 @@ class ForceUpdateScreen extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppConstants.brandGradientAccentColors,
-                    ),
+                    color: palette.accentPrimary,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                   ),
                   child: const Icon(

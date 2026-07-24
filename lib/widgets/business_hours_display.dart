@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/business_hours.dart';
 import '../models/business_model.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
@@ -21,7 +20,9 @@ class BusinessHoursDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (business.hasStructuredHours) {
-      final slots = BusinessHoursHelpers.sortedSlots(business.operatingHours.slots);
+      final groups = BusinessHoursHelpers.groupSlotsByWeekdays(
+        business.operatingHours.slots,
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -41,10 +42,10 @@ class BusinessHoursDisplay extends StatelessWidget {
               ],
             ),
           if (!compact) const SizedBox(height: AppSpacing.sm),
-          ...slots.asMap().entries.map(
-            (entry) => _HoursTimelineRow(
-              slot: entry.value,
-              isLast: entry.key == slots.length - 1,
+          ...groups.asMap().entries.map(
+            (entry) => _HoursGroupRow(
+              group: entry.value,
+              isLast: entry.key == groups.length - 1,
             ),
           ),
         ],
@@ -108,24 +109,20 @@ class _LegacyHoursRow extends StatelessWidget {
   }
 }
 
-class _HoursTimelineRow extends StatelessWidget {
-  const _HoursTimelineRow({
-    required this.slot,
+class _HoursGroupRow extends StatelessWidget {
+  const _HoursGroupRow({
+    required this.group,
     required this.isLast,
   });
 
-  final BusinessHoursSlot slot;
+  final BusinessHoursSlotGroup group;
   final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final icon = BusinessHoursHelpers.iconForPeriod(slot.period);
     final dotColor = palette.accentPrimary;
-    final line = BusinessHoursHelpers.formatSlot(slot);
-    final parts = line.split(' · ');
-    final primary = parts.isNotEmpty ? parts.first : line;
-    final secondary = parts.length > 1 ? parts.sublist(1).join(' · ') : null;
+    final weekdayLabel = BusinessHoursHelpers.formatWeekdays(group.weekdays);
 
     return IntrinsicHeight(
       child: Row(
@@ -142,7 +139,11 @@ class _HoursTimelineRow extends StatelessWidget {
                     color: dotColor.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 14, color: dotColor),
+                  child: Icon(
+                    Icons.calendar_today_rounded,
+                    size: 14,
+                    color: dotColor,
+                  ),
                 ),
                 if (!isLast)
                   Expanded(
@@ -162,14 +163,35 @@ class _HoursTimelineRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(primary, style: AppTypography.body(context)),
-                  if (secondary != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      secondary,
-                      style: AppTypography.caption(context, color: palette.textMuted),
+                  Text(
+                    weekdayLabel,
+                    style: AppTypography.body(context).copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  ...group.slots.map(
+                    (slot) => Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            BusinessHoursHelpers.iconForPeriod(slot.period),
+                            size: 14,
+                            color: palette.textMuted,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              BusinessHoursHelpers.formatSlotPeriodAndTime(slot),
+                              style: AppTypography.caption(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

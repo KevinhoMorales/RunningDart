@@ -17,6 +17,16 @@
 		A1B2C3D41E833CAA004F5971 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31E833CAA004F5971 /* GoogleService-Info.plist */; };
 		F0A72F70E62078D21A9B0D62 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1108CEFA727C1EAA2CF000F /* Pods_Runner.framework */; };
 		F2B3947CF84A5F13395A945E /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1FA89B2FD1C93A2DF95CC937 /* Pods_RunnerTests.framework */; };
+
+		A20000010000000000000006 /* WatchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000005 /* WatchSessionManager.swift */; };
+		A2000001000000000000000E /* SaintsWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000007 /* SaintsWatchApp.swift */; };
+		A2000001000000000000000F /* WatchSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000008 /* WatchSessionStore.swift */; };
+		A20000010000000000000010 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000009 /* ContentView.swift */; };
+		A20000010000000000000011 /* WatchEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000A /* WatchEmptyStateView.swift */; };
+		A20000010000000000000012 /* MembershipQRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000B /* MembershipQRView.swift */; };
+		A20000010000000000000019 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000C /* Info.plist */; };
+		A2000001000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000D /* Assets.xcassets */; };
+		A20000010000000000000016 /* SaintsWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A20000010000000000000001 /* SaintsWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); platformFilter = iphoneos; }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +36,14 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+
+		A20000010000000000000018 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A20000010000000000000002;
+			remoteInfo = SaintsWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -38,6 +56,18 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		A20000010000000000000004 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				A20000010000000000000016 /* SaintsWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -75,6 +105,16 @@
 		E3378C1A9702EB7F5F130458 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		E5DD7FFF9CABB43AB40BB3BC /* Pods-RunnerTests.profile-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile-dev.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile-dev.xcconfig"; sourceTree = "<group>"; };
 		FBB4BC5686886E6A632A8D10 /* Pods-Runner.profile-dev.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-dev.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-dev.xcconfig"; sourceTree = "<group>"; };
+
+		A20000010000000000000005 /* WatchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionManager.swift; sourceTree = "<group>"; };
+		A20000010000000000000001 /* SaintsWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SaintsWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000010000000000000007 /* SaintsWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaintsWatchApp.swift; sourceTree = "<group>"; };
+		A20000010000000000000008 /* WatchSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionStore.swift; sourceTree = "<group>"; };
+		A20000010000000000000009 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A2000001000000000000000A /* WatchEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchEmptyStateView.swift; sourceTree = "<group>"; };
+		A2000001000000000000000B /* MembershipQRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MembershipQRView.swift; sourceTree = "<group>"; };
+		A2000001000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2000001000000000000000D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +131,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				F2B3947CF84A5F13395A945E /* Pods_RunnerTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		A20000010000000000000014 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,10 +195,26 @@
 			name = Flutter;
 			sourceTree = "<group>";
 		};
+
+		A20000010000000000000003 /* SaintsWatch */ = {
+			isa = PBXGroup;
+			children = (
+				A20000010000000000000007 /* SaintsWatchApp.swift */,
+				A20000010000000000000008 /* WatchSessionStore.swift */,
+				A20000010000000000000009 /* ContentView.swift */,
+				A2000001000000000000000A /* WatchEmptyStateView.swift */,
+				A2000001000000000000000B /* MembershipQRView.swift */,
+				A2000001000000000000000D /* Assets.xcassets */,
+				A2000001000000000000000C /* Info.plist */,
+			);
+			path = SaintsWatch;
+			sourceTree = "<group>";
+		};
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
 				9740EEB11CF90186004384FC /* Flutter */,
+				A20000010000000000000003 /* SaintsWatch */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
@@ -163,6 +227,7 @@
 			isa = PBXGroup;
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
+				A20000010000000000000001 /* SaintsWatch.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -179,6 +244,7 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				A20000010000000000000005 /* WatchSessionManager.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -216,6 +282,7 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				A20000010000000000000004 /* Embed Watch Content */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				7582AF603718E9383C6D8462 /* [CP] Embed Pods Frameworks */,
 				87703B239B1B9B7A6ABEC331 /* [CP] Copy Pods Resources */,
@@ -223,10 +290,29 @@
 			buildRules = (
 			);
 			dependencies = (
+				A20000010000000000000017 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
+			productType = "com.apple.product-type.application";
+		};
+
+		A20000010000000000000002 /* SaintsWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A2000001000000000000001B /* Build configuration list for PBXNativeTarget "SaintsWatch" */;
+			buildPhases = (
+				A20000010000000000000013 /* Sources */,
+				A20000010000000000000014 /* Frameworks */,
+				A20000010000000000000015 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SaintsWatch;
+			productName = SaintsWatch;
+			productReference = A20000010000000000000001 /* SaintsWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -239,6 +325,9 @@
 				LastUpgradeCheck = 1510;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
+					A20000010000000000000002 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 					331C8080294A63A400263BE5 = {
 						CreatedOnToolsVersion = 14.0;
 						TestTargetID = 97C146ED1CF9000F007C117D;
@@ -263,6 +352,7 @@
 			projectRoot = "";
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
+				A20000010000000000000002 /* SaintsWatch */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
 		};
@@ -285,6 +375,15 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		A20000010000000000000015 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2000001000000000000001A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,7 +515,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				A20000010000000000000006 /* WatchSessionManager.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		A20000010000000000000013 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2000001000000000000000E /* SaintsWatchApp.swift in Sources */,
+				A2000001000000000000000F /* WatchSessionStore.swift in Sources */,
+				A20000010000000000000010 /* ContentView.swift in Sources */,
+				A20000010000000000000011 /* WatchEmptyStateView.swift in Sources */,
+				A20000010000000000000012 /* MembershipQRView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,6 +540,13 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+
+		A20000010000000000000017 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = iphoneos;
+			target = A20000010000000000000002 /* SaintsWatch */;
+			targetProxy = A20000010000000000000018 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -507,12 +627,14 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = SAINTS;
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 5S22W76BBZ;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = SaintsWatch.app;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -692,12 +814,14 @@
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = SAINTS;
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 5S22W76BBZ;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = SaintsWatch.app;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -717,12 +841,14 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = SAINTS;
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 5S22W76BBZ;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = SaintsWatch.app;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -851,7 +977,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -904,12 +1030,14 @@
 			baseConfigurationReference = A10000020000000000000001 /* Debug-dev.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = "SAINTS Dev";
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 5S22W76BBZ;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = SaintsWatch.app;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -929,12 +1057,14 @@
 			baseConfigurationReference = A10000020000000000000002 /* Release-dev.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = "SAINTS Dev";
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 5S22W76BBZ;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = SaintsWatch.app;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -953,12 +1083,14 @@
 			baseConfigurationReference = A10000020000000000000002 /* Release-dev.xcconfig */;
 			buildSettings = {
 				APP_DISPLAY_NAME = "SAINTS Dev";
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 5S22W76BBZ;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = SaintsWatch.app;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1022,6 +1154,183 @@
 			};
 			name = "Profile-dev";
 		};
+
+		A2000001000000000000001C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			CLANG_ENABLE_MODULES = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+			DEVELOPMENT_TEAM = 5S22W76BBZ;
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = SaintsWatch/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = watchos;
+			SKIP_INSTALL = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 4;
+			WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.devlokos.runningdart.watchkitapp;
+				WK_COMPANION_APP_BUNDLE_IDENTIFIER = com.devlokos.runningdart;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A2000001000000000000001D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			CLANG_ENABLE_MODULES = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+			DEVELOPMENT_TEAM = 5S22W76BBZ;
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = SaintsWatch/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = watchos;
+			SKIP_INSTALL = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 4;
+			WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.devlokos.runningdart.watchkitapp;
+				WK_COMPANION_APP_BUNDLE_IDENTIFIER = com.devlokos.runningdart;
+			};
+			name = Release;
+		};
+		A2000001000000000000001E /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			CLANG_ENABLE_MODULES = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+			DEVELOPMENT_TEAM = 5S22W76BBZ;
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = SaintsWatch/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = watchos;
+			SKIP_INSTALL = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 4;
+			WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.devlokos.runningdart.watchkitapp;
+				WK_COMPANION_APP_BUNDLE_IDENTIFIER = com.devlokos.runningdart;
+			};
+			name = Profile;
+		};
+		A2000001000000000000001F /* Debug-dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			CLANG_ENABLE_MODULES = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+			DEVELOPMENT_TEAM = 5S22W76BBZ;
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = SaintsWatch/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = watchos;
+			SKIP_INSTALL = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 4;
+			WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.devlokos.runningdart.dev.watchkitapp;
+				WK_COMPANION_APP_BUNDLE_IDENTIFIER = com.devlokos.runningdart.dev;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = "Debug-dev";
+		};
+		A20000010000000000000020 /* Release-dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			CLANG_ENABLE_MODULES = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+			DEVELOPMENT_TEAM = 5S22W76BBZ;
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = SaintsWatch/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = watchos;
+			SKIP_INSTALL = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 4;
+			WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.devlokos.runningdart.dev.watchkitapp;
+				WK_COMPANION_APP_BUNDLE_IDENTIFIER = com.devlokos.runningdart.dev;
+			};
+			name = "Release-dev";
+		};
+		A20000010000000000000021 /* Profile-dev */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "watchsimulator watchos";
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			CLANG_ENABLE_MODULES = YES;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+			DEVELOPMENT_TEAM = 5S22W76BBZ;
+			ENABLE_PREVIEWS = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = SaintsWatch/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/Frameworks",
+			);
+			MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SDKROOT = watchos;
+			SKIP_INSTALL = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = 4;
+			WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.devlokos.runningdart.dev.watchkitapp;
+				WK_COMPANION_APP_BUNDLE_IDENTIFIER = com.devlokos.runningdart.dev;
+			};
+			name = "Profile-dev";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1060,6 +1369,19 @@
 				A10000010000000000000004 /* Debug-dev */,
 				A10000010000000000000005 /* Release-dev */,
 				A10000010000000000000006 /* Profile-dev */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A2000001000000000000001B /* Build configuration list for PBXNativeTarget "SaintsWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2000001000000000000001C /* Debug */,
+				A2000001000000000000001D /* Release */,
+				A2000001000000000000001E /* Profile */,
+				A2000001000000000000001F /* Debug-dev */,
+				A20000010000000000000020 /* Release-dev */,
+				A20000010000000000000021 /* Profile-dev */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

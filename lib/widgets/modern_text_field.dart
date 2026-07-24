@@ -92,11 +92,7 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: AppConstants.brandGradientAccentColors,
-        ),
+        color: context.palette.accentPrimary,
         borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
         boxShadow: [
           BoxShadow(

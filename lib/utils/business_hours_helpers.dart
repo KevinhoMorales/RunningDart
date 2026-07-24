@@ -105,10 +105,81 @@ class BusinessHoursHelpers {
     return _minutes(start) < _minutes(end);
   }
 
+  static IconData iconForPeriod(BusinessDayPeriod period) {
+    return switch (period) {
+      BusinessDayPeriod.morning => Icons.wb_sunny_outlined,
+      BusinessDayPeriod.afternoon => Icons.wb_twilight_rounded,
+      BusinessDayPeriod.night => Icons.nightlight_round,
+    };
+  }
+
+  static BusinessHoursSlot defaultSlotForPeriod(
+    BusinessDayPeriod period, {
+    List<int> weekdays = weekdaysPresetWeekdays,
+  }) {
+    final sortedWeekdays = weekdays.toList()..sort();
+    return switch (period) {
+      BusinessDayPeriod.morning => BusinessHoursSlot(
+          weekdays: sortedWeekdays,
+          period: period,
+          start: const TimeOfDay(hour: 9, minute: 0),
+          end: const TimeOfDay(hour: 12, minute: 0),
+        ),
+      BusinessDayPeriod.afternoon => BusinessHoursSlot(
+          weekdays: sortedWeekdays,
+          period: period,
+          start: const TimeOfDay(hour: 14, minute: 0),
+          end: const TimeOfDay(hour: 20, minute: 0),
+        ),
+      BusinessDayPeriod.night => BusinessHoursSlot(
+          weekdays: sortedWeekdays,
+          period: period,
+          start: const TimeOfDay(hour: 19, minute: 0),
+          end: const TimeOfDay(hour: 23, minute: 0),
+        ),
+    };
+  }
+
+  static String formatSlotPeriodAndTime(BusinessHoursSlot slot) {
+    return '${periodLabel(slot.period)} · '
+        '${formatTime(slot.start)} - ${formatTime(slot.end)}';
+  }
+
+  static List<BusinessHoursSlotGroup> groupSlotsByWeekdays(
+    List<BusinessHoursSlot> slots,
+  ) {
+    final groups = <String, List<BusinessHoursSlot>>{};
+
+    for (final slot in slots) {
+      final key = slot.weekdays.join(',');
+      groups.putIfAbsent(key, () => []).add(slot);
+    }
+
+    final grouped = groups.entries.map((entry) {
+      return BusinessHoursSlotGroup(
+        weekdays: entry.value.first.weekdays,
+        slots: sortedSlots(entry.value),
+      );
+    }).toList();
+
+    grouped.sort((a, b) {
+      final dayCompare = (a.weekdays.isEmpty ? 8 : a.weekdays.first)
+          .compareTo(b.weekdays.isEmpty ? 8 : b.weekdays.first);
+      if (dayCompare != 0) {
+        return dayCompare;
+      }
+      return a.weekdays.length.compareTo(b.weekdays.length);
+    });
+
+    return grouped;
+  }
+
   static String? validateSlots(List<BusinessHoursSlot> slots) {
     if (slots.isEmpty) {
       return 'Agrega al menos un horario.';
     }
+
+    final seen = <String>{};
 
     for (var i = 0; i < slots.length; i++) {
       final slot = slots[i];
@@ -118,15 +189,27 @@ class BusinessHoursHelpers {
       if (!isValidTimeRange(slot.start, slot.end)) {
         return 'La hora de fin debe ser posterior al inicio en el horario ${i + 1}.';
       }
+
+      for (final day in slot.weekdays) {
+        final key = '$day:${slot.period.firestoreValue}';
+        if (seen.contains(key)) {
+          return 'Ya existe ${periodLabel(slot.period).toLowerCase()} para '
+              '${weekdayShortLabels[day]}. Revisa los bloques duplicados.';
+        }
+        seen.add(key);
+      }
     }
 
     return null;
   }
+}
 
-  static IconData iconForPeriod(BusinessDayPeriod period) {
-    return switch (period) {
-      BusinessDayPeriod.morning => Icons.wb_sunny_outlined,
-      BusinessDayPeriod.afternoon => Icons.wb_twilight_rounded,
-    };
-  }
+class BusinessHoursSlotGroup {
+  const BusinessHoursSlotGroup({
+    required this.weekdays,
+    required this.slots,
+  });
+
+  final List<int> weekdays;
+  final List<BusinessHoursSlot> slots;
 }

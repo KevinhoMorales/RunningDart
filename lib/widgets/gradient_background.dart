@@ -95,11 +95,7 @@ class AuthHero extends StatelessWidget {
           width: 88,
           height: 88,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: AppConstants.brandGradientColors,
-            ),
+            color: palette.accentPrimary,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             boxShadow: [
               BoxShadow(

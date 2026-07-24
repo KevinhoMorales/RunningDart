@@ -57,6 +57,7 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BusinessProvider>();
+    final palette = context.palette;
     final businesses = _filterBusinesses(
       provider.businesses
           .where((business) => business.isAllianceActive)
@@ -86,6 +87,7 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
             pinned: true,
             delegate: _BusinessCategoryHeaderDelegate(
               selectedCategory: provider.selectedCategory,
+              palette: palette,
               onCategorySelected: (category) {
                 provider.loadBusinesses(category: category);
               },
@@ -172,10 +174,12 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
 class _BusinessCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   _BusinessCategoryHeaderDelegate({
     required this.selectedCategory,
+    required this.palette,
     required this.onCategorySelected,
   });
 
   final String selectedCategory;
+  final AppPalette palette;
   final ValueChanged<String> onCategorySelected;
 
   static const double _chipRowHeight = 36;
@@ -194,8 +198,6 @@ class _BusinessCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final palette = context.palette;
-
     return ColoredBox(
       color: palette.scaffoldBackground,
       child: Column(
@@ -218,6 +220,7 @@ class _BusinessCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                       : Helpers.categoryLabel(category),
                   category: category,
                   isSelected: isSelected,
+                  palette: palette,
                   onSelected: () => onCategorySelected(category),
                 );
               },
@@ -231,6 +234,7 @@ class _BusinessCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _BusinessCategoryHeaderDelegate oldDelegate) {
-    return oldDelegate.selectedCategory != selectedCategory;
+    return oldDelegate.selectedCategory != selectedCategory ||
+        oldDelegate.palette != palette;
   }
 }

@@ -33,16 +33,18 @@ class BusinessHoursEditor extends StatelessWidget {
     onChanged(updated);
   }
 
-  void _addSlot() {
+  void _addSlotForPeriod(BusinessDayPeriod period) {
+    final weekdays = slots.isNotEmpty
+        ? List<int>.from(slots.first.weekdays)
+        : BusinessHoursHelpers.weekdaysPresetWeekdays;
     onChanged([
       ...slots,
-      const BusinessHoursSlot(
-        weekdays: [1, 2, 3, 4, 5],
-        period: BusinessDayPeriod.morning,
-        start: TimeOfDay(hour: 9, minute: 0),
-        end: TimeOfDay(hour: 12, minute: 0),
-      ),
+      BusinessHoursHelpers.defaultSlotForPeriod(period, weekdays: weekdays),
     ]);
+  }
+
+  void _addSlot() {
+    _addSlotForPeriod(BusinessDayPeriod.morning);
   }
 
   Future<void> _pickTime(
@@ -85,7 +87,8 @@ class BusinessHoursEditor extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Elige los días, la franja y el rango horario de cada bloque.',
+          'Elige los días, la franja y el rango horario de cada bloque. '
+          'Puedes definir mañana, tarde y noche para los mismos días.',
           style: AppTypography.muted(context),
         ),
         if (hasLegacyOnly) ...[
@@ -174,6 +177,32 @@ class BusinessHoursEditor extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: BusinessDayPeriod.values.map((period) {
+            return ActionChip(
+              avatar: Icon(
+                BusinessHoursHelpers.iconForPeriod(period),
+                size: 16,
+                color: enabled
+                    ? AppConstants.primaryColor
+                    : palette.textMuted,
+              ),
+              label: Text(period.displayName),
+              onPressed: enabled
+                  ? AppHaptics.wrap(() => _addSlotForPeriod(period))
+                  : null,
+              visualDensity: VisualDensity.compact,
+              labelStyle: AppTypography.caption(context).copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              side: BorderSide(color: palette.inputBorder),
+              backgroundColor: palette.chipBackground,
+            );
+          }).toList(),
+        ),
       ],
     );
   }
@@ -241,9 +270,7 @@ class _BusinessHoursSlotCard extends StatelessWidget {
                 height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: AppConstants.brandGradientAccentColors,
-                  ),
+                  color: palette.accentPrimary,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Text(
@@ -351,20 +378,32 @@ class _BusinessHoursSlotCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Row(
-            children: BusinessDayPeriod.values.map((period) {
+            children: BusinessDayPeriod.values.asMap().entries.map((entry) {
+              final period = entry.value;
+              final isLast = entry.key == BusinessDayPeriod.values.length - 1;
               final isSelected = slot.period == period;
               return Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(
-                    right: period == BusinessDayPeriod.afternoon
-                        ? 0
-                        : AppSpacing.xs,
+                    right: isLast ? 0 : AppSpacing.xs,
                   ),
                   child: _PeriodChip(
                     period: period,
                     isSelected: isSelected,
                     enabled: enabled,
-                    onTap: () => onChanged(slot.copyWith(period: period)),
+                    onTap: () {
+                      final defaults = BusinessHoursHelpers.defaultSlotForPeriod(
+                        period,
+                        weekdays: slot.weekdays,
+                      );
+                      onChanged(
+                        slot.copyWith(
+                          period: period,
+                          start: defaults.start,
+                          end: defaults.end,
+                        ),
+                      );
+                    },
                   ),
                 ),
               );
@@ -459,12 +498,7 @@ class _DayToggle extends StatelessWidget {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: isSelected
-                  ? const LinearGradient(
-                      colors: AppConstants.brandGradientAccentColors,
-                    )
-                  : null,
-              color: isSelected ? null : palette.chipBackground,
+              color: isSelected ? palette.accentPrimary : palette.chipBackground,
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               border: Border.all(
                 color: isSelected

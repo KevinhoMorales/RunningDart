@@ -53,6 +53,12 @@ const _restaurantHours = BusinessOperatingHours(
       start: TimeOfDay(hour: 12, minute: 0),
       end: TimeOfDay(hour: 23, minute: 0),
     ),
+    BusinessHoursSlot(
+      weekdays: [2, 3, 4, 5, 6, 7],
+      period: BusinessDayPeriod.night,
+      start: TimeOfDay(hour: 19, minute: 0),
+      end: TimeOfDay(hour: 23, minute: 0),
+    ),
   ],
 );
 

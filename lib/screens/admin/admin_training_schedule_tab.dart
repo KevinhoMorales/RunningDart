@@ -495,10 +495,8 @@ class _AdminSectionPanel extends StatelessWidget {
             children: [
               Container(
                 height: 3,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: AppConstants.brandGradientAccentColors,
-                  ),
+                decoration: BoxDecoration(
+                  color: palette.accentPrimary,
                 ),
               ),
               Material(

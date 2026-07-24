@@ -67,38 +67,38 @@ class AppConstants {
     'servicios',
   ];
 
-  static const Color primaryColor = Color(0xFF1C4524);
-  static const Color primaryColorLight = Color(0xFF4A9A5C);
+  static const Color primaryColor = Color(0xFF315132);
+  static const Color primaryColorLight = Color(0xFF6FA772);
   static const Color secondaryColor = Color(0xFFFFFFFF);
-  static const Color accentColor = Color(0xFF3D8B4E);
+  static const Color accentColor = Color(0xFF315132);
 
   static const Color surfaceColor = Color(0xFFF5F7F5);
-  static const Color backgroundGradientStart = Color(0xFFE8EFE9);
-  static const Color backgroundGradientEnd = Color(0xFFF5F7F5);
+  static const Color backgroundGradientStart = Color(0xFFE9F4EC);
+  static const Color backgroundGradientEnd = Color(0xFFF4F8F5);
   static const Color textPrimary = Color(0xFF1A1D26);
   static const Color textMuted = Color(0xFF6B7280);
-  static const Color cardShadow = Color(0x1A1C4524);
+  static const Color cardShadow = Color(0x1A315132);
 
   static const List<Color> brandGradientColors = [
     primaryColor,
-    secondaryColor,
+    primaryColor,
   ];
 
   static const List<Color> brandGradientAccentColors = [
     primaryColor,
-    primaryColorLight,
+    primaryColor,
   ];
 
   static List<Color> brandGradientFor(Brightness brightness) {
     return brightness == Brightness.dark
-        ? const [primaryColorLight, primaryColor]
+        ? const [primaryColorLight, primaryColorLight]
         : brandGradientColors;
   }
 
-  /// Gradiente del header de perfil: mantiene contraste con texto blanco en light mode.
+  /// Header de perfil: verde solido, adaptado a light/dark.
   static List<Color> profileCardGradientFor(Brightness brightness) {
     return brightness == Brightness.dark
-        ? const [primaryColorLight, primaryColor]
+        ? const [primaryColorLight, primaryColorLight]
         : brandGradientAccentColors;
   }
 

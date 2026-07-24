@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 
 enum BusinessDayPeriod {
   morning,
-  afternoon;
+  afternoon,
+  night;
 
   String get firestoreValue => name;
 
   String get displayName => switch (this) {
         BusinessDayPeriod.morning => 'Mañana',
         BusinessDayPeriod.afternoon => 'Tarde',
+        BusinessDayPeriod.night => 'Noche',
       };
 
   static BusinessDayPeriod fromFirestore(String? value) {
-    return value == 'afternoon'
-        ? BusinessDayPeriod.afternoon
-        : BusinessDayPeriod.morning;
+    return switch (value) {
+      'afternoon' => BusinessDayPeriod.afternoon,
+      'night' => BusinessDayPeriod.night,
+      _ => BusinessDayPeriod.morning,
+    };
   }
 }
 

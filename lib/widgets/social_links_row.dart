@@ -6,7 +6,9 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
+import '../utils/external_url_launcher.dart';
 import '../utils/whatsapp_launcher.dart';
+import '../widgets/app_snackbar.dart';
 
 class SocialLinksRow extends StatelessWidget {
   const SocialLinksRow({
@@ -30,7 +32,7 @@ class SocialLinksRow extends StatelessWidget {
       items.add((
         label: 'WhatsApp',
         icon: Icons.chat_rounded,
-        onTap: () => launchWhatsApp(whatsapp!.trim()),
+        onTap: () => _confirmAndLaunchWhatsApp(context, whatsapp!.trim()),
       ));
     }
 
@@ -38,7 +40,7 @@ class SocialLinksRow extends StatelessWidget {
       items.add((
         label: 'Instagram',
         icon: Icons.camera_alt_outlined,
-        onTap: () => _launchInstagram(instagram!.trim()),
+        onTap: () => _confirmAndLaunchInstagram(context, instagram!.trim()),
       ));
     }
 
@@ -46,7 +48,7 @@ class SocialLinksRow extends StatelessWidget {
       items.add((
         label: 'Llamar',
         icon: Icons.phone_rounded,
-        onTap: () => _launchPhone(phone!.trim()),
+        onTap: () => _confirmAndLaunchPhone(context, phone!.trim()),
       ));
     }
 
@@ -94,17 +96,66 @@ class SocialLinksRow extends StatelessWidget {
     );
   }
 
-  Future<void> _launchInstagram(String value) async {
+  Future<void> _confirmAndLaunchWhatsApp(
+    BuildContext context,
+    String phone,
+  ) async {
+    final confirmed = await confirmExternalAction(
+      context,
+      title: '¿Abrir WhatsApp?',
+      message: 'Se abrirá WhatsApp para contactar a esta marca.',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    final launched = await launchWhatsApp(phone);
+    if (!launched && context.mounted) {
+      AppSnackBar.show(context, 'No se pudo abrir WhatsApp. Intenta de nuevo.');
+    }
+  }
+
+  Future<void> _confirmAndLaunchInstagram(
+    BuildContext context,
+    String value,
+  ) async {
+    final confirmed = await confirmExternalAction(
+      context,
+      title: '¿Abrir Instagram?',
+      message: 'Se abrirá Instagram para ver el perfil de esta marca.',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
     final handle = value.replaceAll('@', '').trim();
     final uri = Uri.parse(
       value.startsWith('http') ? value : 'https://instagram.com/$handle',
     );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      AppSnackBar.show(context, 'No se pudo abrir Instagram. Intenta de nuevo.');
+    }
   }
 
-  Future<void> _launchPhone(String value) async {
+  Future<void> _confirmAndLaunchPhone(
+    BuildContext context,
+    String value,
+  ) async {
+    final confirmed = await confirmExternalAction(
+      context,
+      title: '¿Llamar?',
+      message: 'Se abrirá la app de teléfono para llamar a esta marca.',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
     final uri = Uri.parse('tel:$value');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      AppSnackBar.show(context, 'No se pudo iniciar la llamada. Intenta de nuevo.');
+    }
   }
 }
 

@@ -14,6 +14,7 @@ class CategoryChip extends StatelessWidget {
     required this.isSelected,
     required this.onSelected,
     this.category,
+    this.palette,
   });
 
   final String label;
@@ -21,14 +22,18 @@ class CategoryChip extends StatelessWidget {
   final VoidCallback onSelected;
   final String? category;
 
+  /// Paleta explicita. Util cuando el chip vive dentro de un
+  /// `SliverPersistentHeader`, cuyo subarbol no re-resuelve `Theme` de forma
+  /// fiable; pasando la paleta ya resuelta se evita que el fondo quede con la
+  /// paleta light al iniciar en dark mode.
+  final AppPalette? palette;
+
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final gradient = category != null && category != 'Todos'
+    final palette = this.palette ?? context.palette;
+    final categoryGradient = category != null && category != 'Todos'
         ? CategoryStyle.gradient(category!)
-        : const LinearGradient(
-            colors: AppConstants.brandGradientAccentColors,
-          );
+        : null;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -45,8 +50,10 @@ class CategoryChip extends StatelessWidget {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             decoration: BoxDecoration(
-              gradient: isSelected ? gradient : null,
-              color: isSelected ? null : palette.chipBackground,
+              gradient: isSelected ? categoryGradient : null,
+              color: isSelected
+                  ? (categoryGradient == null ? palette.accentPrimary : null)
+                  : palette.chipBackground,
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               border: Border.all(
                 color: isSelected ? Colors.transparent : palette.inputBorder,

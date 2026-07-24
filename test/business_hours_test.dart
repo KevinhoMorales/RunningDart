@@ -27,6 +27,28 @@ void main() {
       expect(restored.start, sampleSlot.start);
       expect(restored.end, sampleSlot.end);
     });
+
+    test('serializes and parses night period', () {
+      const nightSlot = BusinessHoursSlot(
+        weekdays: [1, 2, 3, 4, 5],
+        period: BusinessDayPeriod.night,
+        start: TimeOfDay(hour: 19, minute: 0),
+        end: TimeOfDay(hour: 23, minute: 0),
+      );
+
+      final json = nightSlot.toJson();
+      expect(json['period'], 'night');
+
+      final restored = BusinessHoursSlot.fromJson(json);
+      expect(restored.period, BusinessDayPeriod.night);
+    });
+
+    test('fromFirestore maps night period', () {
+      expect(
+        BusinessDayPeriod.fromFirestore('night'),
+        BusinessDayPeriod.night,
+      );
+    });
   });
 
   group('BusinessHoursHelpers', () {
@@ -55,6 +77,71 @@ void main() {
       expect(summary, contains('Mañana'));
       expect(summary, contains('Tarde'));
       expect(summary, contains('|'));
+    });
+
+    test('toDisplaySummary includes night period', () {
+      const slots = [
+        sampleSlot,
+        BusinessHoursSlot(
+          weekdays: [1, 2, 3, 4, 5],
+          period: BusinessDayPeriod.night,
+          start: TimeOfDay(hour: 19, minute: 0),
+          end: TimeOfDay(hour: 23, minute: 0),
+        ),
+      ];
+
+      final summary = BusinessHoursHelpers.toDisplaySummary(slots);
+
+      expect(summary, contains('Noche'));
+      expect(summary, contains('7:00 p.m.'));
+    });
+
+    test('defaultSlotForPeriod returns expected ranges', () {
+      final morning = BusinessHoursHelpers.defaultSlotForPeriod(
+        BusinessDayPeriod.morning,
+      );
+      final afternoon = BusinessHoursHelpers.defaultSlotForPeriod(
+        BusinessDayPeriod.afternoon,
+      );
+      final night = BusinessHoursHelpers.defaultSlotForPeriod(
+        BusinessDayPeriod.night,
+      );
+
+      expect(morning.start, const TimeOfDay(hour: 9, minute: 0));
+      expect(morning.end, const TimeOfDay(hour: 12, minute: 0));
+      expect(afternoon.start, const TimeOfDay(hour: 14, minute: 0));
+      expect(afternoon.end, const TimeOfDay(hour: 20, minute: 0));
+      expect(night.start, const TimeOfDay(hour: 19, minute: 0));
+      expect(night.end, const TimeOfDay(hour: 23, minute: 0));
+    });
+
+    test('groupSlotsByWeekdays groups same weekdays into one group', () {
+      const slots = [
+        sampleSlot,
+        BusinessHoursSlot(
+          weekdays: [1, 2, 3, 4, 5],
+          period: BusinessDayPeriod.afternoon,
+          start: TimeOfDay(hour: 14, minute: 0),
+          end: TimeOfDay(hour: 20, minute: 0),
+        ),
+        BusinessHoursSlot(
+          weekdays: [1, 2, 3, 4, 5],
+          period: BusinessDayPeriod.night,
+          start: TimeOfDay(hour: 19, minute: 0),
+          end: TimeOfDay(hour: 23, minute: 0),
+        ),
+      ];
+
+      final groups = BusinessHoursHelpers.groupSlotsByWeekdays(slots);
+
+      expect(groups.length, 1);
+      expect(groups.first.weekdays, [1, 2, 3, 4, 5]);
+      expect(groups.first.slots.length, 3);
+      expect(groups.first.slots.map((slot) => slot.period), [
+        BusinessDayPeriod.morning,
+        BusinessDayPeriod.afternoon,
+        BusinessDayPeriod.night,
+      ]);
     });
 
     test('validateSlots requires at least one slot and valid range', () {
@@ -88,6 +175,20 @@ void main() {
         BusinessHoursHelpers.validateSlots(const [sampleSlot]),
         isNull,
       );
+    });
+
+    test('validateSlots rejects duplicate period on same weekday', () {
+      const slots = [
+        sampleSlot,
+        BusinessHoursSlot(
+          weekdays: [1, 2, 3, 4, 5],
+          period: BusinessDayPeriod.morning,
+          start: TimeOfDay(hour: 8, minute: 0),
+          end: TimeOfDay(hour: 11, minute: 0),
+        ),
+      ];
+
+      expect(BusinessHoursHelpers.validateSlots(slots), isNotNull);
     });
   });
 

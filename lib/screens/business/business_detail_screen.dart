@@ -124,9 +124,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: AppConstants.brandGradientAccentColors,
-              ),
+              color: context.palette.accentPrimary,
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
             child: Text(
@@ -245,7 +243,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.25),
                             Colors.black.withValues(alpha: 0.55),
                           ],
                         ),
@@ -266,25 +264,6 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
-                            vertical: AppSpacing.xs,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.25),
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusSm),
-                          ),
-                          child: Text(
-                            Helpers.categoryLabel(business.category),
-                            style: AppTypography.caption(
-                              context,
-                              color: Colors.white,
-                            ).copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
                         Text(
                           business.name,
                           style: AppTypography.sectionTitle(
@@ -400,11 +379,7 @@ class _DiscountHighlightCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: AppConstants.brandGradientAccentColors,
-        ),
+        color: palette.accentPrimary,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         boxShadow: [
           BoxShadow(

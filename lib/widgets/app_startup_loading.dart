@@ -21,11 +21,7 @@ class AppStartupLoading extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: AppConstants.brandGradientColors,
-                ),
+                color: palette.accentPrimary,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               ),
               child: const Icon(

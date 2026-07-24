@@ -7,13 +7,17 @@ import '../models/membership_modality.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/watch_sync_service.dart';
 import '../utils/user_messages.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider(
     this._authService, {
     NotificationService? notificationService,
-  }) : _notificationService = notificationService {
+    WatchSyncService? watchSyncService,
+  })  : _notificationService = notificationService,
+        _watchSyncService = watchSyncService ?? WatchSyncService() {
+    _watchSyncService.registerRefreshHandler(_syncWatchContext);
     _userSubscription = _authService.userChanges.listen((user) {
       if (user != null) {
         _user = user;
@@ -25,12 +29,14 @@ class AuthProvider extends ChangeNotifier {
         return;
       }
       unawaited(_syncPushSubscription());
+      unawaited(_syncWatchContext());
       notifyListeners();
     });
   }
 
   final AuthService _authService;
   final NotificationService? _notificationService;
+  final WatchSyncService _watchSyncService;
   StreamSubscription<UserModel?>? _userSubscription;
 
   UserModel? _user;
@@ -85,10 +91,12 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.resolveStartupSession();
       await _syncPushSubscription();
+      await _syncWatchContext();
     } catch (error, stackTrace) {
       debugPrint('Auth initialization failed: $error\n$stackTrace');
       _user = null;
       _error = 'No se pudo cargar tu sesión. Inicia sesión de nuevo.';
+      await _syncWatchContext();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -126,6 +134,7 @@ class AuthProvider extends ChangeNotifier {
     await _authService.logout();
     _user = null;
     _error = null;
+    await _syncWatchContext();
     notifyListeners();
   }
 
@@ -143,6 +152,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       _user = await _authService.refreshCurrentUser();
+      await _syncWatchContext();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -162,6 +172,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await action();
       unawaited(_syncPushSubscription());
+      unawaited(_syncWatchContext());
       return true;
     } on AuthException catch (e) {
       _error = UserMessages.error(e.message);
@@ -196,9 +207,18 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncWatchContext() async {
+    try {
+      await _watchSyncService.syncUser(_user);
+    } catch (error, stackTrace) {
+      debugPrint('Watch context sync failed: $error\n$stackTrace');
+    }
+  }
+
   Future<void> _confirmSessionCleared() async {
     _user = await _authService.resolveStartupSession();
     await _syncPushSubscription();
+    await _syncWatchContext();
     notifyListeners();
   }
 

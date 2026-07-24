@@ -102,6 +102,49 @@ class VisitProvider extends ChangeNotifier {
     }
   }
 
+  Future<ScanValidationResult> processManualCode({
+    required String code,
+    required String businessId,
+    required String scannedByUserId,
+  }) async {
+    _isScanning = true;
+    _error = null;
+    _lastValidationResult = null;
+    notifyListeners();
+
+    try {
+      final result = await _visitService.processManualCode(
+        code: code,
+        businessId: businessId,
+        scannedByUserId: scannedByUserId,
+      );
+      _lastValidationResult = result;
+      if (!result.isApproved) {
+        _error = result.message;
+      }
+      return result;
+    } on ScanException catch (e) {
+      _error = e.message;
+      final fallback = ScanValidationResult(
+        isApproved: false,
+        message: e.message,
+      );
+      _lastValidationResult = fallback;
+      return fallback;
+    } catch (_) {
+      _error = 'No se pudo registrar la validación.';
+      final fallback = ScanValidationResult(
+        isApproved: false,
+        message: 'No se pudo registrar la validación.',
+      );
+      _lastValidationResult = fallback;
+      return fallback;
+    } finally {
+      _isScanning = false;
+      notifyListeners();
+    }
+  }
+
   void clearMessages() {
     _error = null;
     _lastValidationResult = null;

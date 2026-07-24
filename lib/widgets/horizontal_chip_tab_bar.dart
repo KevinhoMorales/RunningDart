@@ -88,12 +88,7 @@ class _ChipTab extends StatelessWidget {
             horizontal: icon == null ? AppSpacing.md : AppSpacing.sm + 2,
           ),
           decoration: BoxDecoration(
-            gradient: isSelected
-                ? const LinearGradient(
-                    colors: AppConstants.brandGradientAccentColors,
-                  )
-                : null,
-            color: isSelected ? null : palette.chipBackground,
+            color: isSelected ? palette.accentPrimary : palette.chipBackground,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             border: Border.all(
               color: isSelected ? Colors.transparent : palette.inputBorder,

@@ -15,4 +15,13 @@ class MockVisitService implements VisitServiceBase {
   }) async {
     throw UnimplementedError();
   }
+
+  @override
+  Future<ScanValidationResult> processManualCode({
+    required String code,
+    required String businessId,
+    required String scannedByUserId,
+  }) async {
+    throw UnimplementedError();
+  }
 }

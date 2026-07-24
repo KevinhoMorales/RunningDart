@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/user_model.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import '../utils/membership_code.dart';
 import '../utils/membership_helpers.dart';
 import 'qr_generator.dart';
 
@@ -142,7 +144,7 @@ class MembershipCredentialCard extends StatelessWidget {
                   showVigencia: !isAdminCredential,
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                if (canShowQr)
+                if (canShowQr) ...[
                   Center(
                     child: CustomPaint(
                       painter: _TicketBorderPainter(
@@ -165,8 +167,10 @@ class MembershipCredentialCard extends StatelessWidget {
                         child: QRGenerator(data: qrPayload, size: 180),
                       ),
                     ),
-                  )
-                else
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _MembershipCodeBlock(code: user.qrCode),
+                ] else
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(AppSpacing.lg),
@@ -201,6 +205,86 @@ class MembershipCredentialCard extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MembershipCodeBlock extends StatelessWidget {
+  const _MembershipCodeBlock({required this.code});
+
+  final String code;
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Código copiado'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'CÓDIGO DE MIEMBRO',
+            style: AppTypography.micro(
+              context,
+              color: Colors.white.withValues(alpha: 0.5),
+            ).copyWith(letterSpacing: 0.6),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          SelectableText(
+            MembershipCode.formatForDisplay(code),
+            style: AppTypography.caption(
+              context,
+              color: Colors.white,
+            ).copyWith(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _copy(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+              ),
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: const Text('Copiar código'),
             ),
           ),
         ],

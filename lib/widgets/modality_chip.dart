@@ -4,7 +4,6 @@ import '../models/membership_modality.dart';
 import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
-import '../utils/constants.dart';
 
 class ModalityChip extends StatelessWidget {
   const ModalityChip({
@@ -29,15 +28,10 @@ class ModalityChip extends StatelessWidget {
         horizontal: compact ? AppSpacing.sm : AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        gradient: !onDarkBackground && modality == MembershipModality.proTeam
-            ? const LinearGradient(
-                colors: AppConstants.brandGradientAccentColors,
-              )
-            : null,
         color: onDarkBackground
             ? Colors.white.withValues(alpha: 0.12)
             : modality == MembershipModality.proTeam
-                ? null
+                ? palette.accentPrimary
                 : palette.chipBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(

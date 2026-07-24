@@ -53,4 +53,6 @@ class CategoryStyle {
       colors: colors,
     );
   }
+
+  static Color badgeColor(String category) => gradientFor(category).first;
 }

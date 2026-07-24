@@ -11,6 +11,7 @@ import '../utils/app_haptics.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/membership_helpers.dart';
+import 'business_category_tag.dart';
 
 class BusinessCard extends StatelessWidget {
   const BusinessCard({
@@ -93,7 +94,7 @@ class BusinessCard extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.black.withValues(alpha: 0.18),
+                              Colors.black.withValues(alpha: 0.35),
                               Colors.black.withValues(alpha: 0.62),
                             ],
                           ),
@@ -102,26 +103,9 @@ class BusinessCard extends StatelessWidget {
                       Positioned(
                         left: AppSpacing.md,
                         top: AppSpacing.sm,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
-                            vertical: AppSpacing.xs,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusSm),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.28),
-                            ),
-                          ),
-                          child: Text(
-                            Helpers.categoryLabel(business.category),
-                            style: AppTypography.micro(
-                              context,
-                              color: Colors.white,
-                            ),
-                          ),
+                        child: BusinessCategoryTag(
+                          category: business.category,
+                          compact: true,
                         ),
                       ),
                       Positioned(
@@ -254,11 +238,7 @@ class _BusinessCardDiscount extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: AppConstants.brandGradientAccentColors,
-        ),
+        color: palette.accentPrimary,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         boxShadow: [
           BoxShadow(

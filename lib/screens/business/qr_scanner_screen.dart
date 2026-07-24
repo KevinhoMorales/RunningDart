@@ -7,6 +7,7 @@ import '../../providers/visit_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/manual_code_sheet.dart';
 import '../../widgets/validation_result_sheet.dart';
 
 class QrScannerScreen extends StatefulWidget {
@@ -76,6 +77,42 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
     final result = await visitProvider.processScan(
       rawQrValue: rawValue,
+      businessId: businessId,
+      scannedByUserId: auth.user!.id,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isProcessing = false);
+    await showValidationResultSheet(context, result);
+  }
+
+  Future<void> _handleManualEntry() async {
+    if (_isProcessing) {
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    final businessId = auth.user?.businessId;
+
+    if (businessId == null || businessId.isEmpty) {
+      return;
+    }
+
+    final code = await showManualCodeSheet(context);
+    if (code == null || !mounted) {
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+
+    final visitProvider = context.read<VisitProvider>();
+    visitProvider.clearMessages();
+
+    final result = await visitProvider.processManualCode(
+      code: code,
       businessId: businessId,
       scannedByUserId: auth.user!.id,
     );
@@ -173,9 +210,35 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: OutlinedButton.icon(
+            onPressed: _isProcessing ? null : _handleManualEntry,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: palette.accentPrimary,
+              side: BorderSide(color: palette.accentPrimary),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+              ),
+            ),
+            icon: const Icon(Icons.keyboard_rounded, size: 20),
+            label: const Text('¿No puedes escanear? Ingresa el código'),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
           child: Text(
-            'Cada escaneo válido se registrará como una nueva visita.',
+            'Cada validación se registrará como una nueva visita.',
             textAlign: TextAlign.center,
             style: AppTypography.caption(context),
           ),

@@ -4,8 +4,10 @@ import '../config/firebase_paths.dart';
 import '../models/business_model.dart';
 import '../models/membership_status.dart';
 import '../models/user_model.dart';
+import '../models/user_role.dart';
 import '../models/visit_model.dart';
 import '../services/qr_service.dart';
+import '../utils/membership_code.dart';
 
 class ScanException implements Exception {
   ScanException(this.message);
@@ -44,6 +46,11 @@ abstract class VisitServiceBase {
   Stream<List<VisitModel>> watchVisitsForBusiness(String businessId);
   Future<ScanValidationResult> processScan({
     required String rawQrValue,
+    required String businessId,
+    required String scannedByUserId,
+  });
+  Future<ScanValidationResult> processManualCode({
+    required String code,
     required String businessId,
     required String scannedByUserId,
   });
@@ -109,9 +116,82 @@ class VisitService implements VisitServiceBase {
 
     final member = UserModel.fromFirestore(userSnapshot);
 
+    if (member.qrCode != payload.qrCode) {
+      return ScanValidationResult(
+        isApproved: false,
+        message: 'El código QR no coincide con el miembro.',
+        memberDisplayName: member.displayName,
+        memberModality: member.membershipModality,
+        memberStatus: member.membershipStatus,
+        expiresAt: member.expiresAt,
+      );
+    }
+
+    return _processResolvedMember(
+      member: member,
+      businessId: businessId,
+      scannedByUserId: scannedByUserId,
+    );
+  }
+
+  @override
+  Future<ScanValidationResult> processManualCode({
+    required String code,
+    required String businessId,
+    required String scannedByUserId,
+  }) async {
+    final normalizedCode = MembershipCode.normalize(code);
+
+    if (!MembershipCode.isValid(normalizedCode)) {
+      return ScanValidationResult(
+        isApproved: false,
+        message: 'El código ingresado no tiene un formato válido.',
+      );
+    }
+
+    // La consulta restringe los mismos campos que exige la regla de Firestore
+    // para operadores (isActiveMember), de modo que sea "demostrable" en una
+    // operacion list. Esto tambien iguala el comportamiento del escaneo: solo
+    // se resuelven miembros activos; el resto se reporta como no encontrado.
+    final query = await _users
+        .where('qrCode', isEqualTo: normalizedCode)
+        .where('isActive', isEqualTo: true)
+        .where('role', whereIn: [
+          UserRole.member.firestoreValue,
+          UserRole.admin.firestoreValue,
+        ])
+        .where('membershipStatus',
+            isEqualTo: MembershipStatus.active.firestoreValue)
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) {
+      return ScanValidationResult(
+        isApproved: false,
+        message: 'No se encontró un miembro con ese código.',
+      );
+    }
+
+    final member = UserModel.fromFirestore(query.docs.first);
+
+    return _processResolvedMember(
+      member: member,
+      businessId: businessId,
+      scannedByUserId: scannedByUserId,
+    );
+  }
+
+  /// Logica compartida entre el escaneo y el ingreso manual una vez que el
+  /// miembro fue resuelto. Es la unica fuente de verdad para las validaciones,
+  /// el registro de la visita y el resultado devuelto.
+  Future<ScanValidationResult> _processResolvedMember({
+    required UserModel member,
+    required String businessId,
+    required String scannedByUserId,
+  }) async {
     try {
       VisitScanValidator.validateOperatorScan(
-        scannedMemberId: payload.userId,
+        scannedMemberId: member.id,
         scannedByUserId: scannedByUserId,
         businessId: businessId,
         member: member,
@@ -120,17 +200,6 @@ class VisitService implements VisitServiceBase {
       return ScanValidationResult(
         isApproved: false,
         message: e.message,
-        memberDisplayName: member.displayName,
-        memberModality: member.membershipModality,
-        memberStatus: member.membershipStatus,
-        expiresAt: member.expiresAt,
-      );
-    }
-
-    if (member.qrCode != payload.qrCode) {
-      return ScanValidationResult(
-        isApproved: false,
-        message: 'El código QR no coincide con el miembro.',
         memberDisplayName: member.displayName,
         memberModality: member.membershipModality,
         memberStatus: member.membershipStatus,
