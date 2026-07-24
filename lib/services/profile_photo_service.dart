@@ -44,6 +44,13 @@ class ProfilePhotoService {
       return null;
     }
 
+    return uploadProfilePhoto(userId, pickedFile);
+  }
+
+  Future<String?> uploadProfilePhoto(
+    String userId,
+    XFile pickedFile,
+  ) async {
     try {
       final file = File(pickedFile.path);
       final storageRef =

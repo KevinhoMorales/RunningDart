@@ -10,6 +10,9 @@ class NewsModel {
     required this.createdAt,
     required this.updatedAt,
     this.location,
+    this.link,
+    this.whatsapp,
+    this.moreInfo,
     this.imageUrl,
     this.isPublished = false,
   });
@@ -22,6 +25,9 @@ class NewsModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? location;
+  final String? link;
+  final String? whatsapp;
+  final String? moreInfo;
   final String? imageUrl;
   final bool isPublished;
 
@@ -35,6 +41,9 @@ class NewsModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String,
       'location': location,
+      'link': link,
+      'whatsapp': whatsapp,
+      'moreInfo': moreInfo,
       'imageUrl': imageUrl,
       'isPublished': isPublished,
     };
@@ -49,6 +58,9 @@ class NewsModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       if (location != null && location!.isNotEmpty) 'location': location,
+      if (link != null && link!.isNotEmpty) 'link': link,
+      if (whatsapp != null && whatsapp!.isNotEmpty) 'whatsapp': whatsapp,
+      if (moreInfo != null && moreInfo!.isNotEmpty) 'moreInfo': moreInfo,
       if (imageUrl != null) 'imageUrl': imageUrl,
       'isPublished': isPublished,
     };
@@ -64,6 +76,9 @@ class NewsModel {
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       location: json['location'] as String?,
+      link: json['link'] as String?,
+      whatsapp: json['whatsapp'] as String?,
+      moreInfo: json['moreInfo'] as String?,
       imageUrl: json['imageUrl'] as String?,
       isPublished: json['isPublished'] as bool? ?? false,
     );
@@ -88,6 +103,9 @@ class NewsModel {
       createdAt: readDate(data['createdAt']),
       updatedAt: readDate(data['updatedAt']),
       location: data['location'] as String?,
+      link: data['link'] as String?,
+      whatsapp: data['whatsapp'] as String?,
+      moreInfo: data['moreInfo'] as String?,
       imageUrl: data['imageUrl'] as String?,
       isPublished: data['isPublished'] as bool? ?? false,
     );
@@ -102,6 +120,9 @@ class NewsModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? location,
+    String? link,
+    String? whatsapp,
+    String? moreInfo,
     String? imageUrl,
     bool? isPublished,
   }) {
@@ -114,6 +135,9 @@ class NewsModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       location: location ?? this.location,
+      link: link ?? this.link,
+      whatsapp: whatsapp ?? this.whatsapp,
+      moreInfo: moreInfo ?? this.moreInfo,
       imageUrl: imageUrl ?? this.imageUrl,
       isPublished: isPublished ?? this.isPublished,
     );

@@ -9,7 +9,10 @@ import '../../providers/news_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/external_url_launcher.dart';
 import '../../utils/helpers.dart';
+import '../../utils/whatsapp_launcher.dart';
+import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/event_status_badge.dart';
@@ -80,10 +83,33 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
     });
   }
 
+  Future<void> _openWhatsApp(BuildContext context, NewsModel news) async {
+    final phone = news.whatsapp;
+    if (phone == null || phone.isEmpty) {
+      return;
+    }
+
+    final launched = await launchWhatsApp(
+      phone,
+      message: 'Hola, quiero más información sobre el evento "${news.title}".',
+    );
+    if (!launched && context.mounted) {
+      AppSnackBar.show(context, 'No se pudo abrir WhatsApp. Intenta de nuevo.');
+    }
+  }
+
+  Future<void> _editEvent(NewsModel news) async {
+    await context.push('/admin/news/${news.id}/edit');
+    if (mounted) {
+      await _loadNews();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final news = _news;
+    final isAdmin = context.watch<AuthProvider>().isAdmin;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -93,6 +119,17 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          if (isAdmin && news != null)
+            HapticIconButton(
+              tooltip: 'Editar evento',
+              icon: Icon(
+                Icons.edit_rounded,
+                color: palette.textPrimary,
+              ),
+              onPressed: () => _editEvent(news),
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -181,6 +218,57 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                         news.body,
                         style: AppTypography.muted(context).copyWith(height: 1.5),
                       ),
+                      if (news.moreInfo != null &&
+                          news.moreInfo!.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Información adicional',
+                          style: AppTypography.title(
+                            context,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          news.moreInfo!,
+                          style: AppTypography.muted(context)
+                              .copyWith(height: 1.5),
+                        ),
+                      ],
+                      if (news.link != null && news.link!.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        HapticFilledButton(
+                          onPressed: () => launchExternalUrlFromContext(
+                            context,
+                            news.link!,
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.link_rounded, size: 18),
+                              SizedBox(width: AppSpacing.sm),
+                              Text('Abrir enlace'),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (news.whatsapp != null &&
+                          news.whatsapp!.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        HapticFilledButton(
+                          onPressed: () => _openWhatsApp(context, news),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.chat_rounded, size: 18),
+                              SizedBox(width: AppSpacing.sm),
+                              Text('Más información'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

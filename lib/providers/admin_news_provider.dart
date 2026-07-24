@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/news_model.dart';
 import '../services/news_photo_service.dart';
@@ -141,13 +142,19 @@ class AdminNewsProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> uploadPhoto(String newsId) async {
+  Future<String?> uploadPhoto(
+    String newsId, {
+    XFile? file,
+  }) async {
     _isSaving = true;
     _error = null;
     notifyListeners();
 
     try {
       final photoService = _photoService ??= NewsPhotoService();
+      if (file != null) {
+        return await photoService.uploadNewsPhoto(newsId, file);
+      }
       return await photoService.pickAndUploadNewsPhoto(newsId);
     } on NewsPhotoException catch (e) {
       _error = e.message;

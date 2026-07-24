@@ -13,6 +13,7 @@ class ProfileActionTile extends StatelessWidget {
     this.subtitle,
     this.onTap,
     this.trailing,
+    this.accentColor,
   });
 
   final IconData icon;
@@ -20,10 +21,13 @@ class ProfileActionTile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final accent = accentColor ?? palette.accentPrimary;
+    final isDestructive = accentColor != null;
 
     return Material(
       color: palette.cardBackground,
@@ -35,7 +39,11 @@ class ProfileActionTile extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: palette.cardBorder),
+            border: Border.all(
+              color: isDestructive
+                  ? accent.withValues(alpha: 0.35)
+                  : palette.cardBorder,
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -47,13 +55,13 @@ class ProfileActionTile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: palette.accentPrimary.withValues(alpha: 0.1),
+                    color: accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                   ),
                   child: Icon(
                     icon,
                     size: 20,
-                    color: palette.accentPrimary,
+                    color: accent,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -63,7 +71,9 @@ class ProfileActionTile extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: AppTypography.title(context),
+                        style: isDestructive
+                            ? AppTypography.title(context, color: accent)
+                            : AppTypography.title(context),
                       ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 2),
@@ -81,7 +91,9 @@ class ProfileActionTile extends StatelessWidget {
                 trailing ??
                     Icon(
                       Icons.chevron_right_rounded,
-                      color: palette.textMuted,
+                      color: isDestructive
+                          ? accent.withValues(alpha: 0.7)
+                          : palette.textMuted,
                     ),
               ],
             ),

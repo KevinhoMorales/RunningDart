@@ -44,6 +44,13 @@ class NewsPhotoService {
       return null;
     }
 
+    return uploadNewsPhoto(newsId, pickedFile);
+  }
+
+  Future<String?> uploadNewsPhoto(
+    String newsId,
+    XFile pickedFile,
+  ) async {
     try {
       final file = File(pickedFile.path);
       final storageRef =

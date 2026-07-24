@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -12,6 +14,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -58,8 +61,12 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
 val appEnvDartDefine: (String) -> String = { value ->
-    java.util.Base64.getEncoder().encodeToString("APP_ENV=$value".toByteArray())
+    Base64.getEncoder().encodeToString("APP_ENV=$value".toByteArray())
 }
 
 afterEvaluate {

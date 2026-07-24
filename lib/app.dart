@@ -31,6 +31,7 @@ import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/news/news_detail_screen.dart';
+import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/onboarding/notifications_onboarding_screen.dart';
 import 'screens/settings/contact_screen.dart';
@@ -143,6 +144,7 @@ class _RunningDartAppState extends State<RunningDartApp> {
             location == '/settings/contact' ||
             location == '/settings/delete-account' ||
             location == '/profile' ||
+            location == '/profile/edit' ||
             location == '/membership-pending' ||
             location == '/training-schedule' ||
             location == '/pro-team' ||
@@ -258,6 +260,10 @@ class _RunningDartAppState extends State<RunningDartApp> {
         GoRoute(
           path: '/profile',
           builder: (context, state) => const ProfilePage(),
+        ),
+        GoRoute(
+          path: '/profile/edit',
+          builder: (context, state) => const EditProfileScreen(),
         ),
         GoRoute(
           path: '/business/:id',

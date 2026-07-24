@@ -8,6 +8,7 @@ import '../../services/qr_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/constants.dart';
 import '../../utils/whatsapp_launcher.dart';
@@ -16,7 +17,7 @@ import '../../widgets/haptic_controls.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
 import '../../widgets/profile_action_tile.dart';
-import '../../widgets/profile_photo_picker.dart';
+import '../../widgets/user_avatar.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -28,7 +29,7 @@ class ProfilePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
-        title: 'Mi perfil',
+        title: 'Mi cuenta',
         actions: [
           HapticIconButton(
             onPressed: () => context.push('/settings'),
@@ -146,39 +147,58 @@ class _ProfileIdentityHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        ProfilePhotoPicker(
-          userId: user.id,
-          displayName: user.displayName,
-          photoUrl: user.photoUrl,
-          radius: 36,
-          showLabel: false,
-          cameraStyle: CameraButtonStyle.minimal,
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: palette.cardBackground,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      child: InkWell(
+        onTap: AppHaptics.wrap(() => context.push('/profile/edit')),
+        enableFeedback: false,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(color: palette.cardBorder),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                user.displayName,
-                style: AppTypography.sectionTitle(context),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              UserAvatar(
+                displayName: user.displayName,
+                photoUrl: user.photoUrl,
+                radius: 32,
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                user.email,
-                style: AppTypography.body(context, color: palette.textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.displayName,
+                      style: AppTypography.sectionTitle(context),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      user.email,
+                      style:
+                          AppTypography.body(context, color: palette.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: palette.textMuted,
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
