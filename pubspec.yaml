@@ -73,7 +73,13 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: assets/icon/app_icon.png
+  image_path_android: assets/icon/app_icon_android_foreground.png
   remove_alpha_ios: true
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/icon/app_icon_android_foreground.png
+  # La zona segura del ícono adaptativo es el 66% central: con menos margen el
+  # launcher recorta la marca al aplicar la máscara circular.
+  adaptive_icon_foreground_inset: 20
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

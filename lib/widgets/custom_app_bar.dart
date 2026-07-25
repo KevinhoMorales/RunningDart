@@ -28,7 +28,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final titleStyle = AppTypography.appBarTitle(context);
 
     return AppBar(
-      leading: leading,
+      leading: leading ?? _defaultLeading(context),
       title: titleWidget ??
           Text(
             title,
@@ -39,6 +39,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: palette.textPrimary,
       actions: actions,
       actionsPadding: const EdgeInsets.only(right: AppSpacing.sm),
+    );
+  }
+
+  Widget? _defaultLeading(BuildContext context) {
+    if (!Navigator.of(context).canPop()) {
+      return null;
+    }
+
+    return HapticIconButton(
+      onPressed: () => Navigator.maybePop(context),
+      icon: const BackButtonIcon(),
+      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
     );
   }
 }

@@ -99,14 +99,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       firstDate: DateTime(now.year - 90),
       lastDate: now,
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _birthDate = picked);
     }
   }
 
   Future<void> _pickReceipt() async {
     final file = await ReceiptUploadHelper.pickReceipt(context, _picker);
-    if (file != null) {
+    if (file != null && mounted) {
       setState(() => _receiptFile = file);
     }
   }
@@ -377,31 +377,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: AppTypography.title(context),
                               ),
                               const SizedBox(height: AppSpacing.sm),
-                              ...MembershipModality.registrableOptions.map(
-                                (modality) => RadioListTile<MembershipModality>(
-                                  contentPadding: EdgeInsets.zero,
-                                  value: modality,
-                                  groupValue: _selectedModality,
-                                  onChanged: isBusy
-                                      ? null
-                                      : AppHaptics.wrapValue((value) {
-                                          if (value != null) {
-                                            setState(
-                                              () => _selectedModality = value,
-                                            );
-                                          }
-                                        }),
-                                  title: Text(modality.displayName),
-                                  subtitle: Text(
-                                    switch (modality) {
-                                      MembershipModality.community =>
-                                        'Gratis · entrenamientos recreativos Mar/Jue',
-                                      MembershipModality.official =>
-                                        '${AppConstants.officialMembershipPriceLabel} · vigencia 31-dic-2026',
-                                      MembershipModality.proTeam =>
-                                        'Incluye beneficios de miembro oficial + entrenamiento guiado',
-                                    },
-                                  ),
+                              RadioGroup<MembershipModality>(
+                                groupValue: _selectedModality,
+                                onChanged: (value) {
+                                  AppHaptics.lightTap();
+                                  if (value != null) {
+                                    setState(() => _selectedModality = value);
+                                  }
+                                },
+                                child: Column(
+                                  children: [
+                                    for (final modality
+                                        in MembershipModality.registrableOptions)
+                                      RadioListTile<MembershipModality>(
+                                        contentPadding: EdgeInsets.zero,
+                                        value: modality,
+                                        enabled: !isBusy,
+                                        title: Text(modality.displayName),
+                                        subtitle: Text(
+                                          switch (modality) {
+                                            MembershipModality.community =>
+                                              'Gratis · entrenamientos recreativos Mar/Jue',
+                                            MembershipModality.official =>
+                                              '${AppConstants.officialMembershipPriceLabel} · vigencia 31-dic-2026',
+                                            MembershipModality.proTeam =>
+                                              'Incluye beneficios de miembro oficial + entrenamiento guiado',
+                                          },
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               if (_selectedModality.requiresPayment) ...[

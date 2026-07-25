@@ -126,100 +126,24 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
   }
 
   Future<void> _editVenue() async {
-    final locationController = TextEditingController(
-      text: _locationController.text,
-    );
-    final venueController = TextEditingController(text: _venueController.text);
-
-    final saved = await showModalBottomSheet<bool>(
+    final draft = await showModalBottomSheet<_VenueDraft>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final palette = sheetContext.palette;
-
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: palette.bottomSheetBackground,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppSpacing.radiusLg),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.sm,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: palette.inputBorder,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Ubicación del club',
-                  style: AppTypography.sectionTitle(sheetContext),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Así se verá en la vista pública de horarios.',
-                  style: AppTypography.muted(sheetContext),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ModernTextField(
-                  controller: locationController,
-                  labelText: 'Ciudad / región',
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ModernTextField(
-                  controller: venueController,
-                  labelText: 'Sede / lugar',
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                PrimaryButton(
-                  label: 'Guardar ubicación',
-                  onPressed: () => Navigator.pop(sheetContext, true),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                HapticTextButton(
-                  onPressed: () => Navigator.pop(sheetContext, false),
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(color: palette.textMuted),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (sheetContext) => _VenueSheet(
+        location: _locationController.text,
+        venue: _venueController.text,
+      ),
     );
 
-    if (saved == true && mounted) {
-      setState(() {
-        _locationController.text = locationController.text.trim();
-        _venueController.text = venueController.text.trim();
-      });
+    if (draft == null || !mounted) {
+      return;
     }
 
-    locationController.dispose();
-    venueController.dispose();
+    setState(() {
+      _locationController.text = draft.location;
+      _venueController.text = draft.venue;
+    });
   }
 
   void _toggleSection(int index) {
@@ -250,7 +174,7 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
     return Column(
       children: [
         Expanded(
-          child: RefreshIndicator(
+          child: HapticRefreshIndicator(
             onRefresh: _load,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -388,6 +312,124 @@ class _AdminTrainingScheduleTabState extends State<AdminTrainingScheduleTab>
           ),
         ),
       ],
+    );
+  }
+}
+
+class _VenueDraft {
+  const _VenueDraft({required this.location, required this.venue});
+
+  final String location;
+  final String venue;
+}
+
+/// El sheet es dueño de sus controllers: liberarlos desde quien lo abre los
+/// dejaría destruidos mientras la ruta todavía anima su salida.
+class _VenueSheet extends StatefulWidget {
+  const _VenueSheet({required this.location, required this.venue});
+
+  final String location;
+  final String venue;
+
+  @override
+  State<_VenueSheet> createState() => _VenueSheetState();
+}
+
+class _VenueSheetState extends State<_VenueSheet> {
+  late final _locationController = TextEditingController(
+    text: widget.location,
+  );
+  late final _venueController = TextEditingController(text: widget.venue);
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    _venueController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(
+      _VenueDraft(
+        location: _locationController.text.trim(),
+        venue: _venueController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: palette.bottomSheetBackground,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppSpacing.radiusLg),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.lg,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: palette.inputBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Ubicación del club',
+              style: AppTypography.sectionTitle(context),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Así se verá en la vista pública de horarios.',
+              style: AppTypography.muted(context),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ModernTextField(
+              controller: _locationController,
+              labelText: 'Ciudad / región',
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ModernTextField(
+              controller: _venueController,
+              labelText: 'Sede / lugar',
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PrimaryButton(
+              label: 'Guardar ubicación',
+              onPressed: _submit,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            HapticTextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: palette.textMuted),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

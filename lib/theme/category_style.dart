@@ -54,5 +54,7 @@ class CategoryStyle {
     );
   }
 
-  static Color badgeColor(String category) => gradientFor(category).first;
+  /// Color plano de la categoría, el tono oscuro con el que abre su degradado.
+  /// Lo usan las etiquetas y los chips, que van en sólido.
+  static Color solidColor(String category) => gradientFor(category).first;
 }

@@ -686,11 +686,14 @@ class _FinalConfirmationDialogState extends State<_FinalConfirmationDialog> {
                 LengthLimitingTextInputFormatter(_confirmationWord.length),
               ],
               onChanged: _onChanged,
-              onFieldSubmitted: (_) {
-                if (_matches) {
-                  Navigator.of(context).pop(true);
-                }
-              },
+              onFieldSubmitted: AppHaptics.wrapValue(
+                (_) {
+                  if (_matches) {
+                    Navigator.of(context).pop(true);
+                  }
+                },
+                feedback: AppHaptics.confirm,
+              ),
             ),
           ],
         ),
@@ -705,6 +708,7 @@ class _FinalConfirmationDialogState extends State<_FinalConfirmationDialog> {
         ),
         HapticFilledButton(
           onPressed: _matches ? () => Navigator.of(context).pop(true) : null,
+          feedback: AppHaptics.confirm,
           style: FilledButton.styleFrom(backgroundColor: error),
           child: const Text('Eliminar definitivamente'),
         ),

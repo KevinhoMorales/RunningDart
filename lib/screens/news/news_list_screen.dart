@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/news_provider.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/news_card.dart';
 
 const adminNewsHomeTabIndex = 2;
@@ -90,7 +91,7 @@ class _NewsListScreenState extends State<NewsListScreen> {
           )
         else if (error != null && news.isEmpty)
           Expanded(
-            child: RefreshIndicator(
+            child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -113,7 +114,7 @@ class _NewsListScreenState extends State<NewsListScreen> {
           )
         else if (news.isEmpty)
           Expanded(
-            child: RefreshIndicator(
+            child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -144,7 +145,7 @@ class _NewsListScreenState extends State<NewsListScreen> {
           )
         else
           Expanded(
-            child: RefreshIndicator(
+            child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),

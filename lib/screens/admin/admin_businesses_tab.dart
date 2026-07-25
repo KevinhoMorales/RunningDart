@@ -96,7 +96,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
   }
 
   Widget _refreshableBody({required Widget child}) {
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       onRefresh: _handleRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -173,7 +173,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
           )
         else
           Expanded(
-            child: RefreshIndicator(
+            child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),

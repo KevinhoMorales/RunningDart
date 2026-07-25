@@ -7,9 +7,10 @@ import '../theme/app_typography.dart';
 import '../utils/app_haptics.dart';
 import 'user_avatar.dart';
 
-enum PostCardAction { report, block, delete }
+enum PostCardAction { report, block, delete, hide, unhide }
 
 const _likeColor = Color(0xFFDC2626);
+const _destructive = Color(0xFFDC2626);
 
 class PostCard extends StatelessWidget {
   const PostCard({
@@ -38,7 +39,10 @@ class PostCard extends StatelessWidget {
   final VoidCallback onOpenPost;
 
   bool get _isAuthor => post.authorId == currentUserId;
-  bool get _canDelete => _isAuthor || isAdmin;
+
+  /// Borrar es solo del autor. Al administrador le toca ocultar, que además
+  /// puede revertir.
+  bool get _canModerate => isAdmin && !_isAuthor;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +72,8 @@ class PostCard extends StatelessWidget {
               onOpenAuthor: onOpenAuthor,
               trailing: _buildMenu(context, palette),
             ),
+            if (post.isHidden)
+              HiddenPostNotice(post: post, isAuthor: _isAuthor),
             if (hasImage)
               LikeableImage(
                 imageUrl: post.imageUrl!,
@@ -107,6 +113,8 @@ class PostCard extends StatelessWidget {
   Widget _buildMenu(BuildContext context, AppPalette palette) {
     return PopupMenuButton<PostCardAction>(
       icon: Icon(Icons.more_horiz_rounded, color: palette.textMuted),
+      enableFeedback: false,
+      onOpened: AppHaptics.lightTap,
       onSelected: (action) {
         AppHaptics.lightTap();
         onAction(action);
@@ -128,7 +136,24 @@ class PostCard extends StatelessWidget {
               label: 'Bloquear a ${post.authorName}',
             ),
           ),
-        if (_canDelete)
+        if (_canModerate && !post.isHidden)
+          const PopupMenuItem(
+            value: PostCardAction.hide,
+            child: _MenuRow(
+              icon: Icons.visibility_off_outlined,
+              label: 'Ocultar publicación',
+              isDestructive: true,
+            ),
+          ),
+        if (_canModerate && post.isHidden)
+          const PopupMenuItem(
+            value: PostCardAction.unhide,
+            child: _MenuRow(
+              icon: Icons.visibility_outlined,
+              label: 'Volver a mostrar',
+            ),
+          ),
+        if (_isAuthor)
           const PopupMenuItem(
             value: PostCardAction.delete,
             child: _MenuRow(
@@ -138,6 +163,80 @@ class PostCard extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Aviso de moderación sobre la foto. Al autor le explica por qué su
+/// publicación salió del feed y al administrador le recuerda que está oculta.
+class HiddenPostNotice extends StatelessWidget {
+  const HiddenPostNotice({
+    super.key,
+    required this.post,
+    required this.isAuthor,
+  });
+
+  final PostModel post;
+  final bool isAuthor;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final reason = post.hiddenReason?.label ?? 'Incumple las normas';
+    final note = post.hiddenNote?.trim();
+
+    final headline = isAuthor
+        ? 'Solo tú puedes ver esta publicación. Un administrador la ocultó '
+            'por: $reason.'
+        : 'Oculta para la comunidad. Motivo: $reason.';
+
+    return Container(
+      width: double.infinity,
+      color: _destructive.withValues(alpha: 0.08),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.visibility_off_outlined,
+            size: 18,
+            color: _destructive,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  headline,
+                  style: AppTypography.caption(context, color: _destructive)
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+                if (note != null && note.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    note,
+                    style: AppTypography.caption(
+                      context,
+                      color: palette.textMuted,
+                    ),
+                  ),
+                ],
+                if (isAuthor) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Puedes eliminarla desde el menú de la publicación.',
+                    style: AppTypography.caption(
+                      context,
+                      color: palette.textMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -304,24 +403,53 @@ class LikesSummary extends StatelessWidget {
 
   static const _maxNames = 3;
 
-  String _label() {
+  /// Solo los nombres van en negrita; el resto de la frase queda en tono suave
+  /// para que la vista respire, como en el resto de las redes.
+  TextSpan _labelSpan(BuildContext context) {
+    final palette = context.palette;
+    final soft = AppTypography.body(context, color: palette.textMuted);
+    final strong = AppTypography.body(context, weight: FontWeight.w700);
+
     final names = recentLikes
         .map((like) => like.displayName.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
 
     if (likesCount > _maxNames || names.length < likesCount) {
-      return '$likesCount Me gusta';
+      return TextSpan(
+        children: [
+          TextSpan(text: '$likesCount', style: strong),
+          TextSpan(text: ' Me gusta', style: soft),
+        ],
+      );
     }
 
-    switch (likesCount) {
-      case 1:
-        return 'Le gusta a ${names[0]}';
-      case 2:
-        return 'Les gusta a ${names[0]} y ${names[1]}';
-      default:
-        return 'Les gusta a ${names[0]}, ${names[1]} y ${names[2]}';
-    }
+    return switch (likesCount) {
+      1 => TextSpan(
+          children: [
+            TextSpan(text: 'Le gusta a ', style: soft),
+            TextSpan(text: names[0], style: strong),
+          ],
+        ),
+      2 => TextSpan(
+          children: [
+            TextSpan(text: 'Les gusta a ', style: soft),
+            TextSpan(text: names[0], style: strong),
+            TextSpan(text: ' y ', style: soft),
+            TextSpan(text: names[1], style: strong),
+          ],
+        ),
+      _ => TextSpan(
+          children: [
+            TextSpan(text: 'Les gusta a ', style: soft),
+            TextSpan(text: names[0], style: strong),
+            TextSpan(text: ', ', style: soft),
+            TextSpan(text: names[1], style: strong),
+            TextSpan(text: ' y ', style: soft),
+            TextSpan(text: names[2], style: strong),
+          ],
+        ),
+    };
   }
 
   @override
@@ -336,7 +464,7 @@ class LikesSummary extends StatelessWidget {
           AppSpacing.md,
           AppSpacing.xs,
           AppSpacing.md,
-          AppSpacing.xs,
+          AppSpacing.sm,
         ),
         child: Row(
           children: [
@@ -345,11 +473,10 @@ class LikesSummary extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
             ],
             Expanded(
-              child: Text(
-                _label(),
+              child: Text.rich(
+                _labelSpan(context),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.body(context, weight: FontWeight.w700),
               ),
             ),
           ],
@@ -364,25 +491,35 @@ class _StackedAvatars extends StatelessWidget {
 
   final List<PostLikePreview> profiles;
 
-  static const _radius = 11.0;
-  static const _step = 15.0;
+  static const _radius = 12.0;
+  static const _border = 2.0;
+  static const _overlap = 9.0;
+
+  static const _diameter = _radius * 2 + _border * 2;
+  static const _step = _diameter - _overlap;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
     return SizedBox(
-      height: _radius * 2,
-      width: _radius * 2 + _step * (profiles.length - 1),
+      height: _diameter,
+      width: _diameter + _step * (profiles.length - 1),
       child: Stack(
         children: [
-          for (var i = 0; i < profiles.length; i++)
+          // De atrás hacia adelante: así el primero queda encima y su borde
+          // recorta a los siguientes, no al contrario.
+          for (var i = profiles.length - 1; i >= 0; i--)
             Positioned(
               left: i * _step,
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: palette.cardBackground, width: 1.5),
+                  color: palette.cardBackground,
+                  border: Border.all(
+                    color: palette.cardBackground,
+                    width: _border,
+                  ),
                 ),
                 child: UserAvatar(
                   displayName: profiles[i].displayName,
@@ -508,7 +645,7 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final color = isDestructive ? const Color(0xFFDC2626) : palette.textPrimary;
+    final color = isDestructive ? _destructive : palette.textPrimary;
 
     return Row(
       children: [

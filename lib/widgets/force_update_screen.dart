@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -20,15 +18,8 @@ class ForceUpdateScreen extends StatelessWidget {
   final String currentVersion;
   final String requiredVersion;
 
-  String get _storeUrl {
-    if (Platform.isIOS) {
-      return AppConstants.iosAppStoreUrl;
-    }
-    return AppConstants.androidPlayStoreUrl;
-  }
-
   Future<void> _openStore(BuildContext context) async {
-    final uri = Uri.parse(_storeUrl);
+    final uri = Uri.parse(AppConstants.appDownloadUrl);
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!context.mounted || launched) {
       return;
@@ -36,7 +27,9 @@ class ForceUpdateScreen extends StatelessWidget {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('No se pudo abrir la tienda. Intenta de nuevo.'),
+        content: Text(
+          'No se pudo abrir el enlace de descarga. Intenta de nuevo.',
+        ),
       ),
     );
   }
@@ -114,9 +107,7 @@ class ForceUpdateScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  Platform.isIOS
-                      ? 'Te llevaremos al App Store.'
-                      : 'Te llevaremos a Google Play.',
+                  'Te llevaremos a la tienda de tu dispositivo.',
                   textAlign: TextAlign.center,
                   style: AppTypography.caption(context),
                 ),

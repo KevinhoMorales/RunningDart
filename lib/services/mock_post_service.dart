@@ -16,13 +16,26 @@ class MockPostService implements PostService {
   ];
 
   @override
-  Stream<List<PostModel>> watchFeed({int limit = 50}) async* {
-    yield List.unmodifiable(_posts);
+  Stream<List<PostModel>> watchFeed({
+    int limit = 50,
+    bool includeHidden = false,
+  }) async* {
+    yield _visible(_posts, includeHidden).take(limit).toList(growable: false);
   }
 
   @override
-  Stream<List<PostModel>> watchUserPosts(String userId) async* {
-    yield _posts.where((p) => p.authorId == userId).toList(growable: false);
+  Stream<List<PostModel>> watchUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) async* {
+    yield _visible(
+      _posts.where((post) => post.authorId == userId),
+      includeHidden,
+    ).toList(growable: false);
+  }
+
+  Iterable<PostModel> _visible(Iterable<PostModel> posts, bool includeHidden) {
+    return includeHidden ? posts : posts.where((post) => !post.isHidden);
   }
 
   @override
@@ -45,5 +58,48 @@ class MockPostService implements PostService {
   @override
   Future<void> deletePost(String id) async {
     throw UnsupportedError('MockPostService does not support delete.');
+  }
+
+  @override
+  Future<void> hidePost(
+    String id, {
+    required PostHiddenReason reason,
+    required String moderatorId,
+    String? note,
+  }) async {
+    _replace(
+      id,
+      (post) => post.copyWith(
+        hiddenReason: reason,
+        hiddenNote: note,
+        hiddenAt: DateTime.now(),
+        hiddenBy: moderatorId,
+      ),
+    );
+  }
+
+  @override
+  Future<void> unhidePost(String id) async {
+    _replace(
+      id,
+      (post) => PostModel(
+        id: post.id,
+        authorId: post.authorId,
+        authorName: post.authorName,
+        createdAt: post.createdAt,
+        authorPhotoUrl: post.authorPhotoUrl,
+        imageUrl: post.imageUrl,
+        caption: post.caption,
+        likesCount: post.likesCount,
+        recentLikes: post.recentLikes,
+      ),
+    );
+  }
+
+  void _replace(String id, PostModel Function(PostModel post) update) {
+    final index = _posts.indexWhere((post) => post.id == id);
+    if (index != -1) {
+      _posts[index] = update(_posts[index]);
+    }
   }
 }

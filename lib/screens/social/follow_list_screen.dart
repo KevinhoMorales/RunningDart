@@ -106,7 +106,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : HapticRefreshIndicator(
               onRefresh: _load,
               child: _error != null && _profiles.isEmpty
                   ? CustomScrollView(

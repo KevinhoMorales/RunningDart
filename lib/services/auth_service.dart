@@ -39,6 +39,11 @@ abstract class AuthService {
   });
   Future<void> logout();
 
+  /// Envía el enlace para crear una contraseña nueva. No distingue entre un
+  /// correo registrado y uno que no existe: eso permitiría averiguar quién
+  /// tiene cuenta.
+  Future<void> sendPasswordReset(String email);
+
   /// Vuelve a validar la contraseña de la sesión activa. Se usa como respaldo de
   /// la biometría antes de acciones irreversibles como eliminar la cuenta.
   Future<void> reauthenticate(String password);

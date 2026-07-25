@@ -90,6 +90,33 @@ class HapticFilledButton extends StatelessWidget {
     required this.onPressed,
     required this.child,
     this.style,
+    this.feedback = AppHaptics.lightTap,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget child;
+  final ButtonStyle? style;
+
+  /// Vibración al pulsar. Las confirmaciones destructivas usan
+  /// [AppHaptics.confirm] para distinguirse de un toque cualquiera.
+  final Future<void> Function() feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: AppHaptics.wrap(onPressed, feedback: feedback),
+      style: style,
+      child: child,
+    );
+  }
+}
+
+class HapticOutlinedButton extends StatelessWidget {
+  const HapticOutlinedButton({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.style,
   });
 
   final VoidCallback? onPressed;
@@ -98,9 +125,56 @@ class HapticFilledButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton(
+    return OutlinedButton(
       onPressed: AppHaptics.wrap(onPressed),
       style: style,
+      child: child,
+    );
+  }
+}
+
+class HapticOutlinedButtonIcon extends StatelessWidget {
+  const HapticOutlinedButtonIcon({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.style,
+  });
+
+  final VoidCallback? onPressed;
+  final Widget icon;
+  final Widget label;
+  final ButtonStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: AppHaptics.wrap(onPressed),
+      icon: icon,
+      label: label,
+      style: style,
+    );
+  }
+}
+
+class HapticRefreshIndicator extends StatelessWidget {
+  const HapticRefreshIndicator({
+    super.key,
+    required this.onRefresh,
+    required this.child,
+    this.color,
+  });
+
+  final Future<void> Function() onRefresh;
+  final Widget child;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: AppHaptics.wrapFuture(onRefresh, feedback: AppHaptics.confirm),
+      color: color,
       child: child,
     );
   }

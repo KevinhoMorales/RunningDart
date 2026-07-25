@@ -11,6 +11,7 @@ class VisitProvider extends ChangeNotifier {
   final VisitServiceBase _visitService;
 
   StreamSubscription<List<VisitModel>>? _subscription;
+  String? _businessId;
 
   List<VisitModel> _visits = [];
   bool _isLoading = false;
@@ -25,10 +26,15 @@ class VisitProvider extends ChangeNotifier {
   ScanValidationResult? get lastValidationResult => _lastValidationResult;
 
   void startListening(String businessId) {
-    if (_subscription != null) {
+    if (_subscription != null && _businessId == businessId) {
       return;
     }
 
+    // El provider vive a nivel de app, así que un operador reasignado a otro
+    // negocio se quedaría viendo las validaciones del anterior.
+    _subscription?.cancel();
+    _businessId = businessId;
+    _visits = [];
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -57,6 +63,7 @@ class VisitProvider extends ChangeNotifier {
   void stopListening() {
     _subscription?.cancel();
     _subscription = null;
+    _businessId = null;
   }
 
   Future<ScanValidationResult> processScan({

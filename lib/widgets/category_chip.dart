@@ -5,7 +5,6 @@ import '../theme/app_palette.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../theme/category_style.dart';
-import '../utils/constants.dart';
 
 class CategoryChip extends StatelessWidget {
   const CategoryChip({
@@ -31,9 +30,9 @@ class CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = this.palette ?? context.palette;
-    final categoryGradient = category != null && category != 'Todos'
-        ? CategoryStyle.gradient(category!)
-        : null;
+    final selectedColor = category != null && category != 'Todos'
+        ? CategoryStyle.solidColor(category!)
+        : palette.accentPrimary;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -50,18 +49,17 @@ class CategoryChip extends StatelessWidget {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             decoration: BoxDecoration(
-              gradient: isSelected ? categoryGradient : null,
-              color: isSelected
-                  ? (categoryGradient == null ? palette.accentPrimary : null)
-                  : palette.chipBackground,
+              color: isSelected ? selectedColor : palette.chipBackground,
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               border: Border.all(
                 color: isSelected ? Colors.transparent : palette.inputBorder,
               ),
+              // La sombra toma el color del chip: con el verde de marca fijo
+              // desentonaba en las categorías cálidas.
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: AppConstants.primaryColor.withValues(alpha: 0.25),
+                        color: selectedColor.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),

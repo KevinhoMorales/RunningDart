@@ -224,7 +224,7 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
                     Image.network(
                       business.imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => DecoratedBox(
+                      errorBuilder: (_, _, _) => DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: CategoryStyle.gradient(business.category),
                         ),

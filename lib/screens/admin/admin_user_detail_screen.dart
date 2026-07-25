@@ -16,17 +16,19 @@ import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
-import '../../utils/username_helpers.dart';
 import '../../services/payment_service.dart';
 import '../../services/social_service.dart';
 import '../../services/username_service.dart';
 import '../../widgets/app_snackbar.dart';
+import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/international_phone_field.dart';
+import '../../widgets/manual_payment_dialog.dart';
 import '../../widgets/modality_chip.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/receipt_viewer.dart';
 import '../../widgets/user_avatar.dart';
+import '../../widgets/username_dialog.dart';
 
 class AdminUserDetailScreen extends StatefulWidget {
   const AdminUserDetailScreen({
@@ -114,59 +116,24 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
 
   Future<void> _changeUsername() async {
     final user = _user;
-    if (user == null) {
+    if (user == null || _isChangingUsername) {
       return;
     }
 
-    final controller = TextEditingController(text: user.username ?? '');
-    final formKey = GlobalKey<FormState>();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Cambiar nombre de usuario'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              autofocus: true,
-              inputFormatters: UsernameHelpers.inputFormatters,
-              validator: UsernameHelpers.validationError,
-              decoration: const InputDecoration(
-                labelText: 'Nombre de usuario',
-                prefixText: '@',
-                helperText: 'Como admin no aplica la espera de 30 días.',
-              ),
-            ),
-          ),
-          actions: [
-            HapticTextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancelar'),
-            ),
-            HapticFilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    final newUsername = UsernameHelpers.normalize(controller.text);
-    controller.dispose();
-
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
+    // El aviso se marca antes de abrir el diálogo: así dos toques seguidos no
+    // apilan dos diálogos sobre el mismo usuario.
     setState(() => _isChangingUsername = true);
     try {
+      final newUsername = await askNewUsername(
+        context,
+        currentUsername: user.username,
+        helperText: 'Como admin no aplica la espera de 30 días.',
+      );
+
+      if (newUsername == null || !mounted) {
+        return;
+      }
+
       await _usernameService.changeUsername(
         userId: user.id,
         newUsername: newUsername,
@@ -209,6 +176,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (success) {
       await _loadUser();
+      if (!mounted) {
+        return;
+      }
       AppSnackBar.show(context, 'Membresía aprobada.');
     } else if (admin.error != null) {
       AppSnackBar.showError(context, admin.error);
@@ -223,6 +193,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (success) {
       await _loadUser();
+      if (!mounted) {
+        return;
+      }
       AppSnackBar.show(context, 'Solicitud rechazada.');
     } else if (admin.error != null) {
       AppSnackBar.showError(context, admin.error);
@@ -245,6 +218,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     if (success) {
       await _loadUser();
+      if (!mounted) {
+        return;
+      }
       AppSnackBar.show(context, 'Membresía actualizada.');
     } else if (admin.error != null) {
       AppSnackBar.showError(context, admin.error);
@@ -261,105 +237,25 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   }
 
   Future<void> _registerManualPayment() async {
-    final amountController = TextEditingController(
-      text: MembershipHelpers.amountForModality(_selectedModality)
-          .toStringAsFixed(0),
-    );
-    final notesController = TextEditingController();
-    var modality = _selectedModality;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Registrar pago manual'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DropdownButtonFormField<MembershipModality>(
-                      initialValue: modality,
-                      decoration: const InputDecoration(labelText: 'Modalidad'),
-                      items: MembershipModality.values
-                          .where((item) => item.requiresPayment)
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(item.displayName),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: AppHaptics.wrapValue((value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setDialogState(() {
-                          modality = value;
-                          amountController.text =
-                              MembershipHelpers.amountForModality(value)
-                                  .toStringAsFixed(0);
-                        });
-                      }),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Monto (USD)',
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextField(
-                      controller: notesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Notas (opcional)',
-                      ),
-                      maxLines: 2,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                HapticTextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancelar'),
-                ),
-                HapticFilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('Registrar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final draft = await askManualPayment(
+      context,
+      initialModality: _selectedModality,
     );
 
-    if (confirmed != true || !mounted) {
-      amountController.dispose();
-      notesController.dispose();
+    if (draft == null || !mounted) {
       return;
     }
-
-    final amount = double.tryParse(amountController.text.trim()) ??
-        MembershipHelpers.amountForModality(modality);
-    final notes = notesController.text.trim();
-    amountController.dispose();
-    notesController.dispose();
 
     try {
       await _paymentService.createPayment(
         PaymentModel(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           userId: widget.userId,
-          modality: modality,
-          amount: amount,
+          modality: draft.modality,
+          amount: draft.amount,
           paidAt: DateTime.now(),
           status: PaymentStatus.approved,
-          notes: notes.isEmpty ? null : notes,
+          notes: draft.notes,
           createdAt: DateTime.now(),
         ),
       );
@@ -382,7 +278,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime(DateTime.now().year + 5),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _expiresAt = picked);
     }
   }
@@ -512,9 +408,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
-      appBar: AppBar(
-        title: const Text('Detalle de usuario'),
-      ),
+      appBar: const CustomAppBar(title: 'Detalle de usuario'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

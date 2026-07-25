@@ -12,6 +12,7 @@ import '../../widgets/admin_search_field.dart';
 import '../../widgets/business_card.dart';
 import '../../widgets/category_chip.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 
 class BusinessListScreen extends StatefulWidget {
   const BusinessListScreen({super.key});
@@ -64,7 +65,7 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
           .toList(growable: false),
     );
 
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       color: AppConstants.primaryColor,
       onRefresh: () => provider.loadBusinesses(),
       child: CustomScrollView(

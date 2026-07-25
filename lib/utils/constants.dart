@@ -53,6 +53,7 @@ class AppConstants {
       'https://apps.apple.com/us/app/saints/id6792610093';
   static const String androidPlayStoreUrl =
       'https://play.google.com/store/apps/details?id=com.devlokos.runningdart';
+  static const String appDownloadUrl = 'https://onelink.to/saints';
 
   static const int minPasswordLength = 6;
 

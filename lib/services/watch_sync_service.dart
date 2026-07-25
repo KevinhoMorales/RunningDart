@@ -11,7 +11,11 @@ class WatchSyncService {
   WatchSyncService({
     MethodChannel? channel,
   }) : _channel = channel ?? const MethodChannel(_channelName) {
-    _channel.setMethodCallHandler(_handleMethodCall);
+    // El companion solo existe en watchOS. Fuera de iOS ni siquiera hay un
+    // binary messenger listo, así que registrar el handler rompería.
+    if (Platform.isIOS) {
+      _channel.setMethodCallHandler(_handleMethodCall);
+    }
   }
 
   static const _channelName = 'com.devlokos.runningdart/watch';

@@ -44,6 +44,9 @@ class _ThrowingAuthService implements AuthService {
   Future<void> logout() async {}
 
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<void> reauthenticate(String password) async {}
 
   @override

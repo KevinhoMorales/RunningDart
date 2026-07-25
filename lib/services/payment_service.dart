@@ -45,7 +45,7 @@ class PaymentService {
   }) async {
     await _payments.doc(paymentId).update({
       'status': status.firestoreValue,
-      if (notes != null) 'notes': notes,
+      'notes': ?notes,
     });
   }
 

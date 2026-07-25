@@ -50,12 +50,15 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
     NewsModel? news =
         await context.read<NewsProvider>().getNewsById(widget.newsId);
 
-    if (news == null && auth.isAdmin) {
-      news = await context.read<AdminNewsProvider>().getNewsById(widget.newsId);
-    }
-
     if (!mounted) {
       return;
+    }
+
+    if (news == null && auth.isAdmin) {
+      news = await context.read<AdminNewsProvider>().getNewsById(widget.newsId);
+      if (!mounted) {
+        return;
+      }
     }
 
     if (news == null) {

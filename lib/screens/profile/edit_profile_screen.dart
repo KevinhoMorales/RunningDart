@@ -271,7 +271,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ModernTextField(
                       controller: _bioController,
                       labelText: 'Descripción',
-                      textCapitalization: TextCapitalization.sentences,
+                      // Sin capitalización automática: la descripción puede
+                      // empezar en minúscula, con un @ o con un emoji.
+                      textCapitalization: TextCapitalization.none,
                       prefixIcon: Icons.notes_rounded,
                       maxLines: 3,
                       inputFormatters: [

@@ -13,6 +13,7 @@ import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/delete_post_dialog.dart';
 import '../../widgets/haptic_controls.dart';
+import '../../widgets/hide_post_dialog.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/post_grid.dart';
@@ -44,11 +45,12 @@ class _FeedScreenState extends State<FeedScreen>
     if (!mounted) {
       return;
     }
-    final userId = context.read<AuthProvider>().user?.id;
+    final auth = context.read<AuthProvider>();
+    final userId = auth.user?.id;
     if (userId == null) {
       return;
     }
-    context.read<FeedProvider>().start(userId);
+    context.read<FeedProvider>().start(userId, isModerator: auth.isAdmin);
     context.read<SocialProvider>().start(userId);
   }
 
@@ -89,6 +91,46 @@ class _FeedScreenState extends State<FeedScreen>
       case PostCardAction.delete:
         await _deletePost(post);
         break;
+      case PostCardAction.hide:
+        await _hidePost(post);
+        break;
+      case PostCardAction.unhide:
+        await _unhidePost(post);
+        break;
+    }
+  }
+
+  Future<void> _hidePost(PostModel post) async {
+    final decision = await askHideReason(context);
+    if (decision == null || !mounted) {
+      return;
+    }
+    try {
+      await context.read<FeedProvider>().hidePost(
+            post.id,
+            reason: decision.reason,
+            note: decision.note,
+          );
+      if (mounted) {
+        AppSnackBar.show(context, 'Publicación oculta para la comunidad.');
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(context, 'No se pudo ocultar. Intenta de nuevo.');
+      }
+    }
+  }
+
+  Future<void> _unhidePost(PostModel post) async {
+    try {
+      await context.read<FeedProvider>().unhidePost(post.id);
+      if (mounted) {
+        AppSnackBar.show(context, 'Publicación visible otra vez.');
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(context, 'No se pudo mostrar. Intenta de nuevo.');
+      }
     }
   }
 
@@ -288,7 +330,7 @@ class _MyPostsGridTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -359,7 +401,7 @@ class _PostList extends StatelessWidget {
     }
 
     if (error != null && posts.isEmpty) {
-      return RefreshIndicator(
+      return HapticRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -383,7 +425,7 @@ class _PostList extends StatelessWidget {
     }
 
     if (posts.isEmpty) {
-      return RefreshIndicator(
+      return HapticRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -407,7 +449,7 @@ class _PostList extends StatelessWidget {
 
     final feed = context.watch<FeedProvider>();
 
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       onRefresh: onRefresh,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -415,7 +457,7 @@ class _PostList extends StatelessWidget {
         itemCount: posts.length,
         itemBuilder: (context, index) {
           final post = posts[index];
-          final canDelete = post.authorId == currentUserId || isAdmin;
+          final canDelete = post.authorId == currentUserId;
           return PostCard(
             post: post,
             currentUserId: currentUserId,

@@ -10,7 +10,12 @@ import 'package:running_dart/services/social_service.dart';
 
 const _myId = 'me';
 
-PostModel _post(String id, String authorId, {int likesCount = 0}) {
+PostModel _post(
+  String id,
+  String authorId, {
+  int likesCount = 0,
+  bool hidden = false,
+}) {
   return PostModel(
     id: id,
     authorId: authorId,
@@ -18,6 +23,9 @@ PostModel _post(String id, String authorId, {int likesCount = 0}) {
     imageUrl: 'https://example.com/$id.jpg',
     createdAt: DateTime(2026, 1, 1),
     likesCount: likesCount,
+    hiddenReason: hidden ? PostHiddenReason.offensive : null,
+    hiddenAt: hidden ? DateTime(2026, 1, 2) : null,
+    hiddenBy: hidden ? 'admin-1' : null,
   );
 }
 
@@ -28,15 +36,31 @@ class _FakePostService implements PostService {
   final List<PostModel> userPosts;
   String? requestedUserId;
 
+  /// Filtra como Firestore, donde la consulta ya excluye las ocultas, y no
+  /// como una lista en memoria que las devuelve todas.
   @override
-  Stream<List<PostModel>> watchFeed({int limit = 50}) {
-    return Stream.value(feed.take(limit).toList(growable: false));
+  Stream<List<PostModel>> watchFeed({
+    int limit = 50,
+    bool includeHidden = false,
+  }) {
+    return Stream.value(
+      _visible(feed, includeHidden).take(limit).toList(growable: false),
+    );
   }
 
   @override
-  Stream<List<PostModel>> watchUserPosts(String userId) {
+  Stream<List<PostModel>> watchUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) {
     requestedUserId = userId;
-    return Stream.value(userPosts);
+    return Stream.value(
+      _visible(userPosts, includeHidden).toList(growable: false),
+    );
+  }
+
+  Iterable<PostModel> _visible(Iterable<PostModel> posts, bool includeHidden) {
+    return includeHidden ? posts : posts.where((post) => !post.isHidden);
   }
 
   @override
@@ -216,6 +240,84 @@ void main() {
     provider.dispose();
   });
 
+  test('a hidden post of someone else leaves the feed', () async {
+    final postService = _FakePostService(
+      feed: [
+        _post('theirs-hidden', 'someone', hidden: true),
+        _post('theirs-1', 'someone'),
+      ],
+      userPosts: const [],
+    );
+    final provider = FeedProvider(postService, _FakeSocialService());
+
+    provider.start(_myId);
+    await _settle();
+
+    expect(provider.posts.map((p) => p.id), ['theirs-1']);
+
+    provider.dispose();
+  });
+
+  test('my hidden post leaves the feed but stays in my posts so I know why',
+      () async {
+    final mineHidden = _post('mine-hidden', _myId, hidden: true);
+    final postService = _FakePostService(
+      feed: [mineHidden],
+      userPosts: [mineHidden],
+    );
+    final provider = FeedProvider(postService, _FakeSocialService());
+
+    provider.start(_myId);
+    await _settle();
+
+    expect(provider.posts, isEmpty);
+    expect(provider.myPosts.map((p) => p.id), ['mine-hidden']);
+
+    provider.dispose();
+  });
+
+  test('a moderator sees the hidden posts to be able to restore them',
+      () async {
+    final postService = _FakePostService(
+      feed: [
+        _post('theirs-hidden', 'someone', hidden: true),
+        _post('theirs-1', 'someone'),
+      ],
+      userPosts: const [],
+    );
+    final provider = FeedProvider(postService, _FakeSocialService());
+
+    provider.start(_myId, isModerator: true);
+    await _settle();
+
+    expect(provider.posts.map((p) => p.id), ['theirs-hidden', 'theirs-1']);
+
+    provider.dispose();
+  });
+
+  test('hidePost carries the reason, the note and who moderated', () async {
+    final postService = _RecordingPostService();
+    final provider = FeedProvider(postService, _FakeSocialService());
+
+    provider.start(_myId);
+    await _settle();
+    await provider.hidePost(
+      'post-1',
+      reason: PostHiddenReason.spam,
+      note: 'Publicidad repetida',
+    );
+
+    expect(postService.hiddenId, 'post-1');
+    expect(postService.hiddenReason, PostHiddenReason.spam);
+    expect(postService.hiddenNote, 'Publicidad repetida');
+    expect(postService.moderatorId, _myId);
+
+    await provider.unhidePost('post-1');
+    expect(postService.unhiddenId, 'post-1');
+
+    provider.dispose();
+  });
+
   test('deletePost is delegated to the post service', () async {
     final postService = _RecordingPostService();
     final provider = FeedProvider(postService, _FakeSocialService());
@@ -230,11 +332,48 @@ void main() {
 
 class _RecordingPostService implements PostService {
   String? deletedId;
+  String? hiddenId;
+  PostHiddenReason? hiddenReason;
+  String? hiddenNote;
+  String? moderatorId;
+  String? unhiddenId;
 
   @override
   Future<void> deletePost(String id) async {
     deletedId = id;
   }
+
+  @override
+  Future<void> hidePost(
+    String id, {
+    required PostHiddenReason reason,
+    required String moderatorId,
+    String? note,
+  }) async {
+    hiddenId = id;
+    hiddenReason = reason;
+    hiddenNote = note;
+    this.moderatorId = moderatorId;
+  }
+
+  @override
+  Future<void> unhidePost(String id) async {
+    unhiddenId = id;
+  }
+
+  @override
+  Stream<List<PostModel>> watchFeed({
+    int limit = 50,
+    bool includeHidden = false,
+  }) =>
+      Stream.value(const []);
+
+  @override
+  Stream<List<PostModel>> watchUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) =>
+      Stream.value(const []);
 
   @override
   Future<PostModel> createPost({

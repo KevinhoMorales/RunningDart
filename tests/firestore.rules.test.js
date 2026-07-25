@@ -49,6 +49,19 @@ function seedUser(uid, data) {
   });
 }
 
+function seedPost(id, data) {
+  return testEnv.withSecurityRulesDisabled(async (context) => {
+    await envCollection(context.firestore(), 'posts').doc(id).set({
+      authorName: 'Test Author',
+      imageUrl: `https://example.com/${id}.jpg`,
+      createdAt: new Date(),
+      likesCount: 0,
+      isHidden: false,
+      ...data,
+    });
+  });
+}
+
 async function runTests() {
   await setup();
 
@@ -457,12 +470,50 @@ async function runTests() {
       envCollection(authedDb('member-1'), 'payments').doc('pay-other-user').get(),
     );
 
+    // Al dueño solo le queda reemplazar el comprobante mientras siga pendiente.
     await assertSucceeds(
+      envCollection(authedDb('member-1'), 'payments').doc('pay-self').update({
+        receiptUrl: 'https://example.com/receipt.jpg',
+      }),
+    );
+
+    // Aprobarse el pago a sí mismo sería saltarse la revisión de membresía.
+    await assertFails(
+      envCollection(authedDb('member-1'), 'payments').doc('pay-self').update({
+        status: 'approved',
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'payments').doc('pay-self').update({
+        amount: 0,
+      }),
+    );
+
+    // El historial de pagos es la auditoría: no lo borra su dueño.
+    await assertFails(
       envCollection(authedDb('member-1'), 'payments').doc('pay-self').delete(),
     );
 
     await assertFails(
       envCollection(authedDb('member-1'), 'payments').doc('pay-other-user').delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'payments').doc('pay-self').update({
+        status: 'approved',
+      }),
+    );
+
+    // Ya revisado, ni siquiera el comprobante se puede cambiar.
+    await assertFails(
+      envCollection(authedDb('member-1'), 'payments').doc('pay-self').update({
+        receiptUrl: 'https://example.com/other.jpg',
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'payments').doc('pay-self').delete(),
     );
 
     await seedUser('coach-1', { role: 'coach' });
@@ -501,6 +552,251 @@ async function runTests() {
           venue: 'Quito',
           sections: [],
         }),
+    );
+
+    await seedPost('post-visible', { authorId: 'member-1' });
+    await seedPost('post-hidden', {
+      authorId: 'member-1',
+      isHidden: true,
+      hiddenAt: new Date(),
+      hiddenReason: 'spam',
+      hiddenBy: 'admin-1',
+    });
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'posts').doc('post-mine').set({
+        authorId: 'member-1',
+        authorName: 'Member One',
+        imageUrl: 'https://example.com/post.jpg',
+        createdAt: new Date(),
+        isHidden: false,
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-impostor').set({
+        authorId: 'user-plain',
+        authorName: 'Plain User',
+        createdAt: new Date(),
+        isHidden: false,
+      }),
+    );
+
+    // Nadie nace moderado: publicar no puede traer los campos de moderación.
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-premoderated').set({
+        authorId: 'member-1',
+        authorName: 'Member One',
+        createdAt: new Date(),
+        isHidden: true,
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-prehidden').set({
+        authorId: 'member-1',
+        authorName: 'Member One',
+        createdAt: new Date(),
+        isHidden: false,
+        hiddenAt: new Date(),
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'posts').doc('post-visible').get(),
+    );
+
+    // Ocultar tiene que valer para lectura, no solo para escritura.
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'posts').doc('post-hidden').get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'posts').doc('post-hidden').get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'posts').doc('post-hidden').get(),
+    );
+
+    // El feed filtra en la consulta porque un list que devuelva una oculta
+    // falla entero.
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'posts')
+        .where('isHidden', '==', false)
+        .get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'posts').get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'posts').get(),
+    );
+
+    // El autor sí puede pedir las suyas completas: es donde se entera de que le
+    // ocultaron una y por qué.
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'posts')
+        .where('authorId', '==', 'member-1')
+        .get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'posts')
+        .where('authorId', '==', 'member-1')
+        .get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'posts')
+        .where('authorId', '==', 'member-1')
+        .where('isHidden', '==', false)
+        .get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'posts').doc('post-visible').update({
+        caption: 'Rodada del domingo',
+      }),
+    );
+
+    // El contador de likes lo escribe la Cloud Function, no el autor.
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-visible').update({
+        likesCount: 9999,
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-visible').update({
+        recentLikes: [{ userId: 'user-plain', displayName: 'Plain User' }],
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-visible').update({
+        authorId: 'user-plain',
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-visible').update({
+        createdAt: new Date(2020, 0, 1),
+      }),
+    );
+
+    // Nadie se auto-restaura una publicación oculta.
+    await assertFails(
+      envCollection(authedDb('member-1'), 'posts').doc('post-hidden').update({
+        isHidden: false,
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'posts').doc('post-visible').update({
+        isHidden: true,
+        hiddenAt: new Date(),
+        hiddenReason: 'offensive',
+        hiddenBy: 'admin-1',
+      }),
+    );
+
+    // Al administrador le toca moderar, no reescribir lo que otro publicó.
+    await assertFails(
+      envCollection(authedDb('admin-1'), 'posts').doc('post-visible').update({
+        caption: 'Editado por el admin',
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'posts').doc('post-mine').delete(),
+    );
+
+    // El administrador oculta; borrar sigue siendo del autor.
+    await assertFails(
+      envCollection(authedDb('admin-1'), 'posts').doc('post-mine').delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'posts').doc('post-mine').delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'follows').doc('member-1_user-plain').set({
+        followerId: 'member-1',
+        followingId: 'user-plain',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'follows').doc('user-plain_member-1').set({
+        followerId: 'user-plain',
+        followingId: 'member-1',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'post_likes')
+        .doc('post-visible_member-1')
+        .set({
+          postId: 'post-visible',
+          userId: 'member-1',
+          createdAt: new Date(),
+        }),
+    );
+
+    // El id del documento es lo que impide dar dos veces el mismo me gusta.
+    await assertFails(
+      envCollection(authedDb('member-1'), 'post_likes')
+        .doc('otro-id')
+        .set({
+          postId: 'post-visible',
+          userId: 'member-1',
+          createdAt: new Date(),
+        }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'post_likes')
+        .doc('post-visible_user-plain')
+        .set({
+          postId: 'post-visible',
+          userId: 'user-plain',
+          createdAt: new Date(),
+        }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'blocks').doc('member-1_user-plain').set({
+        blockerId: 'member-1',
+        blockedId: 'user-plain',
+        createdAt: new Date(),
+      }),
+    );
+
+    // A quién bloqueaste es asunto tuyo: nadie más lo lee.
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'blocks').doc('member-1_user-plain').get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'post_reports').doc('report-1').set({
+        postId: 'post-visible',
+        reportedByUserId: 'member-1',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'post_reports').doc('report-2').set({
+        postId: 'post-visible',
+        reportedByUserId: 'user-plain',
+        createdAt: new Date(),
+      }),
     );
 
     console.log('All Firestore rules tests passed.');

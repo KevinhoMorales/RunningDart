@@ -97,6 +97,11 @@ class MockAuthService implements AuthService {
     _userController.add(null);
   }
 
+  /// El almacenamiento local no manda correos: se acepta la petición para que
+  /// el flujo se pueda recorrer en desarrollo.
+  @override
+  Future<void> sendPasswordReset(String email) async {}
+
   @override
   Future<void> reauthenticate(String password) async {
     final user = await _storage.getCurrentUser();

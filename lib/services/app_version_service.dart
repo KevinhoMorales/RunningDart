@@ -1,5 +1,3 @@
-import '../utils/version_utils.dart';
-
 class AppUpdateStatus {
   const AppUpdateStatus({
     required this.requiresUpdate,

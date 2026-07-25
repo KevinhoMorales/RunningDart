@@ -138,6 +138,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> sendPasswordReset(String email) {
+    return _runAuthAction(
+      () => _authService.sendPasswordReset(email),
+      syncsSession: false,
+    );
+  }
+
   Future<bool> reauthenticate(String password) async {
     return _runAuthAction(() => _authService.reauthenticate(password));
   }
@@ -157,6 +164,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       _user = await _authService.refreshCurrentUser();
       await _syncWatchContext();
+    } catch (error, stackTrace) {
+      // Que falle la relectura no dice nada del estado de la cuenta: se
+      // conserva el último perfil conocido en vez de aparentar sesión cerrada.
+      debugPrint('Account status refresh failed: $error\n$stackTrace');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -168,15 +179,20 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> _runAuthAction(Future<void> Function() action) async {
+  Future<bool> _runAuthAction(
+    Future<void> Function() action, {
+    bool syncsSession = true,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       await action();
-      unawaited(_syncPushSubscription());
-      unawaited(_syncWatchContext());
+      if (syncsSession) {
+        unawaited(_syncPushSubscription());
+        unawaited(_syncWatchContext());
+      }
       return true;
     } on AuthException catch (e) {
       _error = UserMessages.error(e.message);

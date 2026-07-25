@@ -61,7 +61,25 @@ service cloud.firestore {
         && request.resource.data.get('membershipModality', 'community')
             == resource.data.get('membershipModality', 'community')
         && request.resource.data.get('expiresAt', null)
-            == resource.data.get('expiresAt', null);
+            == resource.data.get('expiresAt', null)
+        && request.resource.data.get('activatedAt', null)
+            == resource.data.get('activatedAt', null)
+        && request.resource.data.get('internalNotes', null)
+            == resource.data.get('internalNotes', null);
+    }
+
+    function postHiddenDetailFields() {
+      return ['hiddenReason', 'hiddenNote', 'hiddenAt', 'hiddenBy'];
+    }
+
+    function postModerationFields() {
+      return postHiddenDetailFields().concat(['isHidden']);
+    }
+
+    // Los escribe el servidor: `authorId` y `createdAt` al publicar, y el resto
+    // la Cloud Function de likes. El autor no debe poder tocarlos al editar.
+    function postServerFields() {
+      return ['authorId', 'createdAt', 'likesCount', 'recentLikes'];
     }
 
     function usernameCooldownOk() {
@@ -121,9 +139,19 @@ service cloud.firestore {
             && request.resource.data.userId == request.auth.uid
             && request.resource.data.status == 'pending'));
 
-      allow update, delete: if isValidEnvironment(environment)
+      // Aprobar es cosa del administrador. Al dueño solo le queda reemplazar el
+      // comprobante mientras su pago siga sin revisar.
+      allow update: if isValidEnvironment(environment)
         && (isAdmin(environment)
-          || (isSignedIn() && resource.data.userId == request.auth.uid));
+          || (isSignedIn()
+            && resource.data.userId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['receiptUrl'])));
+
+      // Solo el administrador borra: el historial de pagos es la auditoría de
+      // las membresías.
+      allow delete: if isValidEnvironment(environment) && isAdmin(environment);
     }
 
     match /environments/{environment}/visits/{visitId} {
@@ -180,16 +208,44 @@ service cloud.firestore {
     }
 
     match /environments/{environment}/posts/{postId} {
-      allow read: if isValidEnvironment(environment) && isSignedIn();
+      // Ocultar tiene que valer también para lectura, o cualquiera con el SDK
+      // sigue viendo lo moderado.
+      //
+      // Va con acceso directo al campo, no con `data.get('isHidden', false)`:
+      // Firestore exige que un `list` sea demostrablemente seguro solo a partir
+      // de la consulta, y el valor por defecto vuelve la condición opaca para
+      // ese análisis, con lo que una consulta sin filtro pasaría igual.
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.isHidden == false
+          || resource.data.authorId == request.auth.uid
+          || isAdmin(environment));
+
+      // `isHidden` es obligatorio justamente porque la regla de lectura lo
+      // exige: un documento sin el campo no lo podría leer nadie.
       allow create: if isValidEnvironment(environment)
         && isSignedIn()
-        && request.resource.data.authorId == request.auth.uid;
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.isHidden == false
+        && !request.resource.data.keys().hasAny(postHiddenDetailFields());
+
+      // El administrador solo puede ocultar y volver a mostrar; el autor puede
+      // editar lo suyo pero no la moderación.
       allow update: if isValidEnvironment(environment)
-        && (isAdmin(environment)
-          || (isSignedIn() && resource.data.authorId == request.auth.uid));
+        && ((isAdmin(environment)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(postModerationFields()))
+          || (isSignedIn()
+            && resource.data.authorId == request.auth.uid
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(postModerationFields())
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(postServerFields())));
+
+      // Borrar es solo del autor: al administrador le toca ocultar.
       allow delete: if isValidEnvironment(environment)
-        && (isAdmin(environment)
-          || (isSignedIn() && resource.data.authorId == request.auth.uid));
+        && isSignedIn()
+        && resource.data.authorId == request.auth.uid;
     }
 
     match /environments/{environment}/follows/{followId} {

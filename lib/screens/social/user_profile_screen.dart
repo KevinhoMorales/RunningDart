@@ -76,13 +76,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   void _listenPosts() {
     _postsSubscription?.cancel();
-    _postsSubscription = _postService.watchUserPosts(widget.userId).listen(
+    _postsSubscription = _postService
+        .watchUserPosts(widget.userId, includeHidden: _canSeeHidden)
+        .listen(
       (posts) {
         if (!mounted) {
           return;
         }
         setState(() {
-          _posts = posts;
+          _posts = posts.where(_canSee).toList(growable: false);
           _loadingPosts = false;
         });
       },
@@ -93,6 +95,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       },
     );
   }
+
+  /// En el perfil de otra persona las publicaciones ocultas por moderación no
+  /// se muestran; su autor y los administradores sí las ven.
+  bool get _canSeeHidden {
+    final auth = context.read<AuthProvider>();
+    return auth.isAdmin || auth.user?.id == widget.userId;
+  }
+
+  bool _canSee(PostModel post) => !post.isHidden || _canSeeHidden;
 
   PostModel? get _latestPost => _posts.isEmpty ? null : _posts.first;
 
@@ -280,7 +291,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final social = context.watch<SocialProvider>();
     final isFollowing = social.isFollowing(widget.userId);
     final showAccount = widget.isAccountView && isSelf && authUser != null;
-    final canDelete = isSelf || context.watch<AuthProvider>().isAdmin;
+    // Borrar es solo del autor: el administrador oculta desde el feed.
+    final canDelete = isSelf;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -300,11 +312,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           if (!isSelf)
             PopupMenuButton<String>(
               icon: Icon(Icons.more_horiz_rounded, color: palette.textPrimary),
-              onSelected: (value) {
+              enableFeedback: false,
+              onOpened: AppHaptics.lightTap,
+              onSelected: AppHaptics.wrapValue((value) {
                 if (value == 'block') {
                   _blockUser();
                 }
-              },
+              }),
               itemBuilder: (context) => [
                 const PopupMenuItem(
                   value: 'block',
@@ -316,7 +330,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
       body: _loadingProfile
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : HapticRefreshIndicator(
               onRefresh: _loadProfile,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -504,7 +518,7 @@ class _ProfileHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           if (!isSelf)
             isFollowing
-                ? OutlinedButton.icon(
+                ? HapticOutlinedButtonIcon(
                     onPressed: onToggleFollow,
                     icon: const Icon(Icons.check_rounded, size: 18),
                     label: const Text('Siguiendo'),
@@ -514,7 +528,7 @@ class _ProfileHeader extends StatelessWidget {
                     onPressed: onToggleFollow,
                   ),
           if (isSelf)
-            OutlinedButton.icon(
+            HapticOutlinedButtonIcon(
               onPressed: () => context.push('/profile/edit'),
               icon: const Icon(Icons.edit_outlined, size: 18),
               label: const Text('Editar perfil'),

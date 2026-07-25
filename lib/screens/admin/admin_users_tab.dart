@@ -116,7 +116,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
     required Widget child,
     required Future<void> Function() onRefresh,
   }) {
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -314,7 +314,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
           )
         else
           Expanded(
-            child: RefreshIndicator(
+            child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),

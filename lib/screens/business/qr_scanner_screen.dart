@@ -7,6 +7,7 @@ import '../../providers/visit_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/manual_code_sheet.dart';
 import '../../widgets/validation_result_sheet.dart';
 
@@ -216,7 +217,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             AppSpacing.lg,
             AppSpacing.sm,
           ),
-          child: OutlinedButton.icon(
+          child: HapticOutlinedButtonIcon(
             onPressed: _isProcessing ? null : _handleManualEntry,
             style: OutlinedButton.styleFrom(
               foregroundColor: palette.accentPrimary,

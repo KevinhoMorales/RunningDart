@@ -31,6 +31,7 @@ class FeedProvider extends ChangeNotifier {
   StreamSubscription<Set<String>>? _likedSubscription;
 
   String? _userId;
+  bool _isModerator = false;
   List<PostModel> _posts = [];
   List<PostModel> _myPosts = [];
   Set<String> _blockedIds = {};
@@ -46,7 +47,14 @@ class FeedProvider extends ChangeNotifier {
 
   List<PostModel> get posts => _posts
       .where((post) => !_blockedIds.contains(post.authorId))
+      .where(_canSee)
       .toList(growable: false);
+
+  /// Una publicación oculta por moderación solo la ven su autor, para saber por
+  /// qué salió del feed, y los administradores, para poder revertirlo.
+  bool _canSee(PostModel post) {
+    return !post.isHidden || _isModerator || post.authorId == _userId;
+  }
 
   List<PostModel> postsFollowing(Set<String> followingIds) => posts
       .where((post) => followingIds.contains(post.authorId))
@@ -112,31 +120,24 @@ class FeedProvider extends ChangeNotifier {
     }
   }
 
-  void start(String userId) {
+  void start(String userId, {bool isModerator = false}) {
     if (_userId == userId && _feedSubscription != null) {
+      if (_isModerator != isModerator) {
+        // El rol decide qué pide la consulta, no solo qué se pinta, así que
+        // hay que rehacer la suscripción.
+        _isModerator = isModerator;
+        _listenFeed();
+        notifyListeners();
+      }
       return;
     }
     _userId = userId;
+    _isModerator = isModerator;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    _feedSubscription?.cancel();
-    _feedSubscription = _postService.watchFeed().listen(
-      (posts) {
-        _posts = posts;
-        _isLoading = false;
-        _error = null;
-        _prunePendingLikes();
-        notifyListeners();
-      },
-      onError: (_) {
-        _error = 'No se pudo cargar la comunidad.';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
-
+    _listenFeed();
     _listenMyPosts(userId);
     _listenLikes(userId);
 
@@ -147,6 +148,33 @@ class FeedProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (_) {},
+    );
+  }
+
+  /// Solo un moderador puede pedir las ocultas: las reglas rechazan la consulta
+  /// entera si alguien más las incluye.
+  void _listenFeed({Completer<void>? ready}) {
+    _feedSubscription?.cancel();
+    _feedSubscription =
+        _postService.watchFeed(includeHidden: _isModerator).listen(
+      (posts) {
+        _posts = posts;
+        _isLoading = false;
+        _error = null;
+        _prunePendingLikes();
+        if (ready != null && !ready.isCompleted) {
+          ready.complete();
+        }
+        notifyListeners();
+      },
+      onError: (_) {
+        _error = 'No se pudo cargar la comunidad.';
+        _isLoading = false;
+        if (ready != null && !ready.isCompleted) {
+          ready.complete();
+        }
+        notifyListeners();
+      },
     );
   }
 
@@ -188,7 +216,10 @@ class FeedProvider extends ChangeNotifier {
     _isLoadingMyPosts = _myPosts.isEmpty;
 
     _myPostsSubscription?.cancel();
-    _myPostsSubscription = _postService.watchUserPosts(userId).listen(
+    // Las propias sí van completas: es donde el autor se entera de que le
+    // ocultaron una publicación y por qué.
+    _myPostsSubscription =
+        _postService.watchUserPosts(userId, includeHidden: true).listen(
       (posts) {
         _myPosts = posts;
         _isLoadingMyPosts = false;
@@ -215,28 +246,7 @@ class FeedProvider extends ChangeNotifier {
 
     _listenMyPosts(userId);
     _listenLikes(userId);
-
-    _feedSubscription?.cancel();
-    _feedSubscription = _postService.watchFeed().listen(
-      (posts) {
-        _posts = posts;
-        _isLoading = false;
-        _error = null;
-        _prunePendingLikes();
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-        notifyListeners();
-      },
-      onError: (_) {
-        _error = 'No se pudo cargar la comunidad.';
-        _isLoading = false;
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-        notifyListeners();
-      },
-    );
+    _listenFeed(ready: completer);
 
     return completer.future;
   }
@@ -250,6 +260,27 @@ class FeedProvider extends ChangeNotifier {
 
   Future<void> deletePost(String id) {
     return _postService.deletePost(id);
+  }
+
+  Future<void> hidePost(
+    String id, {
+    required PostHiddenReason reason,
+    String? note,
+  }) {
+    final userId = _userId;
+    if (userId == null) {
+      throw StateError('No hay sesión activa.');
+    }
+    return _postService.hidePost(
+      id,
+      reason: reason,
+      moderatorId: userId,
+      note: note,
+    );
+  }
+
+  Future<void> unhidePost(String id) {
+    return _postService.unhidePost(id);
   }
 
   Future<void> reportPost(String postId, {String? reason}) {

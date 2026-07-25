@@ -257,6 +257,18 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        return;
+      }
+      throw AuthException(_mapFirebaseAuthError(e));
+    }
+  }
+
+  @override
   Future<void> reauthenticate(String password) async {
     final firebaseUser = _auth.currentUser;
     final email = firebaseUser?.email;
@@ -469,7 +481,16 @@ class FirebaseAuthService implements AuthService {
       return;
     }
 
-    final profile = await _fetchUserProfile(uid);
+    final UserModel? profile;
+    try {
+      profile = await _fetchUserProfile(uid);
+    } catch (error, stackTrace) {
+      // No se pudo leer, que no es lo mismo que no existir: se conserva la
+      // sesión y el listener de perfil reintentará.
+      debugPrint('Failed to read user profile: $error\n$stackTrace');
+      return;
+    }
+
     if (_auth.currentUser?.uid != uid) {
       return;
     }
@@ -482,20 +503,17 @@ class FirebaseAuthService implements AuthService {
     await _invalidateSessionDueToMissingProfile();
   }
 
+  /// Devuelve `null` solo cuando el documento de verdad no existe. Un fallo de
+  /// lectura se propaga a propósito: confundirlo con "este usuario no tiene
+  /// perfil" cierra la sesión de alguien que apenas se quedó sin red.
   Future<UserModel?> _fetchUserProfile(String uid) async {
-    try {
-      final snapshot = await _users.doc(uid).get();
+    final snapshot = await _users.doc(uid).get();
 
-      if (!snapshot.exists) {
-        return null;
-      }
-
-      return UserModel.fromFirestore(snapshot);
-    } on FirebaseException {
-      return null;
-    } catch (_) {
+    if (!snapshot.exists) {
       return null;
     }
+
+    return UserModel.fromFirestore(snapshot);
   }
 
   String _mapFirebaseAuthError(FirebaseAuthException exception) {

@@ -247,6 +247,8 @@ class _TopBar extends StatelessWidget {
                     color: Colors.white,
                   ),
                   tooltip: 'Más opciones',
+                  enableFeedback: false,
+                  onOpened: AppHaptics.lightTap,
                   onSelected: (_) {
                     AppHaptics.lightTap();
                     onDelete!();

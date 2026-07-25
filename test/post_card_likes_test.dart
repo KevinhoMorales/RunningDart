@@ -19,6 +19,10 @@ PostModel _post({int likesCount = 0, List<PostLikePreview> recentLikes = const [
 PostLikePreview _like(String name) =>
     PostLikePreview(userId: name.toLowerCase(), displayName: name);
 
+/// El resumen mezcla nombres en negrita con el resto en tono suave, así que su
+/// texto vive en varios spans.
+Finder _summary(String text) => find.text(text, findRichText: true);
+
 Future<void> _pumpCard(
   WidgetTester tester, {
   required PostModel post,
@@ -109,13 +113,13 @@ void main() {
       tester,
       post: _post(likesCount: 1, recentLikes: [_like('Ana')]),
     );
-    expect(find.text('Le gusta a Ana'), findsOneWidget);
+    expect(_summary('Le gusta a Ana'), findsOneWidget);
 
     await _pumpCard(
       tester,
       post: _post(likesCount: 2, recentLikes: [_like('Ana'), _like('Luis')]),
     );
-    expect(find.text('Les gusta a Ana y Luis'), findsOneWidget);
+    expect(_summary('Les gusta a Ana y Luis'), findsOneWidget);
   });
 
   testWidgets('shows only the number when there are many', (tester) async {
@@ -127,14 +131,14 @@ void main() {
       ),
     );
 
-    expect(find.text('24 Me gusta'), findsOneWidget);
+    expect(_summary('24 Me gusta'), findsOneWidget);
   });
 
   testWidgets('falls back to the number when there are no names yet',
       (tester) async {
     await _pumpCard(tester, post: _post(likesCount: 2));
 
-    expect(find.text('2 Me gusta'), findsOneWidget);
+    expect(_summary('2 Me gusta'), findsOneWidget);
   });
 
   testWidgets('hides the summary when nobody liked the post', (tester) async {
@@ -151,7 +155,7 @@ void main() {
       onOpenLikes: () => opened++,
     );
 
-    await tester.tap(find.text('12 Me gusta'));
+    await tester.tap(_summary('12 Me gusta'));
     await tester.pump();
 
     expect(opened, 1);

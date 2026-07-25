@@ -112,10 +112,10 @@ class UserService implements UserServiceBase {
       'membershipStatus': status.firestoreValue,
       if (expiresAt != null) 'expiresAt': Timestamp.fromDate(expiresAt),
       if (activatedAt != null) 'activatedAt': Timestamp.fromDate(activatedAt),
-      if (whatsapp != null) 'whatsapp': whatsapp,
-      if (nationalIdLast4 != null) 'nationalIdLast4': nationalIdLast4,
+      'whatsapp': ?whatsapp,
+      'nationalIdLast4': ?nationalIdLast4,
       if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate),
-      if (internalNotes != null) 'internalNotes': internalNotes,
+      'internalNotes': ?internalNotes,
     });
   }
 

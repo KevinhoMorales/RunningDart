@@ -62,6 +62,9 @@ void main() {
   });
 }
 
+// ignore: subtype_of_sealed_class
+/// `DocumentSnapshot` es sellada, pero `NewsModel.fromFirestore` la recibe y no
+/// hay forma de construir una real sin levantar Firestore.
 class _FakeDocumentSnapshot
     extends Fake
     implements DocumentSnapshot<Map<String, dynamic>> {

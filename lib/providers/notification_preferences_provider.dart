@@ -52,7 +52,7 @@ class NotificationPreferencesProvider extends ChangeNotifier {
     _enabled = value;
     await _prefs.setBool(AppConstants.pushNotificationsEnabledKey, value);
     if (_notificationService != null) {
-      await _notificationService!.setPushEnabled(
+      await _notificationService.setPushEnabled(
         value,
         prefs: _prefs,
         user: user,

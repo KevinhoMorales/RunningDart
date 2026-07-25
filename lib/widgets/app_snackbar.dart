@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_haptics.dart';
 import '../utils/user_messages.dart';
 
 abstract final class AppSnackBar {
@@ -19,6 +20,7 @@ abstract final class AppSnackBar {
     String? message, {
     String? fallback,
   }) {
+    AppHaptics.alert();
     show(
       context,
       UserMessages.error(message, fallback: fallback),

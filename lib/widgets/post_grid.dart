@@ -83,12 +83,29 @@ class PostGrid extends StatelessWidget {
                       AppHaptics.lightTap();
                       _showPostActions(context, post);
                     },
-              child: Image.network(
-                post.imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: palette.skeletonColor,
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    post.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: palette.skeletonColor,
+                    ),
+                  ),
+                  // Las ocultas por moderación se atenúan para distinguirlas de
+                  // un vistazo entre las demás.
+                  if (post.isHidden)
+                    Container(
+                      color: Colors.black54,
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.visibility_off_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                ],
               ),
             );
           },

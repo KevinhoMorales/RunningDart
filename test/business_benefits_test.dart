@@ -15,7 +15,7 @@ void main() {
     phone: '0999999999',
     hours: '9:00 - 18:00',
     category: 'salud',
-    benefits: const [],
+    benefits: [],
     discount: '10%',
     applicableModalities: [
       MembershipModality.official,

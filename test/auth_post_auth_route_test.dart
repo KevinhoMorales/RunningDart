@@ -46,6 +46,9 @@ class _StaticAuthService implements AuthService {
   }
 
   @override
+  Future<void> sendPasswordReset(String email) async {}
+
+  @override
   Future<void> reauthenticate(String password) async {}
 
   @override

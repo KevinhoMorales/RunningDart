@@ -10,6 +10,7 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
+import '../../widgets/haptic_controls.dart';
 
 class AdminStatsTab extends StatefulWidget {
   const AdminStatsTab({
@@ -83,7 +84,7 @@ class _AdminStatsTabState extends State<AdminStatsTab> {
         .length;
     final operators = users.where((u) => u.isBusinessOperator).length;
 
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       onRefresh: () async {
         await admin.refresh();
         await _loadValidationStats();

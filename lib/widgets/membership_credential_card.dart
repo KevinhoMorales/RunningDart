@@ -8,6 +8,7 @@ import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../utils/membership_code.dart';
 import '../utils/membership_helpers.dart';
+import 'haptic_controls.dart';
 import 'qr_generator.dart';
 
 class MembershipCredentialCard extends StatelessWidget {
@@ -270,7 +271,7 @@ class _MembershipCodeBlock extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
+            child: HapticTextButtonIcon(
               onPressed: () => _copy(context),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,

@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/constants.dart';
+import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/glass_card.dart';
@@ -13,6 +14,7 @@ import '../../widgets/gradient_background.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/legal_links.dart';
 import '../../widgets/modern_text_field.dart';
+import '../../widgets/password_reset_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -52,6 +54,35 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success) {
       context.go(auth.postAuthRoute);
     } else if (auth.error != null) {
+      AppSnackBar.showError(context, auth.error);
+    }
+  }
+
+  Future<void> _handlePasswordReset() async {
+    final auth = context.read<AuthProvider>();
+    final email = await askPasswordResetEmail(
+      context,
+      initialEmail: _emailController.text.trim(),
+    );
+
+    if (email == null || !mounted) {
+      return;
+    }
+
+    final sent = await auth.sendPasswordReset(email);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (sent) {
+      AppHaptics.confirm();
+      AppSnackBar.show(
+        context,
+        'Si existe una cuenta con ese correo, te enviamos un enlace para '
+        'crear una contraseña nueva.',
+      );
+    } else {
       AppSnackBar.showError(context, auth.error);
     }
   }
@@ -109,7 +140,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             obscureText: _obscurePassword,
                             textInputAction: TextInputAction.done,
                             prefixIcon: Icons.lock_outline,
-                            onFieldSubmitted: (_) => _handleLogin(),
+                            onFieldSubmitted:
+                                AppHaptics.wrapValue((_) => _handleLogin()),
                             suffixIcon: HapticIconButton(
                               icon: Icon(
                                 _obscurePassword
@@ -139,6 +171,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             label: 'Iniciar sesión',
                             isLoading: auth.isLoading,
                             onPressed: _handleLogin,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: HapticTextButton(
+                              onPressed: auth.isLoading
+                                  ? null
+                                  : _handlePasswordReset,
+                              child: const Text('¿Olvidaste tu contraseña?'),
+                            ),
                           ),
                         ],
                       ),

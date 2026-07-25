@@ -95,10 +95,17 @@ class RunningDartApp extends StatefulWidget {
 }
 
 class _RunningDartAppState extends State<RunningDartApp> {
-  late final BusinessService _businessService;
-  late final NewsService _newsService;
-  late final PostService _postService;
-  late final SocialService _socialService;
+  // Perezosos a propósito: los `create` de MultiProvider tampoco corren hasta
+  // que alguien lee el provider, y así una pantalla sin feed (el login) no
+  // obliga a tener Firebase inicializado.
+  late final BusinessService _businessService =
+      widget.businessService ?? FirestoreBusinessService();
+  late final NewsService _newsService =
+      widget.newsService ?? FirestoreNewsService();
+  late final PostService _postService =
+      widget.postService ?? FirestorePostService();
+  late final SocialService _socialService =
+      widget.socialService ?? SocialService();
   late final AdminProvider _adminProvider;
   late final AdminBusinessProvider _adminBusinessProvider;
   late final AdminNewsProvider _adminNewsProvider;
@@ -118,11 +125,6 @@ class _RunningDartAppState extends State<RunningDartApp> {
   @override
   void initState() {
     super.initState();
-    _businessService =
-        widget.businessService ?? FirestoreBusinessService();
-    _newsService = widget.newsService ?? FirestoreNewsService();
-    _postService = widget.postService ?? FirestorePostService();
-    _socialService = widget.socialService ?? SocialService();
     _adminProvider = widget.adminProvider ?? AdminProvider(UserService());
     _adminBusinessProvider = widget.adminBusinessProvider ??
         AdminBusinessProvider(_businessService);

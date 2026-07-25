@@ -245,7 +245,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
           Expanded(
             child: ListView.separated(
               itemCount: countries.length,
-              separatorBuilder: (_, __) => Divider(
+              separatorBuilder: (_, _) => Divider(
                 height: 1,
                 color: palette.cardBorder,
               ),

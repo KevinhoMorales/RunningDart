@@ -32,8 +32,11 @@ class FirestorePostService implements PostService {
       FirebasePaths.collection(_firestore, 'posts');
 
   @override
-  Stream<List<PostModel>> watchFeed({int limit = 50}) {
-    return _posts
+  Stream<List<PostModel>> watchFeed({
+    int limit = 50,
+    bool includeHidden = false,
+  }) {
+    return _visible(_posts, includeHidden)
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
@@ -41,12 +44,24 @@ class FirestorePostService implements PostService {
   }
 
   @override
-  Stream<List<PostModel>> watchUserPosts(String userId) {
-    return _posts
-        .where('authorId', isEqualTo: userId)
+  Stream<List<PostModel>> watchUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) {
+    return _visible(_posts.where('authorId', isEqualTo: userId), includeHidden)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(_parseSnapshot);
+  }
+
+  /// El filtro va en la consulta, no en memoria: las reglas rechazan un `list`
+  /// completo en cuanto uno de los documentos devueltos es una publicación
+  /// oculta que quien pregunta no puede ver.
+  Query<Map<String, dynamic>> _visible(
+    Query<Map<String, dynamic>> query,
+    bool includeHidden,
+  ) {
+    return includeHidden ? query : query.where('isHidden', isEqualTo: false);
   }
 
   List<PostModel> _parseSnapshot(
@@ -130,6 +145,44 @@ class FirestorePostService implements PostService {
       } catch (_) {
         // Image may not exist.
       }
+    }
+  }
+
+  @override
+  Future<void> hidePost(
+    String id, {
+    required PostHiddenReason reason,
+    required String moderatorId,
+    String? note,
+  }) async {
+    final trimmedNote = note?.trim();
+    try {
+      await _posts.doc(id).update({
+        'isHidden': true,
+        'hiddenReason': reason.key,
+        'hiddenNote': trimmedNote == null || trimmedNote.isEmpty
+            ? FieldValue.delete()
+            : trimmedNote,
+        'hiddenAt': FieldValue.serverTimestamp(),
+        'hiddenBy': moderatorId,
+      });
+    } on FirebaseException catch (e) {
+      throw PostServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  @override
+  Future<void> unhidePost(String id) async {
+    try {
+      await _posts.doc(id).update({
+        'isHidden': false,
+        'hiddenReason': FieldValue.delete(),
+        'hiddenNote': FieldValue.delete(),
+        'hiddenAt': FieldValue.delete(),
+        'hiddenBy': FieldValue.delete(),
+      });
+    } on FirebaseException catch (e) {
+      throw PostServiceException(UserMessages.firestore(e));
     }
   }
 }

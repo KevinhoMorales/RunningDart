@@ -28,7 +28,7 @@ class BusinessCategoryTag extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: CategoryStyle.badgeColor(category),
+        color: CategoryStyle.solidColor(category),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         boxShadow: const [
           BoxShadow(

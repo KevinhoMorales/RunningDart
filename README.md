@@ -67,7 +67,7 @@ Un solo proyecto Firebase con datos aislados por prefijo de ambiente:
 - **Storage**: comprobantes y fotos usan `environments/prod/...` o `environments/dev/...` (misma convención que Firestore). Objetos legacy bajo `prod/` o `dev/` en la raíz del bucket no se migran.
 - **Eliminar cuenta**: borra pagos, storage y perfil del ambiente activo; la cuenta Auth se elimina vía Cloud Function (o fallback local en dev).
 
-`APP_ENV` se inyecta automáticamente al compilar:
+`APP_ENV` puede pasarse con `--dart-define-from-file=config/env/{dev|prod}.json`. Si no se pasa (p. ej. Run desde Android Studio), la app infiere el ambiente por package/bundle id (`*.dev` → dev, si no → prod).
 
 | Build | APP_ENV |
 |---|---|
@@ -89,6 +89,8 @@ También puedes ejecutar desde Xcode (scheme `dev` o `prod`) o Android Studio (v
 Android: build variants `dev` / `prod` (`com.devlokos.runningdart.dev` en dev).  
 iOS: schemes `dev` / `prod` con bundle IDs distintos. Banner naranja **DEV** visible solo en desarrollo.
 
+**Firebase Console (Android):** el proyecto `running-dart` debe tener dos apps Android registradas (`com.devlokos.runningdart` y `com.devlokos.runningdart.dev`). Cada flavor usa su propio `google-services.json` en `android/app/src/prod/` y `android/app/src/dev/`. `lib/firebase_options.dart` elige el `appId` según `APP_ENV`.
+
 ## Colecciones Firestore
 
 Todas viven bajo `environments/{prod|dev}/`:
@@ -98,12 +100,21 @@ Todas viven bajo `environments/{prod|dev}/`:
 - **payments**: `userId`, `modality`, `amount`, `paidAt`, `status`, `receiptUrl`, `notes`
 - **visits**: validaciones QR + `validationResult`, `memberModality`, `memberStatus`, `benefitUsed`, `expiresAt`
 - **news**: eventos y comunicados del club
+- **posts**: publicaciones de la comunidad + `isHidden` y el detalle de moderación (`hiddenReason`, `hiddenNote`, `hiddenAt`, `hiddenBy`)
 
 Reglas: [`firestore.rules`](firestore.rules) · Storage: [`storage.rules`](storage.rules)
 
-Publicar reglas:
+Publicar reglas e índices:
 ```bash
-firebase deploy --only firestore:rules,storage
+firebase deploy --only firestore:rules,firestore:indexes,storage
+```
+
+Las reglas de `posts` exigen `isHidden` para poder filtrar las ocultas en el
+servidor. Antes de publicarlas por primera vez hay que rellenar el campo en las
+publicaciones anteriores, o desaparecen del feed:
+```bash
+node scripts/backfill-post-is-hidden.js --env prod          # dry-run
+node scripts/backfill-post-is-hidden.js --env prod --apply
 ```
 
 ## Tests
@@ -111,8 +122,11 @@ firebase deploy --only firestore:rules,storage
 ```bash
 flutter test
 flutter test --dart-define=APP_ENV=dev test/app_environment_dev_test.dart
-node tests/firestore.rules.test.js
+npm run test:rules
 ```
+
+`test:rules` levanta el emulador de Firestore en un puerto propio, así que no
+choca con uno que ya tengas corriendo.
 
 ## Instalación
 

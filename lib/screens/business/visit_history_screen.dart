@@ -10,6 +10,7 @@ import '../../theme/app_typography.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 
 class VisitHistoryScreen extends StatefulWidget {
   const VisitHistoryScreen({super.key});
@@ -85,7 +86,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
       );
     }
 
-    return RefreshIndicator(
+    return HapticRefreshIndicator(
       color: AppConstants.primaryColor,
       onRefresh: () async => _refreshVisits(),
       child: ListView.builder(

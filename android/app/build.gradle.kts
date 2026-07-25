@@ -1,5 +1,3 @@
-import java.util.Base64
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -7,6 +5,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
+
+// pubspec.yaml is the single source of truth for the app version ("1.0.0+100"),
+// so Gradle-only builds and Android Studio show the same values as `flutter build`.
+val pubspecVersion = file("../../pubspec.yaml").readLines()
+    .first { it.startsWith("version:") }
+    .substringAfter("version:")
+    .trim()
+val appVersionName = pubspecVersion.substringBefore("+")
+val appVersionCode = pubspecVersion.substringAfter("+").toInt()
 
 android {
     namespace = "com.devlokos.runningdart"
@@ -30,8 +37,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     flavorDimensions += "environment"
@@ -63,25 +70,4 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-}
-
-val appEnvDartDefine: (String) -> String = { value ->
-    Base64.getEncoder().encodeToString("APP_ENV=$value".toByteArray())
-}
-
-afterEvaluate {
-    tasks.withType<com.flutter.gradle.tasks.FlutterTask>().configureEach {
-        val envValue = when (flavor) {
-            "dev" -> "dev"
-            else -> "prod"
-        }
-        val appEnvDefine = appEnvDartDefine(envValue)
-        val existing = dartDefines
-            ?.split(",")
-            ?.filter { it.isNotBlank() }
-            ?: emptyList()
-        if (!existing.contains(appEnvDefine)) {
-            dartDefines = (existing + appEnvDefine).joinToString(",")
-        }
-    }
 }

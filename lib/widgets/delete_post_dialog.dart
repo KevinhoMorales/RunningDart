@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
+import '../utils/app_haptics.dart';
 import 'haptic_controls.dart';
 
 /// Confirmación única para borrar una publicación, compartida por el feed, la
@@ -23,6 +24,7 @@ Future<bool> confirmDeletePost(BuildContext context) async {
         ),
         HapticFilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
+          feedback: AppHaptics.confirm,
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFDC2626),
           ),
