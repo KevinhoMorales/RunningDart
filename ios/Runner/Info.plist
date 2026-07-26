@@ -53,6 +53,8 @@
 	<string>SAINTS usa Face ID para confirmar eliminaciones sensibles en el panel de administración.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SAINTS usa tu ubicación para marcar marcas aliadas en el mapa.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SAINTS usa tu ubicación para marcar marcas aliadas en el mapa.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>waze</string>
@@ -62,5 +64,7 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

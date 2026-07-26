@@ -562,9 +562,11 @@ class _MembershipInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final statusLabel = MembershipHelpers.membershipStatusLabel(
+    final statusLabel = MembershipHelpers.credentialStatusLabel(
       status: user.membershipStatus,
+      modality: user.membershipModality,
       isExpired: user.isMembershipExpired,
+      hasCredential: user.hasMembershipPrivileges,
     );
 
     return Container(

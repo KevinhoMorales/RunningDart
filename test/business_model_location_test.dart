@@ -48,6 +48,8 @@ void main() {
         'latitude': -0.18,
         'longitude': -78.46,
         'allianceStatus': 'active',
+        // Va explícito para que al editar una marca se pueda borrar la fecha.
+        'validUntil': null,
       });
     });
 

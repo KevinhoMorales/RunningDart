@@ -15,11 +15,13 @@ enum PaymentStatus {
         PaymentStatus.rejected => 'Rechazado',
       };
 
+  /// Ante un valor desconocido se asume `pending`: mostrar un pago dudoso como
+  /// cobrado es peor que pedir que un admin lo revise.
   static PaymentStatus fromFirestore(String? value) {
     return switch (value) {
-      'pending' => PaymentStatus.pending,
+      'approved' => PaymentStatus.approved,
       'rejected' => PaymentStatus.rejected,
-      _ => PaymentStatus.approved,
+      _ => PaymentStatus.pending,
     };
   }
 }

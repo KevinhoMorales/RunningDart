@@ -33,6 +33,39 @@ class MembershipHelpers {
     return status.displayName;
   }
 
+  /// Estado tal como se muestra junto a la credencial. Comunidad no incluye
+  /// credencial, y ver "Activo" sin QR debajo se lee como un fallo de la app.
+  static String credentialStatusLabel({
+    required MembershipStatus status,
+    required MembershipModality modality,
+    required bool isExpired,
+    required bool hasCredential,
+  }) {
+    if (!hasCredential && !modality.requiresPayment) {
+      return 'Sin credencial';
+    }
+    return membershipStatusLabel(status: status, isExpired: isExpired);
+  }
+
+  /// Explicación de por qué no hay QR, en el orden en que le importa al socio.
+  static String credentialLockedMessage({
+    required MembershipModality modality,
+    required bool isPending,
+    required bool isExpired,
+  }) {
+    if (isPending) {
+      return 'Tu credencial estará disponible cuando SAINTS apruebe tu membresía.';
+    }
+    if (!modality.requiresPayment) {
+      return 'La modalidad Comunidad no incluye credencial digital. '
+          'Pásate a Miembro Oficial o Pro Team para obtener la tuya.';
+    }
+    if (isExpired) {
+      return 'Renueva tu membresía para volver a usar tu credencial digital.';
+    }
+    return 'Activa tu membresía para ver tu credencial digital.';
+  }
+
   static bool isValidNationalIdLast4(String value) {
     return RegExp(r'^\d{4}$').hasMatch(value.trim());
   }

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/admin_business_provider.dart';
 import 'providers/admin_news_provider.dart';
 import 'providers/admin_provider.dart';
+import 'providers/admin_reports_provider.dart';
 import 'providers/app_update_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/business_provider.dart';
@@ -39,6 +40,7 @@ import 'screens/profile/profile_screen.dart';
 import 'screens/onboarding/notifications_onboarding_screen.dart';
 import 'screens/settings/contact_screen.dart';
 import 'screens/settings/delete_account_screen.dart';
+import 'screens/social/blocked_users_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/social/follow_list_screen.dart';
 import 'screens/social/user_profile_screen.dart';
@@ -160,6 +162,7 @@ class _RunningDartAppState extends State<RunningDartApp> {
         final isProtectedRoute = location == '/home' ||
             location == '/settings' ||
             location == '/settings/contact' ||
+            location == '/settings/blocked' ||
             location == '/settings/delete-account' ||
             location == '/profile' ||
             location == '/profile/edit' ||
@@ -272,6 +275,10 @@ class _RunningDartAppState extends State<RunningDartApp> {
         GoRoute(
           path: '/settings/contact',
           builder: (context, state) => const ContactScreen(),
+        ),
+        GoRoute(
+          path: '/settings/blocked',
+          builder: (context, state) => const BlockedUsersScreen(),
         ),
         GoRoute(
           path: '/settings/delete-account',
@@ -404,6 +411,9 @@ class _RunningDartAppState extends State<RunningDartApp> {
         ),
         ChangeNotifierProvider(
           create: (_) => SocialProvider(_socialService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AdminReportsProvider(_socialService, _postService),
         ),
         ChangeNotifierProvider.value(value: _adminProvider),
         ChangeNotifierProvider.value(value: _adminBusinessProvider),

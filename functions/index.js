@@ -17,8 +17,11 @@ const { deletePostLikes, syncPostLikeSummary } = require("./post_likes");
 
 initializeApp();
 
-const TOPIC_NEW_BUSINESSES = "saints_new_businesses";
-const TOPIC_NEW_EVENTS = "saints_new_events";
+// El topic lleva sufijo de ambiente para que una marca o noticia de prueba en
+// dev no dispare un push a todos los usuarios de producción.
+const topicNewBusinesses = (environment) =>
+  `saints_new_businesses_${environment}`;
+const topicNewEvents = (environment) => `saints_new_events_${environment}`;
 const VALID_ENVIRONMENTS = new Set(["dev", "prod"]);
 
 async function sendTopicNotification({ topic, title, body, type, id }) {
@@ -65,7 +68,7 @@ exports.onBusinessCreated = onDocumentCreated(
     const name = typeof data.name === "string" ? data.name.trim() : "";
 
     await sendTopicNotification({
-      topic: TOPIC_NEW_BUSINESSES,
+      topic: topicNewBusinesses(environment),
       title: "Nueva marca aliada",
       body: name || "Hay una nueva marca aliada en SAINTS",
       type: "business",
@@ -91,7 +94,7 @@ exports.onNewsCreated = onDocumentCreated(
     const title = typeof data.title === "string" ? data.title.trim() : "";
 
     await sendTopicNotification({
-      topic: TOPIC_NEW_EVENTS,
+      topic: topicNewEvents(environment),
       title: "Nuevo evento",
       body: title || "Hay un nuevo evento en SAINTS",
       type: "news",
@@ -123,7 +126,7 @@ exports.onNewsPublished = onDocumentUpdated(
     const title = typeof after.title === "string" ? after.title.trim() : "";
 
     await sendTopicNotification({
-      topic: TOPIC_NEW_EVENTS,
+      topic: topicNewEvents(environment),
       title: "Nuevo evento",
       body: title || "Hay un nuevo evento en SAINTS",
       type: "news",

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../config/app_environment.dart';
+
 class AppConstants {
   static const String appName = 'SAINTS';
   static const String appTagline =
@@ -10,11 +12,10 @@ class AppConstants {
   static const String membershipTermsLabel =
       'Acepto los términos y condiciones de SAINTS Wellness Club';
 
-  /// Placeholder URLs — reemplazar cuando estén publicadas.
   static const String termsOfServiceUrl =
-      'https://saints-wellness.club/terminos-y-condiciones';
+      'https://kevinhomorales.notion.site/T-rminos-y-Condiciones-3a9a9ccd42b9809aa0e8cfce72ae420f';
   static const String privacyPolicyUrl =
-      'https://saints-wellness.club/politica-de-privacidad';
+      'https://kevinhomorales.notion.site/Pol-ticas-de-privacidad-3a9a9ccd42b980abbd24da0710aeb9cf';
 
   static const String officialMembershipPriceLabel = r'$5 lanzamiento 2026';
 
@@ -38,8 +39,25 @@ class AppConstants {
   static const String notificationChannelDescription =
       'Nuevas marcas aliadas y eventos de la comunidad';
 
-  static const String fcmTopicNewBusinesses = 'saints_new_businesses';
-  static const String fcmTopicNewEvents = 'saints_new_events';
+  /// Los topics llevan sufijo de ambiente para que crear una marca de prueba en
+  /// dev no dispare un push a todos los usuarios de producción.
+  static String fcmTopicNewBusinesses(AppEnvironment environment) =>
+      '${_legacyFcmTopicNewBusinesses}_${environment.name}';
+
+  static String fcmTopicNewEvents(AppEnvironment environment) =>
+      '${_legacyFcmTopicNewEvents}_${environment.name}';
+
+  static const String _legacyFcmTopicNewBusinesses = 'saints_new_businesses';
+  static const String _legacyFcmTopicNewEvents = 'saints_new_events';
+
+  /// Topics sin sufijo usados antes de separar los ambientes. Se conservan solo
+  /// para desuscribir a los dispositivos que ya venían suscritos a ellos.
+  static const List<String> legacyFcmTopics = [
+    _legacyFcmTopicNewBusinesses,
+    _legacyFcmTopicNewEvents,
+  ];
+
+  static const String legacyFcmTopicsClearedKey = 'legacy_fcm_topics_cleared';
 
   static const String pushNotificationsEnabledKey =
       'push_notifications_enabled';

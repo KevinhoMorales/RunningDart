@@ -112,7 +112,12 @@ class _UserSearchTabState extends State<UserSearchTab> {
       );
     }
 
-    if (_results.isEmpty) {
+    // A quien bloqueaste no debería reaparecer en la búsqueda.
+    final visible = _results
+        .where((profile) => !social.isBlocked(profile.id))
+        .toList(growable: false);
+
+    if (visible.isEmpty) {
       return const Center(
         child: EmptyStateCard(
           icon: Icons.search_off_rounded,
@@ -124,9 +129,9 @@ class _UserSearchTabState extends State<UserSearchTab> {
 
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-      itemCount: _results.length,
+      itemCount: visible.length,
       itemBuilder: (context, index) {
-        final profile = _results[index];
+        final profile = visible[index];
         final isSelf = profile.id == currentUserId;
         return FollowUserRow(
           profile: profile,

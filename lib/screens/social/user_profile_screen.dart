@@ -50,6 +50,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   List<PostModel> _posts = const [];
   bool _loadingPosts = true;
   bool _loadingProfile = true;
+  String? _postsError;
   int _followers = 0;
   int _following = 0;
 
@@ -86,11 +87,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         setState(() {
           _posts = posts.where(_canSee).toList(growable: false);
           _loadingPosts = false;
+          _postsError = null;
         });
       },
-      onError: (_) {
+      onError: (error) {
+        debugPrint('No se pudieron cargar las publicaciones del perfil: $error');
         if (mounted) {
-          setState(() => _loadingPosts = false);
+          setState(() {
+            _loadingPosts = false;
+            _postsError = 'No pudimos cargar las publicaciones.';
+          });
         }
       },
     );
@@ -269,6 +275,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  Future<void> _unblockUser() async {
+    try {
+      await context.read<SocialProvider>().unblockUser(widget.userId);
+      if (mounted) {
+        AppSnackBar.show(context, 'Usuario desbloqueado.');
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(context, 'No se pudo desbloquear. Intenta de nuevo.');
+      }
+    }
+  }
+
   /// Borra sin volver a preguntar: la cuadrícula y el visor ya confirmaron.
   Future<void> _deleteConfirmedPost(PostModel post) async {
     try {
@@ -290,6 +309,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final isSelf = authUser?.id == widget.userId;
     final social = context.watch<SocialProvider>();
     final isFollowing = social.isFollowing(widget.userId);
+    final isBlocked = !isSelf && social.isBlocked(widget.userId);
     final showAccount = widget.isAccountView && isSelf && authUser != null;
     // Borrar es solo del autor: el administrador oculta desde el feed.
     final canDelete = isSelf;
@@ -317,19 +337,40 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               onSelected: AppHaptics.wrapValue((value) {
                 if (value == 'block') {
                   _blockUser();
+                } else if (value == 'unblock') {
+                  _unblockUser();
                 }
               }),
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'block',
-                  child: Text('Bloquear usuario'),
-                ),
+                if (isBlocked)
+                  const PopupMenuItem(
+                    value: 'unblock',
+                    child: Text('Desbloquear usuario'),
+                  )
+                else
+                  const PopupMenuItem(
+                    value: 'block',
+                    child: Text('Bloquear usuario'),
+                  ),
               ],
             ),
         ],
       ),
       body: _loadingProfile
           ? const Center(child: CircularProgressIndicator())
+          // Bloquear a alguien tiene que ocultar también su perfil, no solo
+          // filtrarlo del feed.
+          : isBlocked
+          ? Center(
+              child: EmptyStateCard(
+                icon: Icons.block_rounded,
+                message: 'Bloqueaste a $_displayName',
+                subtitle:
+                    'No ves su perfil ni sus publicaciones. Puedes desbloquearlo cuando quieras.',
+                actionLabel: 'Desbloquear',
+                onAction: _unblockUser,
+              ),
+            )
           : HapticRefreshIndicator(
               onRefresh: _loadProfile,
               child: CustomScrollView(
@@ -376,6 +417,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       emptyActionLabel: isSelf ? 'Publicar' : null,
                       onEmptyAction:
                           isSelf ? () => context.push('/post/new') : null,
+                      errorMessage: _postsError,
+                      onRetry: () {
+                        setState(() {
+                          _loadingPosts = true;
+                          _postsError = null;
+                        });
+                        _listenPosts();
+                      },
                     ),
                   const SliverToBoxAdapter(
                     child: SizedBox(height: AppSpacing.xl),

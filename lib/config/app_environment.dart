@@ -21,32 +21,34 @@ enum AppEnvironment {
     };
   }
 
-  /// Resolves [current] from the app package/bundle id when [APP_ENV] was not
-  /// passed at compile time (e.g. Android Studio builds without dart-defines).
+  /// Resolves [current] from the app package/bundle id (`*.dev` → dev).
+  ///
+  /// The bundle id takes priority over the compile-time [APP_ENV] because
+  /// Xcode/Android Studio builds can reuse stale dart-defines left in
+  /// Generated.xcconfig by a previous CLI run with another flavor; the
+  /// installed bundle id is always the source of truth. [APP_ENV] is the
+  /// fallback where PackageInfo is unavailable (web, tests).
   static Future<void> ensureInitialized() async {
     if (_initialized) {
       return;
     }
     _initialized = true;
 
-    if (_compileTimeRaw.isNotEmpty) {
-      _resolved = _fromRaw(_compileTimeRaw);
-      return;
+    if (!kIsWeb) {
+      try {
+        final packageName = (await PackageInfo.fromPlatform()).packageName;
+        _resolved = packageName.endsWith('.dev')
+            ? AppEnvironment.dev
+            : AppEnvironment.prod;
+        return;
+      } catch (_) {
+        // PackageInfo unavailable (e.g. unit tests): fall through.
+      }
     }
 
-    if (kIsWeb) {
-      _resolved = AppEnvironment.prod;
-      return;
-    }
-
-    try {
-      final packageName = (await PackageInfo.fromPlatform()).packageName;
-      _resolved = packageName.endsWith('.dev')
-          ? AppEnvironment.dev
-          : AppEnvironment.prod;
-    } catch (_) {
-      _resolved = AppEnvironment.prod;
-    }
+    _resolved = _compileTimeRaw.isNotEmpty
+        ? _fromRaw(_compileTimeRaw)
+        : AppEnvironment.prod;
   }
 
   static AppEnvironment get current {

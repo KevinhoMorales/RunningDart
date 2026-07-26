@@ -115,7 +115,9 @@ class BusinessModel {
       if (conditions != null && conditions!.isNotEmpty)
         'conditions': conditions,
       'allianceStatus': allianceStatus.firestoreValue,
-      if (validUntil != null) 'validUntil': Timestamp.fromDate(validUntil!),
+      // Explícito y no omitido: al editar, quitar la vigencia tiene que borrar
+      // la fecha anterior en lugar de dejarla intacta.
+      'validUntil': validUntil == null ? null : Timestamp.fromDate(validUntil!),
       if (applicableModalities.isNotEmpty)
         'applicableModalities':
             applicableModalities.map((m) => m.firestoreValue).toList(),

@@ -9,6 +9,7 @@ import '../../providers/social_provider.dart';
 import '../../services/social_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/delete_post_dialog.dart';
@@ -251,6 +252,12 @@ class _FeedScreenState extends State<FeedScreen>
           title: 'Comunidad',
           subtitle: 'Comparte y descubre a la comunidad SAINTS',
         ),
+        if (feed.blockedError != null)
+          _FeedWarningBanner(
+            message:
+                '${feed.blockedError!} Puede que veas publicaciones de personas que bloqueaste.',
+            onRetry: _handleRefresh,
+          ),
         HorizontalChipTabBar(
           labels: const ['Explorar', 'Mi feed', 'Para ti', 'Conoce'],
           icons: const [
@@ -287,6 +294,7 @@ class _FeedScreenState extends State<FeedScreen>
               _MyPostsGridTab(
                 posts: feed.myPosts,
                 isLoading: feed.isLoadingMyPosts,
+                error: feed.myPostsError,
                 onRefresh: _handleRefresh,
                 onDeletePost: _deleteConfirmedPost,
               ),
@@ -315,16 +323,65 @@ class _FeedScreenState extends State<FeedScreen>
   }
 }
 
+class _FeedWarningBanner extends StatelessWidget {
+  const _FeedWarningBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.infoBannerBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.infoBannerBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: palette.accentPrimary,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(message, style: AppTypography.caption(context)),
+          ),
+          HapticTextButton(
+            onPressed: () => onRetry(),
+            child: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MyPostsGridTab extends StatelessWidget {
   const _MyPostsGridTab({
     required this.posts,
     required this.isLoading,
+    required this.error,
     required this.onRefresh,
     required this.onDeletePost,
   });
 
   final List<PostModel> posts;
   final bool isLoading;
+  final String? error;
   final Future<void> Function() onRefresh;
   final Future<void> Function(PostModel post) onDeletePost;
 
@@ -349,6 +406,8 @@ class _MyPostsGridTab extends StatelessWidget {
                 'Comparte tu primera carrera con la comunidad SAINTS.',
             emptyActionLabel: 'Publicar',
             onEmptyAction: () => context.push('/post/new'),
+            errorMessage: error,
+            onRetry: onRefresh,
           ),
           const SliverToBoxAdapter(
             child: SizedBox(height: AppSpacing.xl),

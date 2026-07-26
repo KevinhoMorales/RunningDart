@@ -30,6 +30,8 @@ class NotificationService {
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
 
+  SharedPreferences? _prefs;
+
   void Function(String route)? onNavigate;
 
   bool _initialized = false;
@@ -57,6 +59,7 @@ class NotificationService {
       return;
     }
 
+    _prefs = prefs;
     _pushEnabled =
         prefs.getBool(AppConstants.pushNotificationsEnabledKey) ?? false;
 
@@ -147,8 +150,10 @@ class NotificationService {
 
     if (shouldSubscribe) {
       if (!_isSubscribed) {
-        await _messaging.subscribeToTopic(AppConstants.fcmTopicNewBusinesses);
-        await _messaging.subscribeToTopic(AppConstants.fcmTopicNewEvents);
+        await _unsubscribeLegacyTopics();
+        for (final topic in _currentTopics) {
+          await _messaging.subscribeToTopic(topic);
+        }
         _isSubscribed = true;
       }
       return;
@@ -158,9 +163,40 @@ class NotificationService {
   }
 
   Future<void> unsubscribeAll() async {
-    await _messaging.unsubscribeFromTopic(AppConstants.fcmTopicNewBusinesses);
-    await _messaging.unsubscribeFromTopic(AppConstants.fcmTopicNewEvents);
+    for (final topic in _currentTopics) {
+      await _messaging.unsubscribeFromTopic(topic);
+    }
+    await _unsubscribeLegacyTopics();
     _isSubscribed = false;
+  }
+
+  List<String> get _currentTopics {
+    final environment = AppEnvironment.current;
+    return [
+      AppConstants.fcmTopicNewBusinesses(environment),
+      AppConstants.fcmTopicNewEvents(environment),
+    ];
+  }
+
+  /// Un dispositivo que ya tenía la app instalada sigue suscrito al topic sin
+  /// sufijo de ambiente, así que hay que sacarlo o recibiría avisos de dev.
+  /// Basta una vez por instalación: los topics nuevos nunca vuelven a los viejos.
+  Future<void> _unsubscribeLegacyTopics() async {
+    final prefs = _prefs;
+    if (prefs?.getBool(AppConstants.legacyFcmTopicsClearedKey) ?? false) {
+      return;
+    }
+
+    for (final topic in AppConstants.legacyFcmTopics) {
+      try {
+        await _messaging.unsubscribeFromTopic(topic);
+      } catch (error) {
+        debugPrint('No se pudo desuscribir del topic antiguo $topic: $error');
+        return;
+      }
+    }
+
+    await prefs?.setBool(AppConstants.legacyFcmTopicsClearedKey, true);
   }
 
   void _onLocalNotificationTap(NotificationResponse response) {

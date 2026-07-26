@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/alliance_status.dart';
 import '../../models/business_hours.dart';
 import '../../models/membership_modality.dart';
 import '../../models/business_model.dart';
@@ -70,6 +71,8 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
     ),
   ];
   String? _legacyHours;
+  AllianceStatus _allianceStatus = AllianceStatus.active;
+  DateTime? _validUntil;
   bool _isLoading = false;
   String? _existingImageUrl;
   XFile? _selectedPhoto;
@@ -111,6 +114,8 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
       _conditionsController.text = business.conditions ?? '';
       _existingImageUrl = business.imageUrl;
       _selectedCategory = business.category;
+      _allianceStatus = business.allianceStatus;
+      _validUntil = business.validUntil;
       _benefits
         ..clear()
         ..addAll(business.benefits);
@@ -157,6 +162,20 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
 
   void _removeBenefit(int index) {
     setState(() => _benefits.removeAt(index));
+  }
+
+  Future<void> _pickValidUntil() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _validUntil ?? DateTime(now.year + 1, now.month, now.day),
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 10),
+    );
+
+    if (picked != null && mounted) {
+      setState(() => _validUntil = picked);
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -247,6 +266,8 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
       instagram: _instagramController.text.trim(),
       meniuzMenuUrl: _formatMeniuzMenuUrlForSave(),
       conditions: _conditionsController.text.trim(),
+      allianceStatus: _allianceStatus,
+      validUntil: _validUntil,
       applicableModalities: allModalitiesSelected
           ? const []
           : _selectedModalities.toList(growable: false),
@@ -402,6 +423,70 @@ class _AdminBusinessFormScreenState extends State<AdminBusinessFormScreen> {
                       controller: _conditionsController,
                       labelText: 'Condiciones del beneficio',
                       maxLines: 3,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      'Estado de la alianza',
+                      style: TextStyle(
+                        color: palette.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Una alianza inactiva deja de mostrar el beneficio a los socios.',
+                      style: TextStyle(color: palette.textMuted),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DropdownButtonFormField<AllianceStatus>(
+                      initialValue: _allianceStatus,
+                      decoration: const InputDecoration(
+                        labelText: 'Estado',
+                      ),
+                      items: AllianceStatus.values
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(status.displayName),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: adminBusiness.isSaving
+                          ? null
+                          : AppHaptics.wrapValue((value) {
+                              if (value != null) {
+                                setState(() => _allianceStatus = value);
+                              }
+                            }),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: adminBusiness.isSaving
+                                ? null
+                                : AppHaptics.wrap(_pickValidUntil),
+                            icon: const Icon(Icons.event_rounded),
+                            label: Text(
+                              _validUntil == null
+                                  ? 'Vigencia: sin fecha'
+                                  : 'Vigencia: ${Helpers.formatDate(_validUntil!)}',
+                            ),
+                          ),
+                        ),
+                        if (_validUntil != null) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          OutlinedButton(
+                            onPressed: adminBusiness.isSaving
+                                ? null
+                                : AppHaptics.wrap(
+                                    () => setState(() => _validUntil = null),
+                                  ),
+                            child: const Text('Quitar'),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(

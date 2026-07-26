@@ -21,6 +21,8 @@ class PostGrid extends StatelessWidget {
     this.emptyActionLabel,
     this.onEmptyAction,
     this.onDeletePost,
+    this.errorMessage,
+    this.onRetry,
   });
 
   final List<PostModel> posts;
@@ -30,6 +32,11 @@ class PostGrid extends StatelessWidget {
   final String? emptySubtitle;
   final String? emptyActionLabel;
   final VoidCallback? onEmptyAction;
+
+  /// Cuando la carga falló. Se distingue del estado vacío para no decirle a
+  /// alguien que no ha publicado nada cuando en realidad no pudimos leerlo.
+  final String? errorMessage;
+  final VoidCallback? onRetry;
 
   /// Cuando llega, mantener pulsada una foto ofrece eliminarla. Va nulo en los
   /// perfiles ajenos, donde no hay nada que borrar.
@@ -49,6 +56,18 @@ class PostGrid extends StatelessWidget {
     final withImage = posts
         .where((p) => p.imageUrl != null && p.imageUrl!.isNotEmpty)
         .toList(growable: false);
+
+    if (withImage.isEmpty && errorMessage != null) {
+      return SliverToBoxAdapter(
+        child: EmptyStateCard(
+          icon: Icons.cloud_off_rounded,
+          message: errorMessage!,
+          subtitle: 'Revisa tu conexión e inténtalo de nuevo.',
+          actionLabel: onRetry == null ? null : 'Reintentar',
+          onAction: onRetry,
+        ),
+      );
+    }
 
     if (withImage.isEmpty) {
       return SliverToBoxAdapter(

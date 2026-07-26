@@ -40,10 +40,17 @@ class FeedProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingMyPosts = false;
   String? _error;
+  String? _myPostsError;
+  String? _blockedError;
 
   bool get isLoading => _isLoading;
   bool get isLoadingMyPosts => _isLoadingMyPosts;
   String? get error => _error;
+  String? get myPostsError => _myPostsError;
+
+  /// Si la lista de bloqueos no cargó, el feed no puede filtrarla y quien
+  /// bloqueó a alguien seguiría viendo sus publicaciones sin saber por qué.
+  String? get blockedError => _blockedError;
 
   List<PostModel> get posts => _posts
       .where((post) => !_blockedIds.contains(post.authorId))
@@ -141,13 +148,22 @@ class FeedProvider extends ChangeNotifier {
     _listenMyPosts(userId);
     _listenLikes(userId);
 
+    _listenBlocked(userId);
+  }
+
+  void _listenBlocked(String userId) {
     _blockedSubscription?.cancel();
     _blockedSubscription = _socialService.watchBlockedIds(userId).listen(
       (ids) {
         _blockedIds = ids;
+        _blockedError = null;
         notifyListeners();
       },
-      onError: (_) {},
+      onError: (error) {
+        debugPrint('No se pudo cargar tu lista de bloqueos: $error');
+        _blockedError = 'No pudimos aplicar tus bloqueos.';
+        notifyListeners();
+      },
     );
   }
 
@@ -167,7 +183,8 @@ class FeedProvider extends ChangeNotifier {
         }
         notifyListeners();
       },
-      onError: (_) {
+      onError: (error) {
+        debugPrint('No se pudo cargar el feed: $error');
         _error = 'No se pudo cargar la comunidad.';
         _isLoading = false;
         if (ready != null && !ready.isCompleted) {
@@ -223,11 +240,14 @@ class FeedProvider extends ChangeNotifier {
       (posts) {
         _myPosts = posts;
         _isLoadingMyPosts = false;
+        _myPostsError = null;
         _prunePendingLikes();
         notifyListeners();
       },
-      onError: (_) {
+      onError: (error) {
+        debugPrint('No se pudieron cargar tus publicaciones: $error');
         _isLoadingMyPosts = false;
+        _myPostsError = 'No pudimos cargar tus publicaciones.';
         notifyListeners();
       },
     );
@@ -242,10 +262,12 @@ class FeedProvider extends ChangeNotifier {
 
     _isLoading = _posts.isEmpty;
     _error = null;
+    _myPostsError = null;
     notifyListeners();
 
     _listenMyPosts(userId);
     _listenLikes(userId);
+    _listenBlocked(userId);
     _listenFeed(ready: completer);
 
     return completer.future;

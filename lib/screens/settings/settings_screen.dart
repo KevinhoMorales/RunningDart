@@ -62,6 +62,18 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
+                    'Privacidad',
+                    style: AppTypography.sectionTitle(context),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ProfileActionTile(
+                    icon: Icons.block_rounded,
+                    title: 'Cuentas bloqueadas',
+                    subtitle: 'Revisa y deshaz tus bloqueos',
+                    onTap: () => context.push('/settings/blocked'),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
                     'Legal',
                     style: AppTypography.sectionTitle(context),
                   ),

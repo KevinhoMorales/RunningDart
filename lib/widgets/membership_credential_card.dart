@@ -29,9 +29,11 @@ class MembershipCredentialCard extends StatelessWidget {
     final accent = AppConstants.credentialAccentColor(brightness);
     final statusLabel = isAdminCredential
         ? 'Activo'
-        : MembershipHelpers.membershipStatusLabel(
+        : MembershipHelpers.credentialStatusLabel(
             status: user.membershipStatus,
+            modality: user.membershipModality,
             isExpired: user.isMembershipExpired,
+            hasCredential: canShowQr,
           );
     final vigenciaLabel = user.expiresAt != null
         ? Helpers.formatDate(user.expiresAt!)
@@ -187,15 +189,19 @@ class MembershipCredentialCard extends StatelessWidget {
                         Icon(
                           user.isMembershipPending
                               ? Icons.hourglass_top_rounded
-                              : Icons.lock_rounded,
+                              : user.membershipModality.requiresPayment
+                                  ? Icons.lock_rounded
+                                  : Icons.info_outline_rounded,
                           color: Colors.white.withValues(alpha: 0.88),
                           size: 32,
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          user.isMembershipPending
-                              ? 'Tu credencial estará disponible cuando SAINTS apruebe tu membresía.'
-                              : 'Activa tu membresía para ver tu credencial digital.',
+                          MembershipHelpers.credentialLockedMessage(
+                            modality: user.membershipModality,
+                            isPending: user.isMembershipPending,
+                            isExpired: user.isMembershipExpired,
+                          ),
                           textAlign: TextAlign.center,
                           style: AppTypography.caption(
                             context,

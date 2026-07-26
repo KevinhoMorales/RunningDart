@@ -151,9 +151,12 @@ class _ContextBanner extends StatelessWidget {
     }
 
     if (!auth.canUseMembershipFeatures) {
-      return const MembershipUpsellCard(
-        message:
-            'Activa tu membresía SAINTS para acceder a beneficios con marcas aliadas y tu credencial digital.',
+      // Quien ya pagó una vez no necesita que le digan que "active": lo suyo
+      // venció y el paso siguiente es renovar.
+      return MembershipUpsellCard(
+        message: auth.user?.isMembershipExpired == true
+            ? 'Renueva tu membresía SAINTS para volver a usar tus beneficios con marcas aliadas y tu credencial digital.'
+            : 'Activa tu membresía SAINTS para acceder a beneficios con marcas aliadas y tu credencial digital.',
       );
     }
 

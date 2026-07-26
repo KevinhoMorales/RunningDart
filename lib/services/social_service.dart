@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../config/firebase_paths.dart';
+import '../models/post_report_model.dart';
 import '../models/public_profile.dart';
 import '../models/user_model.dart';
 import '../utils/user_messages.dart';
@@ -263,7 +264,40 @@ class SocialService {
         'postId': postId,
         'reportedByUserId': reportedByUserId,
         if (reason != null && reason.isNotEmpty) 'reason': reason,
+        'status': PostReportStatus.pending.firestoreValue,
         'createdAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw SocialServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  /// Cola de moderación, de la más reciente a la más antigua. El filtro por
+  /// estado se hace en memoria: así basta el índice de un solo campo y los
+  /// reportes viejos, que no traen `status`, siguen apareciendo.
+  Stream<List<PostReportModel>> watchReports({int limit = 200}) {
+    return _reports
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(PostReportModel.fromFirestore)
+              .where((report) => report.postId.isNotEmpty)
+              .toList(growable: false),
+        );
+  }
+
+  Future<void> setReportStatus({
+    required String reportId,
+    required PostReportStatus status,
+    required String reviewedByUserId,
+  }) async {
+    try {
+      await _reports.doc(reportId).update({
+        'status': status.firestoreValue,
+        'reviewedAt': FieldValue.serverTimestamp(),
+        'reviewedBy': reviewedByUserId,
       });
     } on FirebaseException catch (e) {
       throw SocialServiceException(UserMessages.firestore(e));

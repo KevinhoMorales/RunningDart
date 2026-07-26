@@ -104,6 +104,19 @@ async function runTests() {
       role: 'member',
       businessId: 'biz-001',
     });
+    await seedUser('member-expired', {
+      role: 'member',
+      expiresAt: new Date(2020, 0, 1),
+    });
+    await seedUser('member-pending', {
+      role: 'member',
+      membershipStatus: 'pending',
+    });
+    await seedUser('member-disabled', {
+      role: 'member',
+      isActive: false,
+    });
+    await seedUser('user-nonmember', { role: 'user' });
 
     await assertSucceeds(
       envCollection(authedDb('user-new'), 'users').doc('user-new').get(),
@@ -409,6 +422,44 @@ async function runTests() {
         validationResult: 'approved',
       }),
     );
+
+    // Aprobar exige que el socio pueda recibir beneficios de verdad: si la
+    // comprobación viviera solo en el cliente, bastaría con saltárselo.
+    for (const scannedUserId of [
+      'member-expired',
+      'member-pending',
+      'member-disabled',
+      'user-nonmember',
+    ]) {
+      await assertFails(
+        envCollection(authedDb('operator-1'), 'visits')
+          .doc(`visit-approved-${scannedUserId}`)
+          .set({
+            userId: scannedUserId,
+            businessId: 'biz-001',
+            visitedAt: new Date(),
+            memberDisplayName: 'Scanned Member',
+            memberQrCode: `RD-${scannedUserId}`,
+            scannedByUserId: 'operator-1',
+            validationResult: 'approved',
+          }),
+      );
+
+      // Rechazar sí se puede: el intento fallido queda registrado.
+      await assertSucceeds(
+        envCollection(authedDb('operator-1'), 'visits')
+          .doc(`visit-rejected-${scannedUserId}`)
+          .set({
+            userId: scannedUserId,
+            businessId: 'biz-001',
+            visitedAt: new Date(),
+            memberDisplayName: 'Scanned Member',
+            memberQrCode: `RD-${scannedUserId}`,
+            scannedByUserId: 'operator-1',
+            validationResult: 'rejected',
+          }),
+      );
+    }
 
     await assertSucceeds(
       envCollection(authedDb('operator-1'), 'visits').doc('visit-1').get(),
@@ -726,7 +777,7 @@ async function runTests() {
     await assertSucceeds(
       envCollection(authedDb('member-1'), 'follows').doc('member-1_user-plain').set({
         followerId: 'member-1',
-        followingId: 'user-plain',
+        followedId: 'user-plain',
         createdAt: new Date(),
       }),
     );
@@ -734,9 +785,22 @@ async function runTests() {
     await assertFails(
       envCollection(authedDb('member-1'), 'follows').doc('user-plain_member-1').set({
         followerId: 'user-plain',
-        followingId: 'member-1',
+        followedId: 'member-1',
         createdAt: new Date(),
       }),
+    );
+
+    // Solo el dueño del seguimiento puede deshacerlo.
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'follows')
+        .doc('member-1_user-plain')
+        .delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'follows')
+        .doc('member-1_user-plain')
+        .delete(),
     );
 
     await assertSucceeds(
@@ -745,6 +809,7 @@ async function runTests() {
         .set({
           postId: 'post-visible',
           userId: 'member-1',
+          postAuthorId: 'member-1',
           createdAt: new Date(),
         }),
     );
@@ -756,12 +821,37 @@ async function runTests() {
         .set({
           postId: 'post-visible',
           userId: 'member-1',
+          postAuthorId: 'member-1',
           createdAt: new Date(),
         }),
     );
 
     await assertFails(
       envCollection(authedDb('member-1'), 'post_likes')
+        .doc('post-visible_user-plain')
+        .set({
+          postId: 'post-visible',
+          userId: 'user-plain',
+          postAuthorId: 'member-1',
+          createdAt: new Date(),
+        }),
+    );
+
+    // `postAuthorId` va desnormalizado y el borrado de cuenta se fía de él, así
+    // que no puede apuntar a alguien que no escribió la publicación.
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'post_likes')
+        .doc('post-visible_user-plain')
+        .set({
+          postId: 'post-visible',
+          userId: 'user-plain',
+          postAuthorId: 'user-plain',
+          createdAt: new Date(),
+        }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'post_likes')
         .doc('post-visible_user-plain')
         .set({
           postId: 'post-visible',
@@ -797,6 +887,79 @@ async function runTests() {
         reportedByUserId: 'user-plain',
         createdAt: new Date(),
       }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'public_profiles').doc('member-1').set({
+        username: 'member1',
+        displayName: 'Member One',
+        updatedAt: new Date(),
+      }),
+    );
+
+    // El perfil público es de su dueño: nadie más lo edita salvo un admin.
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'public_profiles').doc('member-1').set({
+        username: 'secuestrado',
+        displayName: 'Member One',
+        updatedAt: new Date(),
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'public_profiles').doc('member-1').update({
+        displayName: 'Member One (moderado)',
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'public_profiles').doc('member-1').get(),
+    );
+
+    await assertFails(
+      envCollection(testEnv.unauthenticatedContext().firestore(), 'public_profiles')
+        .doc('member-1')
+        .get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'public_profiles').doc('member-1').delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'usernames').doc('member1').set({
+        userId: 'member-1',
+        createdAt: new Date(),
+      }),
+    );
+
+    // La reserva es lo que garantiza que un usuario sea único, así que no se
+    // puede apuntar a otra cuenta ni reasignar la que ya está tomada.
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'usernames').doc('plain1').set({
+        userId: 'member-1',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'usernames').doc('member1').update({
+        userId: 'user-plain',
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'usernames').doc('member1').update({
+        userId: 'member-1',
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'usernames').doc('member1').delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'usernames').doc('member1').delete(),
     );
 
     console.log('All Firestore rules tests passed.');

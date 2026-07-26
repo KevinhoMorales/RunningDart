@@ -51,6 +51,22 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/environments/$(environment)/users/$(userId)).data;
     }
 
+    // Espejo de UserModel.hasMembershipPrivileges: al administrador no le caduca
+    // la membresía; al resto sí. Sin esto la vigencia se comprobaría solo en el
+    // cliente y un operador podría registrar visitas aprobadas a mano.
+    function hasMembershipPrivileges(userData) {
+      return userData.isActive == true
+        && (userData.role == 'admin'
+          || (userData.role == 'member'
+            && userData.get('membershipStatus', 'active') == 'active'
+            && (userData.get('expiresAt', null) == null
+              || request.time < userData.expiresAt)));
+    }
+
+    function postAuthorId(environment, postId) {
+      return get(/databases/$(database)/documents/environments/$(environment)/posts/$(postId)).data.authorId;
+    }
+
     function ownerProtectedFieldsUnchanged() {
       return request.resource.data.role == resource.data.role
         && request.resource.data.isActive == resource.data.isActive
@@ -167,6 +183,11 @@ service cloud.firestore {
         && request.resource.data.userId != request.auth.uid
         && scannedUserDoc(environment, request.resource.data.userId).get('businessId', '')
             != userDoc(environment).businessId
+        // Rechazar se puede siempre (queda como auditoría del intento), pero
+        // aprobar exige que el socio escaneado pueda recibir beneficios de verdad.
+        && (request.resource.data.validationResult != 'approved'
+          || hasMembershipPrivileges(
+            scannedUserDoc(environment, request.resource.data.userId)))
         && request.resource.data.keys().hasAll([
           'userId',
           'businessId',
@@ -260,10 +281,14 @@ service cloud.firestore {
 
     match /environments/{environment}/post_likes/{likeId} {
       allow read: if isValidEnvironment(environment) && isSignedIn();
+      // `postAuthorId` va desnormalizado y la Cloud Function de borrado de
+      // cuenta se fía de él, así que tiene que coincidir con el autor real.
       allow create: if isValidEnvironment(environment)
         && isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && likeId == request.resource.data.postId + '_' + request.auth.uid;
+        && likeId == request.resource.data.postId + '_' + request.auth.uid
+        && request.resource.data.postAuthorId
+            == postAuthorId(environment, request.resource.data.postId);
       allow update: if false;
       allow delete: if isValidEnvironment(environment)
         && isSignedIn()

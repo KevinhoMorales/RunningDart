@@ -7,6 +7,7 @@ import '../../theme/app_typography.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
 import 'admin_businesses_tab.dart';
 import 'admin_news_management_tab.dart';
+import 'admin_reports_tab.dart';
 import 'admin_stats_tab.dart';
 import 'admin_training_schedule_tab.dart';
 import 'admin_users_tab.dart';
@@ -16,7 +17,8 @@ const adminPanelUsersTabIndex = 0;
 const adminPanelEventsTabIndex = 1;
 const adminPanelBusinessesTabIndex = 2;
 const adminPanelSchedulesTabIndex = 3;
-const adminPanelStatsTabIndex = 4;
+const adminPanelReportsTabIndex = 4;
+const adminPanelStatsTabIndex = 5;
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -32,6 +34,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     'Eventos',
     'Marcas',
     'Horarios',
+    'Reportes',
     'Estadísticas',
   ];
 
@@ -40,6 +43,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     Icons.event_outlined,
     Icons.storefront_outlined,
     Icons.schedule_outlined,
+    Icons.flag_outlined,
     Icons.insights_outlined,
   ];
 
@@ -88,6 +92,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               const AdminNewsManagementTab(),
               const AdminBusinessesTab(),
               const AdminTrainingScheduleTab(),
+              const AdminReportsTab(),
               AdminStatsTab(
                 onNavigateToUsers: (filter) {
                   context.read<AdminProvider>().setUserFilter(filter);

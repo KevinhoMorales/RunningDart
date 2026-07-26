@@ -107,7 +107,15 @@ class UserService implements UserServiceBase {
     DateTime? birthDate,
     String? internalNotes,
   }) async {
+    // Sin esto, "Guardar membresía" con estado Activo dejaba al socio en rol
+    // `user` y con el QR bloqueado, aunque la ficha dijera que estaba activo.
+    // Solo se promueve desde `user`: coach y admin conservan su rol.
+    final user = await getUserById(id);
+    final shouldPromote =
+        status == MembershipStatus.active && user?.role == UserRole.user;
+
     await _users.doc(id).update({
+      if (shouldPromote) 'role': UserRole.member.firestoreValue,
       'membershipModality': modality.firestoreValue,
       'membershipStatus': status.firestoreValue,
       if (expiresAt != null) 'expiresAt': Timestamp.fromDate(expiresAt),

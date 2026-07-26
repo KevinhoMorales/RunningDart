@@ -27,7 +27,8 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 
 ### Credencial digital
 - Tarjeta tipo wallet en perfil: nombre, modalidad, estado, vigencia, QR
-- QR oculto si membresía pendiente, inactiva o vencida
+- QR oculto si la membresía está pendiente, inactiva o vencida
+- Comunidad no tiene credencial: la tarjeta lo dice así en lugar de mostrarse como un estado incompleto
 
 ### Marcas aliadas y beneficios
 - Catálogo con condiciones, WhatsApp, Instagram, vigencia de alianza
@@ -42,8 +43,9 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 
 ### Admin
 - Aprobar/rechazar membresías, editar modalidad, vigencia, observaciones internas
-- Registrar pagos manuales e historial por usuario
+- Registrar pagos manuales, aprobar o rechazar comprobantes e historial por usuario
 - CRUD marcas aliadas, eventos/noticias, usuarios
+- Cola de reportes de publicaciones: ocultar el post, resolver o descartar la denuncia
 
 ### Horarios de entrenamiento
 - Pantalla estática Comunidad / Oficial / Pro Team en Jelen Tenka (`/training-schedule`)
@@ -67,12 +69,14 @@ Un solo proyecto Firebase con datos aislados por prefijo de ambiente:
 - **Storage**: comprobantes y fotos usan `environments/prod/...` o `environments/dev/...` (misma convención que Firestore). Objetos legacy bajo `prod/` o `dev/` en la raíz del bucket no se migran.
 - **Eliminar cuenta**: borra pagos, storage y perfil del ambiente activo; la cuenta Auth se elimina vía Cloud Function (o fallback local en dev).
 
-`APP_ENV` puede pasarse con `--dart-define-from-file=config/env/{dev|prod}.json`. Si no se pasa (p. ej. Run desde Android Studio), la app infiere el ambiente por package/bundle id (`*.dev` → dev, si no → prod).
+El ambiente lo manda el package/bundle id del build instalado (`*.dev` → dev, cualquier otro → prod). `APP_ENV`, que se pasa con `--dart-define-from-file=config/env/{dev|prod}.json`, es solo el respaldo para donde no hay package id (web y tests).
 
-| Build | APP_ENV |
-|---|---|
-| Android flavor `dev` / iOS scheme `dev` | `dev` |
-| Android flavor `prod` / iOS scheme `prod` | `prod` |
+El orden es ese y no al revés porque `ios/Flutter/Generated.xcconfig` conserva los `DART_DEFINES` del último `flutter build` por CLI: si se compiló una vez con `--flavor dev`, un Run posterior del scheme `prod` desde Xcode arrastraba `APP_ENV=dev` y abría producción contra datos de desarrollo.
+
+| Build | Bundle / package id | Ambiente |
+|---|---|---|
+| Android flavor `dev` / iOS scheme `dev` | `com.devlokos.runningdart.dev` | `dev` |
+| Android flavor `prod` / iOS scheme `prod` | `com.devlokos.runningdart` | `prod` |
 
 ### Ejecutar
 
@@ -89,7 +93,7 @@ También puedes ejecutar desde Xcode (scheme `dev` o `prod`) o Android Studio (v
 Android: build variants `dev` / `prod` (`com.devlokos.runningdart.dev` en dev).  
 iOS: schemes `dev` / `prod` con bundle IDs distintos. Banner naranja **DEV** visible solo en desarrollo.
 
-**Firebase Console (Android):** el proyecto `running-dart` debe tener dos apps Android registradas (`com.devlokos.runningdart` y `com.devlokos.runningdart.dev`). Cada flavor usa su propio `google-services.json` en `android/app/src/prod/` y `android/app/src/dev/`. `lib/firebase_options.dart` elige el `appId` según `APP_ENV`.
+**Firebase Console:** el proyecto `running-dart` tiene cuatro apps registradas, dev y prod para cada plataforma. En Android cada flavor toma su `google-services.json` de `android/app/src/{dev,prod}/`. En iOS los dos `GoogleService-Info.plist` viven en `ios/config/{dev,prod}/` y una build phase del target Runner copia el que toca según el bundle id. `lib/firebase_options.dart` elige la configuración según el ambiente resuelto.
 
 ## Colecciones Firestore
 
@@ -101,6 +105,9 @@ Todas viven bajo `environments/{prod|dev}/`:
 - **visits**: validaciones QR + `validationResult`, `memberModality`, `memberStatus`, `benefitUsed`, `expiresAt`
 - **news**: eventos y comunicados del club
 - **posts**: publicaciones de la comunidad + `isHidden` y el detalle de moderación (`hiddenReason`, `hiddenNote`, `hiddenAt`, `hiddenBy`)
+- **public_profiles** / **usernames**: perfil visible entre socios y reserva del usuario, uno por cuenta
+- **follows**, **post_likes**, **blocks**: grafo social; `blocks` solo lo lee quien bloqueó
+- **post_reports**: denuncias de publicaciones + `status`, que resuelve el admin desde la pestaña Reportes
 
 Reglas: [`firestore.rules`](firestore.rules) · Storage: [`storage.rules`](storage.rules)
 

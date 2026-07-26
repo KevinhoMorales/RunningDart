@@ -61,6 +61,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final _socialService = SocialService();
   String? _initialWhatsapp;
   bool _isChangingUsername = false;
+  final _updatingPaymentIds = <String>{};
 
   static const _noBusinessValue = '__none__';
 
@@ -268,6 +269,62 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
         return;
       }
       AppSnackBar.show(context, 'No se pudo registrar el pago.');
+    }
+  }
+
+  Future<void> _approvePayment(PaymentModel payment) async {
+    await _updatePaymentStatus(
+      payment,
+      PaymentStatus.approved,
+      successMessage: 'Comprobante aprobado.',
+    );
+  }
+
+  Future<void> _rejectPayment(PaymentModel payment) async {
+    final reason = await _askRejectionReason(context);
+    if (reason == null || !mounted) {
+      return;
+    }
+
+    await _updatePaymentStatus(
+      payment,
+      PaymentStatus.rejected,
+      // El socio lee las notas de su propio pago, así que el motivo le llega.
+      notes: reason.isEmpty ? null : reason,
+      successMessage: 'Comprobante rechazado.',
+    );
+  }
+
+  Future<void> _updatePaymentStatus(
+    PaymentModel payment,
+    PaymentStatus status, {
+    required String successMessage,
+    String? notes,
+  }) async {
+    if (_updatingPaymentIds.contains(payment.id)) {
+      return;
+    }
+
+    setState(() => _updatingPaymentIds.add(payment.id));
+    try {
+      await _paymentService.updatePaymentStatus(
+        paymentId: payment.id,
+        status: status,
+        notes: notes,
+      );
+      if (!mounted) {
+        return;
+      }
+      AppSnackBar.show(context, successMessage);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      AppSnackBar.showError(context, 'No se pudo actualizar el comprobante.');
+    } finally {
+      if (mounted) {
+        setState(() => _updatingPaymentIds.remove(payment.id));
+      }
     }
   }
 
@@ -640,6 +697,11 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                                 ...payments.map(
                                   (payment) => _PaymentListItem(
                                     payment: payment,
+                                    isUpdating: _updatingPaymentIds.contains(
+                                      payment.id,
+                                    ),
+                                    onApprove: () => _approvePayment(payment),
+                                    onReject: () => _rejectPayment(payment),
                                   ),
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
@@ -789,6 +851,40 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     return businessId;
   }
+}
+
+/// Devuelve el motivo escrito (puede ir vacío) o `null` si se canceló.
+Future<String?> _askRejectionReason(BuildContext context) {
+  final controller = TextEditingController();
+
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('Rechazar comprobante'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Motivo (opcional)',
+            hintText: 'Ej. el monto no coincide con el depósito',
+          ),
+        ),
+        actions: [
+          HapticTextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          HapticFilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Rechazar'),
+          ),
+        ],
+      );
+    },
+  ).whenComplete(controller.dispose);
 }
 
 class _UserIdentityHeader extends StatelessWidget {
@@ -953,9 +1049,17 @@ class _PendingMembershipBanner extends StatelessWidget {
 }
 
 class _PaymentListItem extends StatelessWidget {
-  const _PaymentListItem({required this.payment});
+  const _PaymentListItem({
+    required this.payment,
+    required this.isUpdating,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   final PaymentModel payment;
+  final bool isUpdating;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -969,51 +1073,81 @@ class _PaymentListItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         border: Border.all(color: palette.cardBorder),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: palette.accentPrimary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            child: Icon(
-              Icons.payments_outlined,
-              size: 18,
-              color: palette.accentPrimary,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${payment.modality.displayName} · \$${payment.amount.toStringAsFixed(0)}',
-                  style: AppTypography.title(context),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: palette.accentPrimary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                Text(
-                  '${payment.status.displayName} · ${Helpers.formatDate(payment.paidAt)}',
-                  style: AppTypography.caption(context),
+                child: Icon(
+                  Icons.payments_outlined,
+                  size: 18,
+                  color: palette.accentPrimary,
                 ),
-                if (payment.receiptUrl != null &&
-                    payment.receiptUrl!.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  HapticTextButtonIcon(
-                    onPressed: () =>
-                        ReceiptViewer.show(context, payment.receiptUrl!),
-                    icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                    label: const Text('Ver comprobante'),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${payment.modality.displayName} · \$${payment.amount.toStringAsFixed(0)}',
+                      style: AppTypography.title(context),
                     ),
+                    Text(
+                      '${payment.status.displayName} · ${Helpers.formatDate(payment.paidAt)}',
+                      style: AppTypography.caption(context),
+                    ),
+                    if (payment.notes != null && payment.notes!.isNotEmpty)
+                      Text(
+                        payment.notes!,
+                        style: AppTypography.caption(context),
+                      ),
+                    if (payment.receiptUrl != null &&
+                        payment.receiptUrl!.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      HapticTextButtonIcon(
+                        onPressed: () =>
+                            ReceiptViewer.show(context, payment.receiptUrl!),
+                        icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                        label: const Text('Ver comprobante'),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (payment.status == PaymentStatus.pending) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: HapticFilledButton(
+                    onPressed: isUpdating ? null : onApprove,
+                    child: const Text('Aprobar'),
                   ),
-                ],
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: isUpdating ? null : AppHaptics.wrap(onReject),
+                    child: const Text('Rechazar'),
+                  ),
+                ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );

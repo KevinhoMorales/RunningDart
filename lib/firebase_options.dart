@@ -15,8 +15,8 @@ class DefaultFirebaseOptions {
     return switch (defaultTargetPlatform) {
       TargetPlatform.android =>
         AppEnvironment.isDev ? androidDev : androidProd,
-      TargetPlatform.iOS => ios,
-      TargetPlatform.macOS => ios,
+      TargetPlatform.iOS => AppEnvironment.isDev ? iosDev : iosProd,
+      TargetPlatform.macOS => AppEnvironment.isDev ? iosDev : iosProd,
       _ => throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
         ),
@@ -39,12 +39,21 @@ class DefaultFirebaseOptions {
     storageBucket: 'running-dart.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
+  static const FirebaseOptions iosProd = FirebaseOptions(
     apiKey: 'AIzaSyAfW-h9iYCal0P6I0RqF-mXyR7HtUTJqpU',
     appId: '1:665721194102:ios:e09b1adcbc015eaf0ac157',
     messagingSenderId: '665721194102',
     projectId: 'running-dart',
     storageBucket: 'running-dart.firebasestorage.app',
     iosBundleId: 'com.devlokos.runningdart',
+  );
+
+  static const FirebaseOptions iosDev = FirebaseOptions(
+    apiKey: 'AIzaSyDWb-7QLaXmwpA5l-40d1g295xeqLNjSW4',
+    appId: '1:665721194102:ios:53a8850f7e6604590ac157',
+    messagingSenderId: '665721194102',
+    projectId: 'running-dart',
+    storageBucket: 'running-dart.firebasestorage.app',
+    iosBundleId: 'com.devlokos.runningdart.dev',
   );
 }
