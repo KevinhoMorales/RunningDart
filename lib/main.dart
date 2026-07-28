@@ -7,9 +7,11 @@ import 'config/app_environment.dart';
 import 'firebase_options.dart';
 import 'providers/app_update_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/subscription_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/firebase_auth_service.dart';
 import 'services/notification_service.dart';
+import 'services/revenue_cat_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,10 +32,13 @@ Future<void> main() async {
   }
 
   final themeProvider = ThemeProvider(prefs);
+  final revenueCatService = RevenueCatService();
+  final subscriptionProvider = SubscriptionProvider(revenueCatService);
   final authService = FirebaseAuthService();
   final authProvider = AuthProvider(
     authService,
     notificationService: notificationService,
+    subscriptionProvider: subscriptionProvider,
   );
 
   try {
@@ -41,6 +46,12 @@ Future<void> main() async {
     await notificationService.syncForUser(authProvider.user);
   } catch (error, stackTrace) {
     debugPrint('Startup initialization failed: $error\n$stackTrace');
+  }
+
+  try {
+    await subscriptionProvider.initialize(appUserId: authProvider.user?.id);
+  } catch (error, stackTrace) {
+    debugPrint('RevenueCat initialization failed: $error\n$stackTrace');
   }
 
   final appUpdateProvider = AppUpdateProvider();
@@ -53,6 +64,7 @@ Future<void> main() async {
       notificationService: notificationService,
       sharedPreferences: prefs,
       appUpdateProvider: appUpdateProvider,
+      subscriptionProvider: subscriptionProvider,
     ),
   );
 }

@@ -8,6 +8,7 @@
     <!-- Declarada aquí y no solo por el merge de mobile_scanner: el escaneo de
          credenciales es una función propia y debe verse en el manifiesto. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="com.android.vending.BILLING" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="@string/app_name"

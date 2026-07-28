@@ -132,7 +132,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_selectedModality.requiresPayment && _receiptFile == null) {
+    // Pro Team se puede pagar con In-App Purchase tras el registro; Oficial
+    // sigue requiriendo comprobante de transferencia.
+    final needsReceipt =
+        _selectedModality.requiresPayment &&
+        _selectedModality != MembershipModality.proTeam;
+    if (needsReceipt && _receiptFile == null) {
       AppSnackBar.show(context, 'Adjunta el comprobante de pago.');
       return;
     }
@@ -401,17 +406,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             MembershipModality.official =>
                                               '${AppConstants.officialMembershipPriceLabel} · vigencia 31-dic-2026',
                                             MembershipModality.proTeam =>
-                                              'Incluye beneficios de miembro oficial + entrenamiento guiado',
+                                              'Suscripción mensual in-app · beneficios oficiales + entrenamiento guiado',
                                           },
                                         ),
                                       ),
                                   ],
                                 ),
                               ),
-                              if (_selectedModality.requiresPayment) ...[
+                              if (_selectedModality ==
+                                  MembershipModality.proTeam) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'Después de crear tu cuenta podrás activar '
+                                  'Pro Team con App Store / Google Play, o '
+                                  'adjuntar un comprobante de transferencia.',
+                                  style: AppTypography.caption(context)
+                                      .copyWith(height: 1.4),
+                                ),
                                 const SizedBox(height: AppSpacing.sm),
                                 OutlinedButton.icon(
-                                  onPressed: isBusy ? null : AppHaptics.wrap(_pickReceipt),
+                                  onPressed: isBusy
+                                      ? null
+                                      : AppHaptics.wrap(_pickReceipt),
+                                  icon: const Icon(Icons.receipt_long_rounded),
+                                  label: Text(
+                                    _receiptFile == null
+                                        ? 'Adjuntar comprobante (opcional)'
+                                        : 'Comprobante seleccionado',
+                                  ),
+                                ),
+                              ] else if (_selectedModality.requiresPayment) ...[
+                                const SizedBox(height: AppSpacing.sm),
+                                OutlinedButton.icon(
+                                  onPressed: isBusy
+                                      ? null
+                                      : AppHaptics.wrap(_pickReceipt),
                                   icon: const Icon(Icons.receipt_long_rounded),
                                   label: Text(
                                     _receiptFile == null
@@ -489,9 +518,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: AppSpacing.lg),
                               PrimaryButton(
-                                label: _selectedModality.requiresPayment
-                                    ? 'Enviar solicitud'
-                                    : 'Crear cuenta',
+                                label: _selectedModality ==
+                                        MembershipModality.proTeam
+                                    ? 'Crear cuenta y continuar'
+                                    : _selectedModality.requiresPayment
+                                        ? 'Enviar solicitud'
+                                        : 'Crear cuenta',
                                 isLoading: isBusy,
                                 onPressed: _handleRegister,
                               ),

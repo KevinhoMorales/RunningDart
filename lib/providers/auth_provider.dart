@@ -9,14 +9,17 @@ import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/watch_sync_service.dart';
 import '../utils/user_messages.dart';
+import 'subscription_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider(
     this._authService, {
     NotificationService? notificationService,
     WatchSyncService? watchSyncService,
+    SubscriptionProvider? subscriptionProvider,
   })  : _notificationService = notificationService,
-        _watchSyncService = watchSyncService ?? WatchSyncService() {
+        _watchSyncService = watchSyncService ?? WatchSyncService(),
+        _subscriptionProvider = subscriptionProvider {
     _watchSyncService.registerRefreshHandler(_syncWatchContext);
     _userSubscription = _authService.userChanges.listen((user) {
       if (user != null) {
@@ -30,6 +33,7 @@ class AuthProvider extends ChangeNotifier {
       }
       unawaited(_syncPushSubscription());
       unawaited(_syncWatchContext());
+      unawaited(_syncRevenueCatIdentity());
       notifyListeners();
     });
   }
@@ -37,6 +41,7 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
   final NotificationService? _notificationService;
   final WatchSyncService _watchSyncService;
+  final SubscriptionProvider? _subscriptionProvider;
   StreamSubscription<UserModel?>? _userSubscription;
 
   UserModel? _user;
@@ -92,11 +97,13 @@ class AuthProvider extends ChangeNotifier {
       _user = await _authService.resolveStartupSession();
       await _syncPushSubscription();
       await _syncWatchContext();
+      await _syncRevenueCatIdentity();
     } catch (error, stackTrace) {
       debugPrint('Auth initialization failed: $error\n$stackTrace');
       _user = null;
       _error = 'No se pudo cargar tu sesión. Inicia sesión de nuevo.';
       await _syncWatchContext();
+      await _syncRevenueCatIdentity();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -135,6 +142,7 @@ class AuthProvider extends ChangeNotifier {
     _user = null;
     _error = null;
     await _syncWatchContext();
+    await _syncRevenueCatIdentity();
     notifyListeners();
   }
 
@@ -232,6 +240,18 @@ class AuthProvider extends ChangeNotifier {
       await _watchSyncService.syncUser(_user);
     } catch (error, stackTrace) {
       debugPrint('Watch context sync failed: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> _syncRevenueCatIdentity() async {
+    final subscriptions = _subscriptionProvider;
+    if (subscriptions == null) {
+      return;
+    }
+    try {
+      await subscriptions.linkUser(_user?.id);
+    } catch (error, stackTrace) {
+      debugPrint('RevenueCat identity sync failed: $error\n$stackTrace');
     }
   }
 

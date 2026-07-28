@@ -3,14 +3,17 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/membership_modality.dart';
 import '../../models/payment_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../services/payment_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/receipt_upload_helper.dart';
+import '../../utils/subscription_flow.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/modern_text_field.dart';
@@ -29,8 +32,28 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
   bool _isUploading = false;
 
   Future<void> _handleRefresh() async {
+    final subscriptions = context.read<SubscriptionProvider>();
+    if (subscriptions.isConfigured && subscriptions.hasProEntitlement) {
+      await subscriptions.syncMembership();
+    }
+    if (!mounted) {
+      return;
+    }
+
     await context.read<AuthProvider>().refreshAccountStatus();
     if (!mounted) {
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    if (!auth.isMembershipPending && auth.canAccessApp) {
+      context.go('/home');
+    }
+  }
+
+  Future<void> _subscribeWithStore() async {
+    final unlocked = await SubscriptionFlow.presentProPaywall(context);
+    if (!mounted || !unlocked) {
       return;
     }
 
@@ -103,9 +126,13 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final auth = context.watch<AuthProvider>();
+    final subscriptions = context.watch<SubscriptionProvider>();
     final user = auth.user;
     final showReceiptUpload =
         user != null && user.membershipModality.requiresPayment;
+    final showInAppPurchase = user?.membershipModality ==
+            MembershipModality.proTeam &&
+        subscriptions.isConfigured;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -131,7 +158,9 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'Estamos esperando tu verificación',
+                    showInAppPurchase
+                        ? 'Activa tu Pro Team'
+                        : 'Estamos esperando tu verificación',
                     textAlign: TextAlign.center,
                     style: AppTypography.sectionTitle(context),
                   ),
@@ -143,14 +172,47 @@ class _MembershipPendingScreenState extends State<MembershipPendingScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'SAINTS revisará tu solicitud y comprobante de pago. '
-                    'Te avisaremos cuando activemos tu credencial digital con QR.',
+                    showInAppPurchase
+                        ? 'Suscríbete con App Store o Google Play para activar '
+                            'tu credencial digital de inmediato. También puedes '
+                            'enviar un comprobante si pagaste por transferencia.'
+                        : 'SAINTS revisará tu solicitud y comprobante de pago. '
+                            'Te avisaremos cuando activemos tu credencial digital con QR.',
                     textAlign: TextAlign.center,
                     style: AppTypography.muted(context).copyWith(height: 1.45),
                   ),
                 ],
               ),
             ),
+            if (showInAppPurchase) ...[
+              const SizedBox(height: AppSpacing.md),
+              FilledButton.icon(
+                onPressed: (auth.isLoading || subscriptions.isBusy)
+                    ? null
+                    : AppHaptics.wrap(_subscribeWithStore),
+                icon: subscriptions.isBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.workspace_premium_rounded),
+                label: Text(
+                  subscriptions.isBusy
+                      ? 'Procesando...'
+                      : 'Suscribirme con la tienda',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextButton(
+                onPressed: (auth.isLoading || subscriptions.isBusy)
+                    ? null
+                    : AppHaptics.wrap(
+                        () => SubscriptionFlow.restorePurchases(context),
+                      ),
+                child: const Text('Restaurar compras'),
+              ),
+            ],
             if (showReceiptUpload) ...[
               const SizedBox(height: AppSpacing.md),
               StreamBuilder<List<PaymentModel>>(

@@ -5,10 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:running_dart/providers/auth_provider.dart';
 import 'package:running_dart/providers/notification_preferences_provider.dart';
+import 'package:running_dart/providers/subscription_provider.dart';
 import 'package:running_dart/providers/theme_provider.dart';
 import 'package:running_dart/screens/settings/settings_screen.dart';
 import 'package:running_dart/services/local_storage_service.dart';
 import 'package:running_dart/services/mock_auth_service.dart';
+import 'package:running_dart/services/revenue_cat_service.dart';
 import 'package:running_dart/utils/constants.dart';
 
 void main() {
@@ -20,6 +22,7 @@ void main() {
     final storage = LocalStorageService(prefs);
     final themeProvider = ThemeProvider(prefs);
     final authProvider = AuthProvider(MockAuthService(storage));
+    final subscriptionProvider = SubscriptionProvider(RevenueCatService());
     final notificationPreferencesProvider =
         NotificationPreferencesProvider.test(prefs);
 
@@ -28,6 +31,7 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: themeProvider),
           ChangeNotifierProvider.value(value: authProvider),
+          ChangeNotifierProvider.value(value: subscriptionProvider),
           ChangeNotifierProvider.value(
             value: notificationPreferencesProvider,
           ),
