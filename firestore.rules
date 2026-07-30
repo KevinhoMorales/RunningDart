@@ -217,7 +217,10 @@ service cloud.firestore {
     }
 
     match /environments/{environment}/usernames/{username} {
-      allow read: if isValidEnvironment(environment) && isSignedIn();
+      // `get` abierto: el registro consulta disponibilidad antes de crear Auth.
+      // Sin list, no se puede enumerar toda la colección de un golpe.
+      allow get: if isValidEnvironment(environment);
+      allow list: if isValidEnvironment(environment) && isSignedIn();
       allow create: if isValidEnvironment(environment)
         && isSignedIn()
         && (request.resource.data.userId == request.auth.uid

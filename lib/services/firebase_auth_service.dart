@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../config/app_environment.dart';
 import '../config/firebase_paths.dart';
+import '../models/membership_modality.dart';
 import '../models/membership_status.dart';
 import '../models/public_profile.dart';
 import '../models/user_model.dart';
@@ -149,7 +150,7 @@ class FirebaseAuthService implements AuthService {
       }
 
       final now = DateTime.now();
-      final requiresApproval = profile.modality.requiresPayment;
+      // Todo registro entra como usuario base. Rol/modalidad los cambia un admin.
       final user = UserModel(
         id: firebaseUser.uid,
         email: email.trim().toLowerCase(),
@@ -165,10 +166,8 @@ class FirebaseAuthService implements AuthService {
         whatsapp: profile.whatsapp.trim(),
         nationalIdLast4: profile.nationalIdLast4.trim(),
         birthDate: profile.birthDate,
-        membershipModality: profile.modality,
-        membershipStatus: requiresApproval
-            ? MembershipStatus.pending
-            : MembershipStatus.active,
+        membershipModality: MembershipModality.community,
+        membershipStatus: MembershipStatus.active,
         acceptedTermsAt: profile.acceptedTerms ? now : null,
       );
 

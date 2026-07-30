@@ -6,7 +6,7 @@
     "node": "20"
   },
   "scripts": {
-    "lint": "node --check index.js && node --check account_deletion.js && node --check firestore_helpers.js && node --check post_likes.js && node --check revenue_cat_membership.js",
+    "lint": "node --check index.js && node --check account_deletion.js && node --check firestore_helpers.js && node --check post_likes.js",
     "test": "node --test --test-concurrency=1 test/"
   },
   "dependencies": {

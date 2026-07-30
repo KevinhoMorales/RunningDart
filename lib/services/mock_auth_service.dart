@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:uuid/uuid.dart';
 
+import '../models/membership_modality.dart';
 import '../models/membership_status.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
@@ -60,10 +61,8 @@ class MockAuthService implements AuthService {
       whatsapp: profile.whatsapp,
       nationalIdLast4: profile.nationalIdLast4,
       birthDate: profile.birthDate,
-      membershipModality: profile.modality,
-      membershipStatus: profile.modality.requiresPayment
-          ? MembershipStatus.pending
-          : MembershipStatus.active,
+      membershipModality: MembershipModality.community,
+      membershipStatus: MembershipStatus.active,
       acceptedTermsAt: profile.acceptedTerms ? DateTime.now() : null,
     );
 

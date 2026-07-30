@@ -933,6 +933,16 @@ async function runTests() {
       }),
     );
 
+    // Disponibilidad en registro: hace falta get sin sesión (no list).
+    await assertSucceeds(
+      envCollection(testEnv.unauthenticatedContext().firestore(), 'usernames')
+        .doc('member1')
+        .get(),
+    );
+    await assertFails(
+      envCollection(testEnv.unauthenticatedContext().firestore(), 'usernames').get(),
+    );
+
     // La reserva es lo que garantiza que un usuario sea único, así que no se
     // puede apuntar a otra cuenta ni reasignar la que ya está tomada.
     await assertFails(

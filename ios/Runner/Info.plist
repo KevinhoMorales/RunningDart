@@ -46,9 +46,9 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>SAINTS necesita acceder a tu galería para tu foto de perfil y comprobantes de pago.</string>
+	<string>SAINTS necesita acceder a tu galería para tu foto de perfil y fotos de la comunidad.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>SAINTS usa la cámara para escanear códigos QR y fotografiar comprobantes de pago.</string>
+	<string>SAINTS usa la cámara para escanear códigos QR.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>SAINTS usa Face ID para confirmar eliminaciones sensibles en el panel de administración.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

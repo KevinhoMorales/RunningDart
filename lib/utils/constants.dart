@@ -17,7 +17,6 @@ class AppConstants {
   static const String privacyPolicyUrl =
       'https://kevinhomorales.notion.site/Pol-ticas-de-privacidad-3a9a9ccd42b980abbd24da0710aeb9cf';
 
-  static const String officialMembershipPriceLabel = r'$5 lanzamiento 2026';
 
   static const String supportWhatsApp = '+593984126959';
   static const String supportWhatsAppDisplay = '+593 98 412 6959';

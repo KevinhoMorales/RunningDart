@@ -4,15 +4,15 @@ Aplicación móvil en Flutter para **SAINTS Wellness Club** (Santo Domingo de lo
 
 ## Descripción
 
-SAINTS Wellness Club conecta a la comunidad runner con el club y sus aliados comerciales. Los miembros registran su modalidad (Comunidad, Miembro Oficial 2026 o Pro Team), reciben una credencial digital con QR y acceden a beneficios filtrados por modalidad. Las marcas aliadas validan membresías escaneando el QR; los administradores aprueban solicitudes, registran pagos y gestionan el catálogo.
+SAINTS Wellness Club conecta a la comunidad runner con el club y sus aliados comerciales. Los miembros registran su modalidad (Comunidad, Miembro Oficial 2026 o Pro Team), reciben una credencial digital con QR y acceden a beneficios filtrados por modalidad. Las marcas aliadas validan membresías escaneando el QR; los administradores aprueban solicitudes, activan/desactivan roles y gestionan el catálogo.
 
 ## Modalidades y estados
 
-| Modalidad | Rol app | Pago MVP | Entrenamientos |
+| Modalidad | Rol app | Acceso | Entrenamientos |
 |---|---|---|---|
-| Comunidad SAINTS | `user` | Gratis | Mar/Jue 7 p.m. Jelen Tenka |
-| Miembro Oficial 2026 | `member` | USD 5 (comprobante manual) | Comunidad + beneficios |
-| SAINTS Pro Team | `member` | USD 5 (comprobante manual) | L/M/V 7 p.m. + gym/fondos |
+| Comunidad SAINTS | `user` | Activo al registrarse | Mar/Jue 7 p.m. Jelen Tenka |
+| Miembro Oficial 2026 | `member` | Pendiente hasta activación admin | Comunidad + beneficios |
+| SAINTS Pro Team | `member` | Pendiente hasta activación admin | L/M/V 7 p.m. + gym/fondos |
 
 Estados de membresía: **Pendiente** (espera aprobación admin) → **Activo** → **Inactivo** / **Vencido** (`expiresAt`, default 31-dic-2026 para Oficial).
 
@@ -21,9 +21,9 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 ## Características principales
 
 ### Registro y membresía
-- Formulario enriquecido: WhatsApp, últimos 4 dígitos de cédula, fecha de nacimiento, modalidad, T&C
-- Upload de comprobante (Oficial / Pro Team) → Storage `environments/{env}/payments/{uid}/...`
-- Estado **Pendiente** hasta aprobación admin; pantalla "Solicitud en revisión"
+- Formulario enriquecido: WhatsApp, últimos 4 dígitos de cédula, fecha de nacimiento, T&C
+- Todo registro crea un usuario base (`role: user`, modalidad Comunidad, activo)
+- Un admin cambia después el rol/modalidad (Oficial, Pro Team, member, etc.) desde el panel
 
 ### Credencial digital
 - Tarjeta tipo wallet en perfil: nombre, modalidad, estado, vigencia, QR
@@ -43,7 +43,7 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 
 ### Admin
 - Aprobar/rechazar membresías, editar modalidad, vigencia, observaciones internas
-- Registrar pagos manuales, aprobar o rechazar comprobantes e historial por usuario
+- Activar/desactivar cuenta y cambiar rol (`user` / `member` / …)
 - CRUD marcas aliadas, eventos/noticias, usuarios
 - Cola de reportes de publicaciones: ocultar el post, resolver o descartar la denuncia
 
@@ -66,8 +66,8 @@ Un solo proyecto Firebase con datos aislados por prefijo de ambiente:
 - **Auto-login al reabrir la app** (dev y prod): si Firebase Auth restaura sesión **y** existe el documento `environments/{env}/users/{uid}`, entra directo; si el perfil fue eliminado, hace sign-out y muestra login.
 - **Login manual** (otro dispositivo): siempre correo + contraseña; valida que exista perfil en el ambiente activo. Si Auth es válido pero no hay perfil en ese ambiente, cierra sesión y muestra mensaje para registrarse.
 - **Registro con correo ya usado en Auth**: si el correo existe en Auth pero no hay perfil en este ambiente, crea solo el documento Firestore (no duplica en el otro ambiente).
-- **Storage**: comprobantes y fotos usan `environments/prod/...` o `environments/dev/...` (misma convención que Firestore). Objetos legacy bajo `prod/` o `dev/` en la raíz del bucket no se migran.
-- **Eliminar cuenta**: borra pagos, storage y perfil del ambiente activo; la cuenta Auth se elimina vía Cloud Function (o fallback local en dev).
+- **Storage**: fotos de perfil/posts usan `environments/prod/...` o `environments/dev/...` (misma convención que Firestore). Objetos legacy bajo `prod/` o `dev/` en la raíz del bucket no se migran.
+- **Eliminar cuenta**: borra storage y perfil del ambiente activo (y datos legacy de `payments` si existen); la cuenta Auth se elimina vía Cloud Function (o fallback local en dev).
 
 El ambiente lo manda el package/bundle id del build instalado (`*.dev` → dev, cualquier otro → prod). `APP_ENV`, que se pasa con `--dart-define-from-file=config/env/{dev|prod}.json`, es solo el respaldo para donde no hay package id (web y tests).
 
@@ -88,10 +88,20 @@ flutter run --flavor prod --dart-define-from-file=config/env/prod.json
 flutter run --flavor dev --dart-define-from-file=config/env/dev.json
 ```
 
-También puedes ejecutar desde Xcode (scheme `dev` o `prod`) o Android Studio (variant `dev` / `prod`); el ambiente Firestore queda alineado con el flavor/scheme.
+| IDE | Cómo elegir ambiente |
+|---|---|
+| **Cursor / VS Code** | Run and Debug → `SAINTS Dev` o `SAINTS Prod` ([`.vscode/launch.json`](.vscode/launch.json)) |
+| **Xcode** | Scheme `dev` o `prod` (solo existen esos dos; no uses un scheme genérico) |
+| **Android Studio** | Build Variants → `devDebug` / `prodDebug` (o `*Release` / `*Profile`) |
 
-Android: build variants `dev` / `prod` (`com.devlokos.runningdart.dev` en dev).  
-iOS: schemes `dev` / `prod` con bundle IDs distintos. Banner naranja **DEV** visible solo en desarrollo.
+El ambiente Firestore queda alineado con el flavor/scheme vía package/bundle id.
+
+| Variante | Package / bundle | Ambiente |
+|---|---|---|
+| Android `devDebug` / iOS scheme `dev` | `com.devlokos.runningdart.dev` | `dev` |
+| Android `prodDebug` / iOS scheme `prod` | `com.devlokos.runningdart` | `prod` |
+
+Banner naranja **DEV** visible solo en desarrollo.
 
 **Firebase Console:** el proyecto `running-dart` tiene cuatro apps registradas, dev y prod para cada plataforma. En Android cada flavor toma su `google-services.json` de `android/app/src/{dev,prod}/`. En iOS los dos `GoogleService-Info.plist` viven en `ios/config/{dev,prod}/` y una build phase del target Runner copia el que toca según el bundle id. `lib/firebase_options.dart` elige la configuración según el ambiente resuelto.
 
@@ -101,7 +111,6 @@ Todas viven bajo `environments/{prod|dev}/`:
 
 - **users**: perfil + `whatsapp`, `nationalIdLast4`, `birthDate`, `membershipModality`, `membershipStatus`, `expiresAt`, `activatedAt`, `internalNotes`, `acceptedTermsAt`, `qrCode`, `role`, `businessId`
 - **businesses**: marcas aliadas + `whatsapp`, `instagram`, `conditions`, `allianceStatus`, `validUntil`, `applicableModalities[]`
-- **payments**: `userId`, `modality`, `amount`, `paidAt`, `status`, `receiptUrl`, `notes`
 - **visits**: validaciones QR + `validationResult`, `memberModality`, `memberStatus`, `benefitUsed`, `expiresAt`
 - **news**: eventos y comunicados del club
 - **posts**: publicaciones de la comunidad + `isHidden` y el detalle de moderación (`hiddenReason`, `hiddenNote`, `hiddenAt`, `hiddenBy`)
@@ -134,6 +143,34 @@ npm run test:rules
 
 `test:rules` levanta el emulador de Firestore en un puerto propio, así que no
 choca con uno que ya tengas corriendo.
+
+## Google Play review (Android prod)
+
+Play revisa el AAB del flavor **prod** (`com.devlokos.runningdart` → `environments/prod/...`). Auth es compartido con dev, pero el perfil Firestore no: una cuenta solo sembrada en `environments/dev/users` falla en el build de Play y deja al reviewer en login.
+
+### Sign-in details (obligatorio)
+
+1. Crear usuario en Firebase Auth (correo + contraseña).
+2. Crear documento en `environments/prod/users/{uid}` con al menos:
+   - `membershipModality: "community"`
+   - `membershipStatus: "active"`
+   - `role: "user"`
+   - `isActive: true`
+   - campos de perfil requeridos (`displayName`, `username`, etc.)
+3. Pegar email/password en Play Console → **App content → App access / Sign-in details**.
+4. Instrucciones para el reviewer: *“Usar Comunidad; no requiere pago. Oficial/Pro Team los activa un administrador.”*
+
+No uses cuentas Oficial/Pro Team pendientes: pasan el login pero quedan en “Solicitud en revisión”.
+
+### Photo / Video policy
+
+La app usa el **Android Photo Picker** (sin `READ_MEDIA_IMAGES` / `READ_EXTERNAL_STORAGE`). Cámara se mantiene para QR. Sube solo AAB **prod** tras cambios de permisos.
+
+### Publicar
+
+```bash
+flutter build appbundle --flavor prod --dart-define-from-file=config/env/prod.json
+```
 
 ## Instalación
 

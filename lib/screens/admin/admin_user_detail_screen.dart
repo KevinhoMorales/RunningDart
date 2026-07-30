@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../models/membership_modality.dart';
 import '../../models/membership_status.dart';
-import '../../models/payment_model.dart';
 import '../../models/business_model.dart';
 import '../../models/user_model.dart';
 import '../../models/user_role.dart';
@@ -16,17 +15,14 @@ import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
-import '../../services/payment_service.dart';
 import '../../services/social_service.dart';
 import '../../services/username_service.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/international_phone_field.dart';
-import '../../widgets/manual_payment_dialog.dart';
 import '../../widgets/modality_chip.dart';
 import '../../widgets/status_badge.dart';
-import '../../widgets/receipt_viewer.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/username_dialog.dart';
 
@@ -56,12 +52,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final _whatsappController = TextEditingController();
   final _nationalIdController = TextEditingController();
   final _internalNotesController = TextEditingController();
-  final _paymentService = PaymentService();
   final _usernameService = UsernameService();
   final _socialService = SocialService();
   String? _initialWhatsapp;
   bool _isChangingUsername = false;
-  final _updatingPaymentIds = <String>{};
 
   static const _noBusinessValue = '__none__';
 
@@ -103,7 +97,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       _selectedMembershipStatus =
           user?.membershipStatus ?? MembershipStatus.active;
       _expiresAt = user?.expiresAt ??
-          (user?.membershipModality.requiresPayment == true
+          (user?.membershipModality.requiresAdminApproval == true
               ? MembershipHelpers.defaultOfficialExpiry()
               : null);
       _selectedBusinessId = user?.businessId;
@@ -235,97 +229,6 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     return _whatsappFieldKey.currentState?.formatForStorage() ??
         MembershipHelpers.formatWhatsappForStorage(local);
-  }
-
-  Future<void> _registerManualPayment() async {
-    final draft = await askManualPayment(
-      context,
-      initialModality: _selectedModality,
-    );
-
-    if (draft == null || !mounted) {
-      return;
-    }
-
-    try {
-      await _paymentService.createPayment(
-        PaymentModel(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          userId: widget.userId,
-          modality: draft.modality,
-          amount: draft.amount,
-          paidAt: DateTime.now(),
-          status: PaymentStatus.approved,
-          notes: draft.notes,
-          createdAt: DateTime.now(),
-        ),
-      );
-      if (!mounted) {
-        return;
-      }
-      AppSnackBar.show(context, 'Pago registrado.');
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      AppSnackBar.show(context, 'No se pudo registrar el pago.');
-    }
-  }
-
-  Future<void> _approvePayment(PaymentModel payment) async {
-    await _updatePaymentStatus(
-      payment,
-      PaymentStatus.approved,
-      successMessage: 'Comprobante aprobado.',
-    );
-  }
-
-  Future<void> _rejectPayment(PaymentModel payment) async {
-    final reason = await _askRejectionReason(context);
-    if (reason == null || !mounted) {
-      return;
-    }
-
-    await _updatePaymentStatus(
-      payment,
-      PaymentStatus.rejected,
-      // El socio lee las notas de su propio pago, así que el motivo le llega.
-      notes: reason.isEmpty ? null : reason,
-      successMessage: 'Comprobante rechazado.',
-    );
-  }
-
-  Future<void> _updatePaymentStatus(
-    PaymentModel payment,
-    PaymentStatus status, {
-    required String successMessage,
-    String? notes,
-  }) async {
-    if (_updatingPaymentIds.contains(payment.id)) {
-      return;
-    }
-
-    setState(() => _updatingPaymentIds.add(payment.id));
-    try {
-      await _paymentService.updatePaymentStatus(
-        paymentId: payment.id,
-        status: status,
-        notes: notes,
-      );
-      if (!mounted) {
-        return;
-      }
-      AppSnackBar.show(context, successMessage);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      AppSnackBar.showError(context, 'No se pudo actualizar el comprobante.');
-    } finally {
-      if (mounted) {
-        setState(() => _updatingPaymentIds.remove(payment.id));
-      }
-    }
   }
 
   Future<void> _pickExpiryDate() async {
@@ -665,64 +568,6 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _AdminSectionCard(
-                        title: 'Pagos registrados',
-                        child: StreamBuilder<List<PaymentModel>>(
-                          stream: _paymentService.watchPaymentsForUser(
-                            widget.userId,
-                          ),
-                          builder: (context, snapshot) {
-                            final payments = snapshot.data ?? [];
-                            if (payments.isEmpty) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Sin pagos registrados.',
-                                    style: AppTypography.muted(context),
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  OutlinedButton.icon(
-                                    onPressed: admin.isUpdating
-                                        ? null
-                                        : AppHaptics.wrap(_registerManualPayment),
-                                    icon: const Icon(Icons.add_rounded),
-                                    label:
-                                        const Text('Registrar pago manual'),
-                                  ),
-                                ],
-                              );
-                            }
-                            return Column(
-                              children: [
-                                ...payments.map(
-                                  (payment) => _PaymentListItem(
-                                    payment: payment,
-                                    isUpdating: _updatingPaymentIds.contains(
-                                      payment.id,
-                                    ),
-                                    onApprove: () => _approvePayment(payment),
-                                    onReject: () => _rejectPayment(payment),
-                                  ),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: OutlinedButton.icon(
-                                    onPressed: admin.isUpdating
-                                        ? null
-                                        : AppHaptics.wrap(_registerManualPayment),
-                                    icon: const Icon(Icons.add_rounded),
-                                    label:
-                                        const Text('Registrar pago manual'),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _AdminSectionCard(
                         title: 'Rol y acceso',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -851,40 +696,6 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     }
     return businessId;
   }
-}
-
-/// Devuelve el motivo escrito (puede ir vacío) o `null` si se canceló.
-Future<String?> _askRejectionReason(BuildContext context) {
-  final controller = TextEditingController();
-
-  return showDialog<String>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Rechazar comprobante'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Motivo (opcional)',
-            hintText: 'Ej. el monto no coincide con el depósito',
-          ),
-        ),
-        actions: [
-          HapticTextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
-          ),
-          HapticFilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: const Text('Rechazar'),
-          ),
-        ],
-      );
-    },
-  ).whenComplete(controller.dispose);
 }
 
 class _UserIdentityHeader extends StatelessWidget {
@@ -1021,7 +832,7 @@ class _PendingMembershipBanner extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Revisa los datos y el comprobante antes de aprobar la membresía.',
+            'Revisa los datos del socio antes de activar la membresía.',
             style: AppTypography.muted(context).copyWith(height: 1.4),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1042,112 +853,6 @@ class _PendingMembershipBanner extends StatelessWidget {
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaymentListItem extends StatelessWidget {
-  const _PaymentListItem({
-    required this.payment,
-    required this.isUpdating,
-    required this.onApprove,
-    required this.onReject,
-  });
-
-  final PaymentModel payment;
-  final bool isUpdating;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: palette.scaffoldBackground,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        border: Border.all(color: palette.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: palette.accentPrimary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Icon(
-                  Icons.payments_outlined,
-                  size: 18,
-                  color: palette.accentPrimary,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${payment.modality.displayName} · \$${payment.amount.toStringAsFixed(0)}',
-                      style: AppTypography.title(context),
-                    ),
-                    Text(
-                      '${payment.status.displayName} · ${Helpers.formatDate(payment.paidAt)}',
-                      style: AppTypography.caption(context),
-                    ),
-                    if (payment.notes != null && payment.notes!.isNotEmpty)
-                      Text(
-                        payment.notes!,
-                        style: AppTypography.caption(context),
-                      ),
-                    if (payment.receiptUrl != null &&
-                        payment.receiptUrl!.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      HapticTextButtonIcon(
-                        onPressed: () =>
-                            ReceiptViewer.show(context, payment.receiptUrl!),
-                        icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                        label: const Text('Ver comprobante'),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (payment.status == PaymentStatus.pending) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: HapticFilledButton(
-                    onPressed: isUpdating ? null : onApprove,
-                    child: const Text('Aprobar'),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: isUpdating ? null : AppHaptics.wrap(onReject),
-                    child: const Text('Rechazar'),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );

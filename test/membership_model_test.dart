@@ -8,9 +8,9 @@ import 'package:running_dart/utils/membership_helpers.dart';
 void main() {
   group('MembershipModality', () {
     test('paid modalities require payment', () {
-      expect(MembershipModality.official.requiresPayment, isTrue);
-      expect(MembershipModality.proTeam.requiresPayment, isTrue);
-      expect(MembershipModality.community.requiresPayment, isFalse);
+      expect(MembershipModality.official.requiresAdminApproval, isTrue);
+      expect(MembershipModality.proTeam.requiresAdminApproval, isTrue);
+      expect(MembershipModality.community.requiresAdminApproval, isFalse);
     });
 
     test('registrable options include community and paid modalities', () {

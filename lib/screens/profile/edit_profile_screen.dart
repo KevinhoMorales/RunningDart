@@ -261,6 +261,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       labelText: 'Nombre de usuario',
                       prefixText: '@',
                       prefixIcon: Icons.alternate_email_rounded,
+                      textCapitalization: TextCapitalization.none,
                       enabled: !_isSaving && _daysUntilUsernameChange == 0,
                       inputFormatters: UsernameHelpers.inputFormatters,
                       validator: UsernameHelpers.validationError,

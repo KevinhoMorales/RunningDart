@@ -4,13 +4,11 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_preferences_provider.dart';
-import '../../providers/subscription_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/constants.dart';
-import '../../utils/subscription_flow.dart';
 import '../../widgets/app_info_footer.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/legal_links.dart';
@@ -24,8 +22,6 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final subscriptions = context.watch<SubscriptionProvider>();
-    final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -52,31 +48,6 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   const _PushNotificationsTile(),
-                  if (subscriptions.isConfigured) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      'Suscripción',
-                      style: AppTypography.sectionTitle(context),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    if (!auth.canUseMembershipFeatures)
-                      ProfileActionTile(
-                        icon: Icons.workspace_premium_rounded,
-                        title: 'SAINTS Pro Team',
-                        subtitle: 'Suscríbete con App Store o Google Play',
-                        onTap: () => SubscriptionFlow.presentProPaywall(context),
-                      ),
-                    if (!auth.canUseMembershipFeatures)
-                      const SizedBox(height: AppSpacing.sm),
-                    ProfileActionTile(
-                      icon: Icons.manage_accounts_outlined,
-                      title: 'Administrar suscripción',
-                      subtitle: subscriptions.hasProEntitlement
-                          ? 'Cancela, restaura o pide ayuda con tu plan'
-                          : 'Restaura compras o gestiona tu plan',
-                      onTap: () => SubscriptionFlow.openCustomerCenter(context),
-                    ),
-                  ],
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'Contacto',

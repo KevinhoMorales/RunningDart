@@ -1,13 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/membership_modality.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_preferences_provider.dart';
 import '../../services/auth_service.dart';
-import '../../services/payment_service.dart';
 import '../../services/username_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
@@ -16,7 +15,6 @@ import '../../utils/app_haptics.dart';
 import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../utils/membership_helpers.dart';
-import '../../utils/receipt_upload_helper.dart';
 import '../../utils/username_helpers.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/glass_card.dart';
@@ -26,6 +24,14 @@ import '../../widgets/legal_links.dart';
 import '../../widgets/international_phone_field.dart';
 import '../../widgets/modern_text_field.dart';
 
+enum _UsernameAvailability {
+  idle,
+  checking,
+  available,
+  taken,
+  invalid,
+}
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -34,6 +40,10 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  static const _usernameCheckDelay = Duration(milliseconds: 400);
+  static const _takenColor = Color(0xFFDC2626);
+  static const _invalidColor = Color(0xFFD97706);
+
   final _formKey = GlobalKey<FormState>();
   final _whatsappFieldKey = GlobalKey<InternationalPhoneFieldState>();
   final _nameController = TextEditingController();
@@ -43,22 +53,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nationalIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _paymentService = PaymentService();
   final _usernameService = UsernameService();
-  final _picker = ImagePicker();
 
-  MembershipModality _selectedModality = MembershipModality.official;
   DateTime? _birthDate;
   bool _acceptedTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
-  XFile? _receiptFile;
-  bool _isUploadingReceipt = false;
   bool _isCheckingUsername = false;
   bool _usernameTouched = false;
+  _UsernameAvailability _usernameAvailability = _UsernameAvailability.idle;
+  Timer? _usernameCheckTimer;
+  int _usernameCheckGeneration = 0;
 
   @override
   void dispose() {
+    _usernameCheckTimer?.cancel();
     _nameController.dispose();
     _usernameController.dispose();
     _whatsappController.dispose();
@@ -83,12 +92,84 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (suggestion != _usernameController.text) {
       _usernameController.text = suggestion;
     }
+    _scheduleUsernameAvailabilityCheck(suggestion);
   }
 
-  void _markUsernameTouched(String _) {
+  void _onUsernameChanged(String value) {
     if (!_usernameTouched) {
       setState(() => _usernameTouched = true);
     }
+    _scheduleUsernameAvailabilityCheck(value);
+  }
+
+  void _scheduleUsernameAvailabilityCheck(String value) {
+    _usernameCheckTimer?.cancel();
+    final normalized = UsernameHelpers.normalize(value);
+    if (normalized.isEmpty) {
+      setState(() => _usernameAvailability = _UsernameAvailability.idle);
+      return;
+    }
+    if (!UsernameHelpers.isValid(normalized)) {
+      setState(() => _usernameAvailability = _UsernameAvailability.invalid);
+      return;
+    }
+
+    setState(() => _usernameAvailability = _UsernameAvailability.checking);
+    final generation = ++_usernameCheckGeneration;
+    _usernameCheckTimer = Timer(_usernameCheckDelay, () {
+      unawaited(_checkUsernameAvailability(normalized, generation));
+    });
+  }
+
+  Future<void> _checkUsernameAvailability(
+    String username,
+    int generation,
+  ) async {
+    try {
+      final available = await _usernameService.isAvailable(username);
+      if (!mounted || generation != _usernameCheckGeneration) {
+        return;
+      }
+      if (UsernameHelpers.normalize(_usernameController.text) != username) {
+        return;
+      }
+      setState(() {
+        _usernameAvailability = available
+            ? _UsernameAvailability.available
+            : _UsernameAvailability.taken;
+      });
+    } on UsernameException {
+      if (!mounted || generation != _usernameCheckGeneration) {
+        return;
+      }
+      setState(() => _usernameAvailability = _UsernameAvailability.idle);
+    }
+  }
+
+  Widget? _usernameStatusIcon(AppPalette palette) {
+    return switch (_usernameAvailability) {
+      _UsernameAvailability.idle => null,
+      _UsernameAvailability.checking => const Padding(
+          padding: EdgeInsets.all(12),
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      _UsernameAvailability.available => Icon(
+          Icons.check_circle_rounded,
+          color: palette.accentPrimary,
+        ),
+      _UsernameAvailability.taken => const Icon(
+          Icons.cancel_rounded,
+          color: _takenColor,
+        ),
+      _UsernameAvailability.invalid => const Icon(
+          Icons.cancel_rounded,
+          color: _invalidColor,
+        ),
+    };
   }
 
   Future<void> _pickBirthDate() async {
@@ -104,12 +185,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _pickReceipt() async {
-    final file = await ReceiptUploadHelper.pickReceipt(context, _picker);
-    if (file != null && mounted) {
-      setState(() => _receiptFile = file);
-    }
-  }
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) {
@@ -132,13 +207,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Pro Team se puede pagar con In-App Purchase tras el registro; Oficial
-    // sigue requiriendo comprobante de transferencia.
-    final needsReceipt =
-        _selectedModality.requiresPayment &&
-        _selectedModality != MembershipModality.proTeam;
-    if (needsReceipt && _receiptFile == null) {
-      AppSnackBar.show(context, 'Adjunta el comprobante de pago.');
+    if (_usernameAvailability == _UsernameAvailability.taken) {
+      AppSnackBar.showError(
+        context,
+        'Ese nombre de usuario ya está tomado.',
+      );
+      return;
+    }
+
+    if (_usernameAvailability == _UsernameAvailability.checking) {
+      AppSnackBar.show(
+        context,
+        'Espera un momento mientras verificamos el nombre de usuario.',
+      );
       return;
     }
 
@@ -151,7 +232,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           if (!mounted) {
             return;
           }
-          setState(() => _isCheckingUsername = false);
+          setState(() {
+            _isCheckingUsername = false;
+            _usernameAvailability = _UsernameAvailability.taken;
+          });
           AppSnackBar.showError(
             context,
             'Ese nombre de usuario ya está tomado.',
@@ -161,6 +245,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Lo propuso la app, así que se corre al siguiente libre en silencio.
         username = await _usernameService.suggestAvailableFromEmail(email);
         _usernameController.text = username;
+        if (mounted) {
+          setState(
+            () => _usernameAvailability = _UsernameAvailability.available,
+          );
+        }
+      } else if (mounted) {
+        setState(
+          () => _usernameAvailability = _UsernameAvailability.available,
+        );
       }
     } on UsernameException catch (e) {
       if (!mounted) {
@@ -183,7 +276,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       whatsapp: _whatsappFieldKey.currentState!.formatForStorage(),
       nationalIdLast4: _nationalIdController.text.trim(),
       birthDate: _birthDate!,
-      modality: _selectedModality,
       acceptedTerms: _acceptedTerms,
     );
 
@@ -204,9 +296,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_selectedModality.requiresPayment && _receiptFile != null) {
-      await _uploadReceipt(auth.user!.id);
-    }
 
     if (!mounted) {
       return;
@@ -230,35 +319,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     context.go(auth.postAuthRoute);
   }
 
-  Future<void> _uploadReceipt(String userId) async {
-    setState(() => _isUploadingReceipt = true);
-    try {
-      await ReceiptUploadHelper.submitReceipt(
-        paymentService: _paymentService,
-        userId: userId,
-        modality: _selectedModality,
-        receiptFile: _receiptFile!,
-      );
-    } catch (_) {
-      if (mounted) {
-        AppSnackBar.show(
-          context,
-          'Cuenta creada, pero no se pudo subir el comprobante. Contacta a SAINTS.',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingReceipt = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final palette = context.palette;
     final isBusy =
-        auth.isLoading || _isUploadingReceipt || _isCheckingUsername;
+        auth.isLoading || _isCheckingUsername;
 
     return Scaffold(
       body: GradientBackground(
@@ -339,9 +406,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 controller: _usernameController,
                                 labelText: 'Nombre de usuario',
                                 prefixText: '@',
+                                textCapitalization: TextCapitalization.none,
                                 inputFormatters:
                                     UsernameHelpers.inputFormatters,
-                                onChanged: _markUsernameTouched,
+                                onChanged: _onUsernameChanged,
+                                suffixIcon: _usernameStatusIcon(palette),
                                 validator: UsernameHelpers.validationError,
                               ),
                               const SizedBox(height: AppSpacing.xs),
@@ -376,79 +445,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       : Helpers.formatDate(_birthDate!),
                                 ),
                               ),
-                              const SizedBox(height: AppSpacing.lg),
-                              Text(
-                                'Modalidad',
-                                style: AppTypography.title(context),
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              RadioGroup<MembershipModality>(
-                                groupValue: _selectedModality,
-                                onChanged: (value) {
-                                  AppHaptics.lightTap();
-                                  if (value != null) {
-                                    setState(() => _selectedModality = value);
-                                  }
-                                },
-                                child: Column(
-                                  children: [
-                                    for (final modality
-                                        in MembershipModality.registrableOptions)
-                                      RadioListTile<MembershipModality>(
-                                        contentPadding: EdgeInsets.zero,
-                                        value: modality,
-                                        enabled: !isBusy,
-                                        title: Text(modality.displayName),
-                                        subtitle: Text(
-                                          switch (modality) {
-                                            MembershipModality.community =>
-                                              'Gratis · entrenamientos recreativos Mar/Jue',
-                                            MembershipModality.official =>
-                                              '${AppConstants.officialMembershipPriceLabel} · vigencia 31-dic-2026',
-                                            MembershipModality.proTeam =>
-                                              'Suscripción mensual in-app · beneficios oficiales + entrenamiento guiado',
-                                          },
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              if (_selectedModality ==
-                                  MembershipModality.proTeam) ...[
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  'Después de crear tu cuenta podrás activar '
-                                  'Pro Team con App Store / Google Play, o '
-                                  'adjuntar un comprobante de transferencia.',
-                                  style: AppTypography.caption(context)
-                                      .copyWith(height: 1.4),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                OutlinedButton.icon(
-                                  onPressed: isBusy
-                                      ? null
-                                      : AppHaptics.wrap(_pickReceipt),
-                                  icon: const Icon(Icons.receipt_long_rounded),
-                                  label: Text(
-                                    _receiptFile == null
-                                        ? 'Adjuntar comprobante (opcional)'
-                                        : 'Comprobante seleccionado',
-                                  ),
-                                ),
-                              ] else if (_selectedModality.requiresPayment) ...[
-                                const SizedBox(height: AppSpacing.sm),
-                                OutlinedButton.icon(
-                                  onPressed: isBusy
-                                      ? null
-                                      : AppHaptics.wrap(_pickReceipt),
-                                  icon: const Icon(Icons.receipt_long_rounded),
-                                  label: Text(
-                                    _receiptFile == null
-                                        ? 'Adjuntar comprobante de pago'
-                                        : 'Comprobante seleccionado',
-                                  ),
-                                ),
-                              ],
                               const SizedBox(height: AppSpacing.md),
                               ModernTextField(
                                 controller: _passwordController,
@@ -518,12 +514,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: AppSpacing.lg),
                               PrimaryButton(
-                                label: _selectedModality ==
-                                        MembershipModality.proTeam
-                                    ? 'Crear cuenta y continuar'
-                                    : _selectedModality.requiresPayment
-                                        ? 'Enviar solicitud'
-                                        : 'Crear cuenta',
+                                label: 'Crear cuenta',
                                 isLoading: isBusy,
                                 onPressed: _handleRegister,
                               ),

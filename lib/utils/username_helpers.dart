@@ -47,7 +47,18 @@ class UsernameHelpers {
   }
 
   static List<TextInputFormatter> get inputFormatters => [
-        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._]')),
+        // Mayúsculas se convierten al escribir o pegar; el filtro solo deja a-z.
+        TextInputFormatter.withFunction((oldValue, newValue) {
+          final lower = newValue.text.toLowerCase();
+          if (lower == newValue.text) {
+            return newValue;
+          }
+          return newValue.copyWith(
+            text: lower,
+            composing: TextRange.empty,
+          );
+        }),
+        FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9._]')),
         LengthLimitingTextInputFormatter(maxLength),
       ];
 

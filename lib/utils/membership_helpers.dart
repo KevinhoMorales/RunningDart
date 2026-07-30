@@ -7,20 +7,9 @@ import '../models/membership_status.dart';
 class MembershipHelpers {
   MembershipHelpers._();
 
-  static const double officialLaunchAmount = 5;
-  static const double proTeamLaunchAmount = 5;
-
   static DateTime defaultOfficialExpiry([DateTime? from]) {
     final base = from ?? DateTime.now();
     return DateTime(base.year, 12, 31, 23, 59, 59);
-  }
-
-  static double amountForModality(MembershipModality modality) {
-    return switch (modality) {
-      MembershipModality.official => officialLaunchAmount,
-      MembershipModality.proTeam => proTeamLaunchAmount,
-      MembershipModality.community => 0,
-    };
   }
 
   static String membershipStatusLabel({
@@ -41,7 +30,7 @@ class MembershipHelpers {
     required bool isExpired,
     required bool hasCredential,
   }) {
-    if (!hasCredential && !modality.requiresPayment) {
+    if (!hasCredential && !modality.requiresAdminApproval) {
       return 'Sin credencial';
     }
     return membershipStatusLabel(status: status, isExpired: isExpired);
@@ -54,16 +43,16 @@ class MembershipHelpers {
     required bool isExpired,
   }) {
     if (isPending) {
-      return 'Tu credencial estará disponible cuando SAINTS apruebe tu membresía.';
+      return 'Tu credencial estará disponible cuando SAINTS active tu membresía.';
     }
-    if (!modality.requiresPayment) {
+    if (!modality.requiresAdminApproval) {
       return 'La modalidad Comunidad no incluye credencial digital. '
           'Pásate a Miembro Oficial o Pro Team para obtener la tuya.';
     }
     if (isExpired) {
-      return 'Renueva tu membresía para volver a usar tu credencial digital.';
+      return 'Tu membresía venció. Contacta a SAINTS para reactivarla.';
     }
-    return 'Activa tu membresía para ver tu credencial digital.';
+    return 'Contacta a SAINTS para activar tu credencial digital.';
   }
 
   static bool isValidNationalIdLast4(String value) {

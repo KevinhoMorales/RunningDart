@@ -189,7 +189,7 @@ class MembershipCredentialCard extends StatelessWidget {
                         Icon(
                           user.isMembershipPending
                               ? Icons.hourglass_top_rounded
-                              : user.membershipModality.requiresPayment
+                              : user.membershipModality.requiresAdminApproval
                                   ? Icons.lock_rounded
                                   : Icons.info_outline_rounded,
                           color: Colors.white.withValues(alpha: 0.88),

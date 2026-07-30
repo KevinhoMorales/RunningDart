@@ -17,7 +17,6 @@ import 'providers/feed_provider.dart';
 import 'providers/news_provider.dart';
 import 'providers/social_provider.dart';
 import 'providers/notification_preferences_provider.dart';
-import 'providers/subscription_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/visit_provider.dart';
 import 'screens/admin/admin_business_form_screen.dart';
@@ -54,7 +53,6 @@ import 'services/notification_service.dart';
 import 'services/post_service.dart';
 import 'services/social_service.dart';
 import 'services/user_service.dart';
-import 'services/revenue_cat_service.dart';
 import 'services/visit_service.dart';
 import '../theme/app_theme.dart';
 import 'widgets/app_startup_loading.dart';
@@ -70,7 +68,6 @@ class RunningDartApp extends StatefulWidget {
     this.appUpdateProvider,
     this.notificationService,
     this.sharedPreferences,
-    this.subscriptionProvider,
     this.adminProvider,
     this.adminBusinessProvider,
     this.adminNewsProvider,
@@ -86,7 +83,6 @@ class RunningDartApp extends StatefulWidget {
   final AppUpdateProvider? appUpdateProvider;
   final NotificationService? notificationService;
   final SharedPreferences? sharedPreferences;
-  final SubscriptionProvider? subscriptionProvider;
   final AdminProvider? adminProvider;
   final AdminBusinessProvider? adminBusinessProvider;
   final AdminNewsProvider? adminNewsProvider;
@@ -117,7 +113,6 @@ class _RunningDartAppState extends State<RunningDartApp> {
   late final AdminNewsProvider _adminNewsProvider;
   late final VisitProvider _visitProvider;
   late final AppUpdateProvider _appUpdateProvider;
-  late final SubscriptionProvider _subscriptionProvider;
   late final NotificationPreferencesProvider? _notificationPreferencesProvider;
   late final GoRouter _router;
 
@@ -140,8 +135,6 @@ class _RunningDartAppState extends State<RunningDartApp> {
     _visitProvider = widget.visitProvider ?? VisitProvider(VisitService());
     _appUpdateProvider =
         widget.appUpdateProvider ?? AppUpdateProvider.notRequired();
-    _subscriptionProvider = widget.subscriptionProvider ??
-        SubscriptionProvider(RevenueCatService());
     if (widget.notificationService != null && widget.sharedPreferences != null) {
       _notificationPreferencesProvider = NotificationPreferencesProvider(
         widget.sharedPreferences!,
@@ -406,9 +399,6 @@ class _RunningDartAppState extends State<RunningDartApp> {
       providers: [
         ChangeNotifierProvider.value(value: widget.themeProvider),
         ChangeNotifierProvider.value(value: widget.authProvider),
-        ChangeNotifierProvider<SubscriptionProvider>.value(
-          value: _subscriptionProvider,
-        ),
         ChangeNotifierProvider.value(value: _appUpdateProvider),
         ChangeNotifierProvider(
           create: (_) => BusinessProvider(_businessService),

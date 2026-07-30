@@ -55,7 +55,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     'Las personas que bloqueaste y los reportes que enviaste.',
     'Tu credencial digital, tu código QR y el acceso a los beneficios con '
         'marcas aliadas.',
-    'Tu membresía y los comprobantes de pago que hayas subido.',
+    'Tu membresía y perfil en SAINTS.',
     'Tu cuenta de acceso: no podrás volver a iniciar sesión con este correo sin '
         'registrarte desde cero.',
   ];
@@ -401,7 +401,6 @@ class _FootprintCard extends StatelessWidget {
           _CountRow(label: 'Seguidores', value: data.followers),
           _CountRow(label: 'Personas que sigues', value: data.following),
           _CountRow(label: 'Me gusta que diste', value: data.likes),
-          _CountRow(label: 'Comprobantes de pago', value: data.payments),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Todo esto se elimina al confirmar.',

@@ -15,7 +15,8 @@ enum MembershipModality {
         MembershipModality.proTeam => 'SAINTS Pro Team',
       };
 
-  bool get requiresPayment =>
+  /// Oficial / Pro Team quedan pendientes hasta que un admin active la membresía.
+  bool get requiresAdminApproval =>
       this == MembershipModality.official || this == MembershipModality.proTeam;
 
   static MembershipModality fromFirestore(String? value) {

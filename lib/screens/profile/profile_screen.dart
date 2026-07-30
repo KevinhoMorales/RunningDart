@@ -155,8 +155,8 @@ class _ContextBanner extends StatelessWidget {
       // venció y el paso siguiente es renovar.
       return MembershipUpsellCard(
         message: auth.user?.isMembershipExpired == true
-            ? 'Renueva tu membresía SAINTS para volver a usar tus beneficios con marcas aliadas y tu credencial digital.'
-            : 'Activa tu membresía SAINTS para acceder a beneficios con marcas aliadas y tu credencial digital.',
+            ? 'Tu membresía SAINTS venció. Contacta a SAINTS para reactivarla y volver a usar beneficios y credencial digital.'
+            : 'Contacta a SAINTS para activar tu membresía y acceder a beneficios con marcas aliadas y tu credencial digital.',
       );
     }
 

@@ -14,9 +14,6 @@ const logger = require("firebase-functions/logger");
 
 const { deleteEnvironmentAccountData } = require("./account_deletion");
 const { deletePostLikes, syncPostLikeSummary } = require("./post_likes");
-const {
-  syncProMembershipFromRevenueCat,
-} = require("./revenue_cat_membership");
 
 initializeApp();
 
@@ -169,8 +166,6 @@ exports.onPostDeleted = onDocumentDeleted(
     await deletePostLikes(getFirestore(), environment, event.params.postId);
   },
 );
-
-exports.syncProMembershipFromRevenueCat = syncProMembershipFromRevenueCat;
 
 exports.deleteMyAccount = onCall({ timeoutSeconds: 540 }, async (request) => {
   if (!request.auth) {

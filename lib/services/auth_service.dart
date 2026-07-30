@@ -1,5 +1,4 @@
 import '../models/user_model.dart';
-import '../models/membership_modality.dart';
 
 class RegisterProfileData {
   const RegisterProfileData({
@@ -8,7 +7,6 @@ class RegisterProfileData {
     required this.whatsapp,
     required this.nationalIdLast4,
     required this.birthDate,
-    required this.modality,
     required this.acceptedTerms,
   });
 
@@ -17,7 +15,6 @@ class RegisterProfileData {
   final String whatsapp;
   final String nationalIdLast4;
   final DateTime birthDate;
-  final MembershipModality modality;
   final bool acceptedTerms;
 }
 

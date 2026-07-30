@@ -85,7 +85,6 @@ void main() {
           whatsapp: '+593991234567',
           nationalIdLast4: '5678',
           birthDate: DateTime(1995, 5, 10),
-          modality: MembershipModality.community,
           acceptedTerms: true,
         ),
       );
@@ -107,7 +106,6 @@ void main() {
           whatsapp: '+593991234567',
           nationalIdLast4: '5678',
           birthDate: DateTime(1995, 5, 10),
-          modality: MembershipModality.community,
           acceptedTerms: true,
         ),
       );
@@ -126,7 +124,6 @@ void main() {
           whatsapp: '+593991234567',
           nationalIdLast4: '5678',
           birthDate: DateTime(1995, 5, 10),
-          modality: MembershipModality.community,
           acceptedTerms: true,
         ),
       );
@@ -134,7 +131,7 @@ void main() {
       expect(authProvider.user?.usernameUpdatedAt, isNull);
     });
 
-    test('creates pending user for paid modality', () async {
+    test('creates active user role for every registration', () async {
       final success = await authProvider.register(
         email: 'new@example.com',
         password: 'secret123',
@@ -144,7 +141,6 @@ void main() {
           whatsapp: '+593991234567',
           nationalIdLast4: '1234',
           birthDate: DateTime(1995, 5, 10),
-          modality: MembershipModality.official,
           acceptedTerms: true,
         ),
       );
@@ -153,7 +149,9 @@ void main() {
       expect(authProvider.canAccessApp, isTrue);
       expect(authProvider.user?.role, UserRole.user);
       expect(authProvider.user?.isActive, isTrue);
-      expect(authProvider.user?.isMembershipPending, isTrue);
+      expect(authProvider.user?.membershipModality, MembershipModality.community);
+      expect(authProvider.user?.isMembershipPending, isFalse);
+      expect(authProvider.user?.membershipStatus, MembershipStatus.active);
       expect(authProvider.user?.photoUrl, isNull);
       expect(authProvider.user?.email, 'new@example.com');
       expect(authProvider.user?.displayName, 'Nuevo Usuario');
