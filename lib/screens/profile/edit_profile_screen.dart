@@ -285,25 +285,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     _BioHint(length: _bioLength, maxLength: _bioMaxLength),
+                    const SizedBox(height: AppSpacing.lg),
+                    _SectionLabel(text: 'Contacto (opcional)'),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Puedes dejarlos vacíos al registrarte y completarlos aquí después.',
+                      style: AppTypography.muted(context),
+                    ),
                     const SizedBox(height: AppSpacing.md),
                     InternationalPhoneField(
                       key: _whatsappFieldKey,
                       controller: _whatsappController,
-                      labelText: 'WhatsApp',
+                      labelText: 'WhatsApp (opcional)',
                       initialStoredNumber: user.whatsapp,
                     ),
                     const SizedBox(height: AppSpacing.md),
                     ModernTextField(
                       controller: _nationalIdController,
-                      labelText: 'Últimos 4 dígitos de cédula',
+                      labelText: 'Últimos 4 dígitos de cédula (opcional)',
                       keyboardType: TextInputType.number,
                       prefixIcon: Icons.badge_outlined,
                       inputFormatters:
                           MembershipHelpers.nationalIdLast4InputFormatters,
-                      validator: (value) => value == null ||
-                              !MembershipHelpers.isValidNationalIdLast4(value)
-                          ? 'Ingresa 4 dígitos'
-                          : null,
+                      validator: (value) {
+                        final trimmed = value?.trim() ?? '';
+                        if (trimmed.isEmpty) {
+                          return null;
+                        }
+                        if (!MembershipHelpers
+                            .isValidNationalIdLast4(trimmed)) {
+                          return 'Ingresa 4 dígitos';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: AppSpacing.md),
                     _BirthDateField(

@@ -419,21 +419,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               InternationalPhoneField(
                                 key: _whatsappFieldKey,
                                 controller: _whatsappController,
-                                labelText: 'WhatsApp',
+                                labelText: 'WhatsApp (opcional)',
                               ),
                               const SizedBox(height: AppSpacing.md),
                               ModernTextField(
                                 controller: _nationalIdController,
-                                labelText: 'Últimos 4 dígitos de cédula',
+                                labelText:
+                                    'Últimos 4 dígitos de cédula (opcional)',
                                 keyboardType: TextInputType.number,
                                 inputFormatters:
                                     MembershipHelpers.nationalIdLast4InputFormatters,
-                                validator: (value) =>
-                                    value == null ||
-                                            !MembershipHelpers
-                                                .isValidNationalIdLast4(value)
-                                        ? 'Ingresa 4 dígitos'
-                                        : null,
+                                validator: (value) {
+                                  final trimmed = value?.trim() ?? '';
+                                  if (trimmed.isEmpty) {
+                                    return null;
+                                  }
+                                  if (!MembershipHelpers
+                                      .isValidNationalIdLast4(trimmed)) {
+                                    return 'Ingresa 4 dígitos';
+                                  }
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: AppSpacing.md),
                               OutlinedButton.icon(

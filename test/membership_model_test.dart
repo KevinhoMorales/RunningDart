@@ -83,6 +83,8 @@ void main() {
     test('validates national id last four digits', () {
       expect(MembershipHelpers.isValidNationalIdLast4('1234'), isTrue);
       expect(MembershipHelpers.isValidNationalIdLast4('12ab'), isFalse);
+      expect(MembershipHelpers.isValidNationalIdLast4(''), isFalse);
+      expect(MembershipHelpers.isValidNationalIdLast4('12'), isFalse);
     });
 
     test('validates local whatsapp numbers with country prefix on save', () {
@@ -99,6 +101,8 @@ void main() {
         MembershipHelpers.formatWhatsappForStorage('959084920'),
         '+593959084920',
       );
+      expect(MembershipHelpers.formatWhatsappForStorage(''), '');
+      expect(MembershipHelpers.formatWhatsappForStorage('   '), '');
     });
 
     test('validates international phone numbers by country', () {

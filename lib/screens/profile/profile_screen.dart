@@ -52,6 +52,21 @@ class AccountSections extends StatelessWidget {
 
   final UserModel user;
 
+  static bool _hasContactValue(String? value) =>
+      value != null && value.trim().isNotEmpty;
+
+  static String _missingOptionalContactSubtitle(UserModel user) {
+    final missingWhatsapp = !_hasContactValue(user.whatsapp);
+    final missingNationalId = !_hasContactValue(user.nationalIdLast4);
+    if (missingWhatsapp && missingNationalId) {
+      return 'Agrega WhatsApp y cédula cuando quieras';
+    }
+    if (missingWhatsapp) {
+      return 'Agrega tu WhatsApp cuando quieras';
+    }
+    return 'Agrega los últimos 4 dígitos de cédula cuando quieras';
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -108,7 +123,7 @@ class AccountSections extends StatelessWidget {
               onTap: () => context.push('/admin/training-schedule'),
             ),
           ],
-          if (user.whatsapp != null) ...[
+          if (_hasContactValue(user.whatsapp)) ...[
             const SizedBox(height: AppSpacing.sm),
             ProfileActionTile(
               icon: Icons.chat_rounded,
@@ -116,6 +131,26 @@ class AccountSections extends StatelessWidget {
               subtitle: user.whatsapp,
               trailing: Icon(Icons.open_in_new_rounded, color: palette.textMuted),
               onTap: null,
+            ),
+          ],
+          if (_hasContactValue(user.nationalIdLast4)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ProfileActionTile(
+              icon: Icons.badge_outlined,
+              title: 'Cédula (últimos 4)',
+              subtitle: user.nationalIdLast4,
+              trailing: const SizedBox.shrink(),
+              onTap: null,
+            ),
+          ],
+          if (!_hasContactValue(user.whatsapp) ||
+              !_hasContactValue(user.nationalIdLast4)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ProfileActionTile(
+              icon: Icons.person_add_alt_1_rounded,
+              title: 'Completar datos opcionales',
+              subtitle: _missingOptionalContactSubtitle(user),
+              onTap: () => context.push('/profile/edit'),
             ),
           ],
           if (user.expiresAt != null && !user.isAdmin) ...[

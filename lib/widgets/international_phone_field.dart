@@ -121,11 +121,14 @@ class InternationalPhoneFieldState extends State<InternationalPhoneField> {
               if (widget.validator != null) {
                 return widget.validator!(value);
               }
-              if (value == null ||
-                  !MembershipHelpers.isValidNationalPhoneNumber(
-                    value,
-                    countryCode: _selectedCountry.dialCode,
-                  )) {
+              final trimmed = value?.trim() ?? '';
+              if (trimmed.isEmpty) {
+                return null;
+              }
+              if (!MembershipHelpers.isValidNationalPhoneNumber(
+                trimmed,
+                countryCode: _selectedCountry.dialCode,
+              )) {
                 return 'Ingresa un número válido';
               }
               return null;
@@ -157,8 +160,12 @@ class InternationalPhoneFieldState extends State<InternationalPhoneField> {
   PhoneCountry get selectedCountry => _selectedCountry;
 
   String formatForStorage() {
+    final local = widget.controller.text.trim();
+    if (local.isEmpty) {
+      return '';
+    }
     return MembershipHelpers.formatWhatsappForStorage(
-      widget.controller.text.trim(),
+      local,
       countryCode: _selectedCountry.dialCode,
     );
   }

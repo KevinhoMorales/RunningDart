@@ -111,13 +111,22 @@ class MembershipHelpers {
     String countryCode = defaultWhatsappCountryCode,
   }) {
     var localDigits = localNumber.replaceAll(RegExp(r'\D'), '');
+    if (localDigits.isEmpty) {
+      return '';
+    }
     if (localDigits.startsWith('0')) {
       localDigits = localDigits.substring(1);
+    }
+    if (localDigits.isEmpty) {
+      return '';
     }
 
     final countryDigits = countryCode.replaceAll(RegExp(r'\D'), '');
     if (localDigits.startsWith(countryDigits)) {
       localDigits = localDigits.substring(countryDigits.length);
+    }
+    if (localDigits.isEmpty) {
+      return '';
     }
 
     return '+$countryDigits$localDigits';

@@ -30,10 +30,14 @@ class ProfileService {
     String? bio,
   }) async {
     try {
+      final trimmedWhatsapp = whatsapp.trim();
+      final trimmedNationalId = nationalIdLast4.trim();
       await _users.doc(userId).update({
         'displayName': displayName,
-        'whatsapp': whatsapp,
-        'nationalIdLast4': nationalIdLast4,
+        // Empty clears the field so the user can add optional contact data later.
+        'whatsapp': trimmedWhatsapp.isEmpty ? null : trimmedWhatsapp,
+        'nationalIdLast4':
+            trimmedNationalId.isEmpty ? null : trimmedNationalId,
         'birthDate': Timestamp.fromDate(birthDate),
         'bio': (bio == null || bio.trim().isEmpty) ? null : bio.trim(),
       });
