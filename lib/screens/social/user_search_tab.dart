@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +13,7 @@ import '../../widgets/admin_search_field.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/follow_user_row.dart';
+import '../../widgets/haptic_controls.dart';
 
 class UserSearchTab extends StatefulWidget {
   const UserSearchTab({super.key});
@@ -24,8 +27,13 @@ class _UserSearchTabState extends State<UserSearchTab> {
   final _socialService = SocialService();
 
   List<PublicProfile> _results = const [];
+  Object? _nextCursor;
+  bool _hasMore = true;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   bool _hasError = false;
+
+  /// Sube en cada búsqueda nueva para descartar páginas en vuelo.
   int _requestId = 0;
 
   @override
@@ -45,15 +53,21 @@ class _UserSearchTabState extends State<UserSearchTab> {
     setState(() {
       _isLoading = true;
       _hasError = false;
+      _results = const [];
+      _nextCursor = null;
+      _hasMore = true;
+      _isLoadingMore = false;
     });
 
     try {
-      final profiles = await _socialService.searchProfiles(query);
+      final page = await _socialService.searchProfilesPage(query);
       if (!mounted || requestId != _requestId) {
         return;
       }
       setState(() {
-        _results = profiles;
+        _results = page.items;
+        _nextCursor = page.cursor;
+        _hasMore = page.hasMore;
         _isLoading = false;
       });
     } catch (_) {
@@ -63,8 +77,52 @@ class _UserSearchTabState extends State<UserSearchTab> {
       setState(() {
         _hasError = true;
         _isLoading = false;
+        _hasMore = false;
       });
     }
+  }
+
+  Future<void> _loadMore() async {
+    if (!_hasMore || _isLoadingMore || _isLoading || _nextCursor == null) {
+      return;
+    }
+
+    final requestId = _requestId;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final page = await _socialService.searchProfilesPage(
+        _searchController.text,
+        startAfter: _nextCursor,
+      );
+      if (!mounted || requestId != _requestId) {
+        return;
+      }
+
+      final known = _results.map((profile) => profile.id).toSet();
+      final fresh =
+          page.items.where((profile) => !known.contains(profile.id)).toList();
+      setState(() {
+        _results = [..._results, ...fresh];
+        _nextCursor = page.cursor;
+        _hasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _requestId) {
+        return;
+      }
+      setState(() => _isLoadingMore = false);
+      AppSnackBar.show(context, 'No se pudieron cargar más personas.');
+    }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 160) {
+      unawaited(_loadMore());
+    }
+    return false;
   }
 
   Future<void> _toggleFollow(String targetUserId) async {
@@ -117,7 +175,15 @@ class _UserSearchTabState extends State<UserSearchTab> {
         .where((profile) => !social.isBlocked(profile.id))
         .toList(growable: false);
 
-    if (visible.isEmpty) {
+    if (visible.isEmpty && _hasMore && !_isLoadingMore && !_isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_loadMore());
+        }
+      });
+    }
+
+    if (visible.isEmpty && !_hasMore) {
       return const Center(
         child: EmptyStateCard(
           icon: Icons.search_off_rounded,
@@ -127,20 +193,46 @@ class _UserSearchTabState extends State<UserSearchTab> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-      itemCount: visible.length,
-      itemBuilder: (context, index) {
-        final profile = visible[index];
-        final isSelf = profile.id == currentUserId;
-        return FollowUserRow(
-          profile: profile,
-          showFollowButton: !isSelf,
-          isFollowing: social.isFollowing(profile.id),
-          onOpenProfile: () => context.push('/user/${profile.id}'),
-          onToggleFollow: () => _toggleFollow(profile.id),
-        );
-      },
+    if (visible.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final footer = _hasMore || _isLoadingMore;
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+        itemCount: visible.length + (footer ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (footer && index == visible.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: _isLoadingMore
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : HapticTextButton(
+                        onPressed: _loadMore,
+                        child: const Text('Cargar más'),
+                      ),
+              ),
+            );
+          }
+          final profile = visible[index];
+          final isSelf = profile.id == currentUserId;
+          return FollowUserRow(
+            profile: profile,
+            showFollowButton: !isSelf,
+            isFollowing: social.isFollowing(profile.id),
+            onOpenProfile: () => context.push('/user/${profile.id}'),
+            onToggleFollow: () => _toggleFollow(profile.id),
+          );
+        },
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/page_result.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../services/social_service.dart';
@@ -25,14 +26,27 @@ class FeedProvider extends ChangeNotifier {
   final PostService _postService;
   final SocialService _socialService;
 
-  StreamSubscription<List<PostModel>>? _feedSubscription;
-  StreamSubscription<List<PostModel>>? _myPostsSubscription;
+  StreamSubscription<PageResult<PostModel>>? _feedSubscription;
+  StreamSubscription<PageResult<PostModel>>? _myPostsSubscription;
   StreamSubscription<Set<String>>? _blockedSubscription;
   StreamSubscription<Set<String>>? _likedSubscription;
 
   String? _userId;
   bool _isModerator = false;
-  List<PostModel> _posts = [];
+
+  /// Primera página en vivo (stream).
+  List<PostModel> _livePosts = [];
+
+  /// Páginas siguientes pedidas con [loadMore].
+  List<PostModel> _olderPosts = [];
+
+  Object? _nextCursor;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+
+  /// Sube en cada refresh / restart para descartar load-more en vuelo.
+  int _feedGeneration = 0;
+
   List<PostModel> _myPosts = [];
   Set<String> _blockedIds = {};
   Set<String> _likedPostIds = {};
@@ -45,6 +59,8 @@ class FeedProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   bool get isLoadingMyPosts => _isLoadingMyPosts;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _hasMore;
   String? get error => _error;
   String? get myPostsError => _myPostsError;
 
@@ -52,10 +68,21 @@ class FeedProvider extends ChangeNotifier {
   /// bloqueó a alguien seguiría viendo sus publicaciones sin saber por qué.
   String? get blockedError => _blockedError;
 
-  List<PostModel> get posts => _posts
-      .where((post) => !_blockedIds.contains(post.authorId))
-      .where(_canSee)
-      .toList(growable: false);
+  List<PostModel> get posts {
+    final byId = <String, PostModel>{};
+    for (final post in _olderPosts) {
+      byId[post.id] = post;
+    }
+    for (final post in _livePosts) {
+      byId[post.id] = post;
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged
+        .where((post) => !_blockedIds.contains(post.authorId))
+        .where(_canSee)
+        .toList(growable: false);
+  }
 
   /// Una publicación oculta por moderación solo la ven su autor, para saber por
   /// qué salió del feed, y los administradores, para poder revertirlo.
@@ -133,6 +160,7 @@ class FeedProvider extends ChangeNotifier {
         // El rol decide qué pide la consulta, no solo qué se pinta, así que
         // hay que rehacer la suscripción.
         _isModerator = isModerator;
+        _resetOlderPages();
         _listenFeed();
         notifyListeners();
       }
@@ -142,6 +170,7 @@ class FeedProvider extends ChangeNotifier {
     _isModerator = isModerator;
     _isLoading = true;
     _error = null;
+    _resetOlderPages();
     notifyListeners();
 
     _listenFeed();
@@ -149,6 +178,14 @@ class FeedProvider extends ChangeNotifier {
     _listenLikes(userId);
 
     _listenBlocked(userId);
+  }
+
+  void _resetOlderPages() {
+    _feedGeneration++;
+    _olderPosts = [];
+    _nextCursor = null;
+    _hasMore = true;
+    _isLoadingMore = false;
   }
 
   void _listenBlocked(String userId) {
@@ -171,10 +208,22 @@ class FeedProvider extends ChangeNotifier {
   /// entera si alguien más las incluye.
   void _listenFeed({Completer<void>? ready}) {
     _feedSubscription?.cancel();
-    _feedSubscription =
-        _postService.watchFeed(includeHidden: _isModerator).listen(
-      (posts) {
-        _posts = posts;
+    _feedSubscription = _postService
+        .watchFeed(includeHidden: _isModerator)
+        .listen(
+      (page) {
+        _livePosts = page.items;
+        // Si todavía no hay páginas viejas, el cursor del stream es el de
+        // load-more. Si ya las hay, no lo pisamos: el stream solo refresca la
+        // primera página.
+        if (_olderPosts.isEmpty) {
+          _nextCursor = page.cursor;
+          _hasMore = page.hasMore;
+        } else {
+          final liveIds = page.items.map((post) => post.id).toSet();
+          _olderPosts =
+              _olderPosts.where((post) => !liveIds.contains(post.id)).toList();
+        }
         _isLoading = false;
         _error = null;
         _prunePendingLikes();
@@ -193,6 +242,47 @@ class FeedProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _isLoadingMore || _nextCursor == null || _isLoading) {
+      return;
+    }
+
+    final generation = _feedGeneration;
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final page = await _postService.fetchFeedPage(
+        startAfter: _nextCursor,
+        includeHidden: _isModerator,
+      );
+      if (generation != _feedGeneration) {
+        return;
+      }
+
+      final knownIds = <String>{
+        for (final post in _livePosts) post.id,
+        for (final post in _olderPosts) post.id,
+      };
+      final fresh = page.items
+          .where((post) => !knownIds.contains(post.id))
+          .toList(growable: false);
+      _olderPosts = [..._olderPosts, ...fresh];
+      _nextCursor = page.cursor;
+      _hasMore = page.hasMore;
+    } catch (error) {
+      if (generation != _feedGeneration) {
+        return;
+      }
+      debugPrint('No se pudo cargar más del feed: $error');
+    } finally {
+      if (generation == _feedGeneration) {
+        _isLoadingMore = false;
+        notifyListeners();
+      }
+    }
   }
 
   void _listenLikes(String userId) {
@@ -219,7 +309,8 @@ class FeedProvider extends ChangeNotifier {
     }
     final counts = <String, int>{
       for (final post in _myPosts) post.id: post.likesCount,
-      for (final post in _posts) post.id: post.likesCount,
+      for (final post in _livePosts) post.id: post.likesCount,
+      for (final post in _olderPosts) post.id: post.likesCount,
     };
     _pendingLikes.removeWhere((postId, pending) {
       final count = counts[postId];
@@ -233,12 +324,14 @@ class FeedProvider extends ChangeNotifier {
     _isLoadingMyPosts = _myPosts.isEmpty;
 
     _myPostsSubscription?.cancel();
-    // Las propias sí van completas: es donde el autor se entera de que le
-    // ocultaron una publicación y por qué.
-    _myPostsSubscription =
-        _postService.watchUserPosts(userId, includeHidden: true).listen(
-      (posts) {
-        _myPosts = posts;
+    // Primera página de las propias: basta para el corazón optimista y para
+    // enterarse de ocultas recientes. La cuadrícula del perfil pagina por su
+    // cuenta (no reutiliza esta lista completa).
+    _myPostsSubscription = _postService
+        .watchUserPosts(userId, includeHidden: true)
+        .listen(
+      (page) {
+        _myPosts = page.items;
         _isLoadingMyPosts = false;
         _myPostsError = null;
         _prunePendingLikes();
@@ -260,9 +353,10 @@ class FeedProvider extends ChangeNotifier {
     }
     final completer = Completer<void>();
 
-    _isLoading = _posts.isEmpty;
+    _isLoading = _livePosts.isEmpty && _olderPosts.isEmpty;
     _error = null;
     _myPostsError = null;
+    _resetOlderPages();
     notifyListeners();
 
     _listenMyPosts(userId);

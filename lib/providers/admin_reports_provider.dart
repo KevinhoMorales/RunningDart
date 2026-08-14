@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/page_result.dart';
 import '../models/post_model.dart';
 import '../models/post_report_model.dart';
 import '../services/post_service.dart';
@@ -25,7 +26,14 @@ class AdminReportsProvider extends ChangeNotifier {
   final SocialService _socialService;
   final PostService _postService;
 
-  StreamSubscription<List<PostReportModel>>? _subscription;
+  StreamSubscription<PageResult<PostReportModel>>? _subscription;
+
+  List<PostReportModel> _liveReports = const [];
+  List<PostReportModel> _olderReports = const [];
+  Object? _nextCursor;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  int _generation = 0;
 
   List<ReportedPost> _reports = const [];
   final Map<String, PostModel?> _postCache = {};
@@ -39,6 +47,8 @@ class AdminReportsProvider extends ChangeNotifier {
       _reports.where((item) => item.report.isPending).toList(growable: false);
 
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _hasMore;
   bool get isUpdating => _isUpdating;
   String? get error => _error;
 
@@ -51,7 +61,18 @@ class AdminReportsProvider extends ChangeNotifier {
     notifyListeners();
 
     _subscription = _socialService.watchReports().listen(
-      (reports) => unawaited(_attachPosts(reports)),
+      (page) {
+        _liveReports = page.items;
+        if (_olderReports.isEmpty) {
+          _nextCursor = page.cursor;
+          _hasMore = page.hasMore;
+        } else {
+          final liveIds = page.items.map((r) => r.id).toSet();
+          _olderReports =
+              _olderReports.where((r) => !liveIds.contains(r.id)).toList();
+        }
+        unawaited(_attachPosts(_mergedReports()));
+      },
       onError: (error) {
         debugPrint('No se pudieron cargar los reportes: $error');
         _error = 'No se pudieron cargar los reportes.';
@@ -61,6 +82,23 @@ class AdminReportsProvider extends ChangeNotifier {
     );
   }
 
+  List<PostReportModel> _mergedReports() {
+    final byId = <String, PostReportModel>{};
+    for (final report in _olderReports) {
+      byId[report.id] = report;
+    }
+    for (final report in _liveReports) {
+      byId[report.id] = report;
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) {
+        final aAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bAt.compareTo(aAt);
+      });
+    return merged;
+  }
+
   void stopListening() {
     _subscription?.cancel();
     _subscription = null;
@@ -68,9 +106,56 @@ class AdminReportsProvider extends ChangeNotifier {
 
   Future<void> refresh() async {
     stopListening();
+    _generation++;
     _postCache.clear();
+    _liveReports = const [];
+    _olderReports = const [];
+    _nextCursor = null;
+    _hasMore = true;
+    _isLoadingMore = false;
     _error = null;
     startListening();
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _isLoadingMore || _nextCursor == null || _isLoading) {
+      return;
+    }
+
+    final generation = _generation;
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final page = await _socialService.fetchReportsPage(
+        startAfter: _nextCursor,
+      );
+      if (generation != _generation) {
+        return;
+      }
+
+      final knownIds = <String>{
+        for (final report in _liveReports) report.id,
+        for (final report in _olderReports) report.id,
+      };
+      final fresh = page.items
+          .where((report) => !knownIds.contains(report.id))
+          .toList(growable: false);
+      _olderReports = [..._olderReports, ...fresh];
+      _nextCursor = page.cursor;
+      _hasMore = page.hasMore;
+      await _attachPosts(_mergedReports());
+    } catch (error) {
+      if (generation != _generation) {
+        return;
+      }
+      debugPrint('No se pudieron cargar más reportes: $error');
+    } finally {
+      if (generation == _generation) {
+        _isLoadingMore = false;
+        notifyListeners();
+      }
+    }
   }
 
   /// Resuelve cada publicación una sola vez: la cola repite el mismo `postId`

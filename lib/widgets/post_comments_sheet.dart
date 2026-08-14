@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../models/page_result.dart';
 import '../models/post_comment_model.dart';
 import '../models/post_model.dart';
 import '../providers/auth_provider.dart';
@@ -41,22 +42,48 @@ class _PostCommentsSheetState extends State<PostCommentsSheet> {
   final _focusNode = FocusNode();
   ScrollController? _listScrollController;
 
-  StreamSubscription<List<PostCommentModel>>? _subscription;
-  List<PostCommentModel> _comments = const [];
+  StreamSubscription<PageResult<PostCommentModel>>? _subscription;
+  List<PostCommentModel> _liveComments = const [];
+  List<PostCommentModel> _olderComments = const [];
+  Object? _olderCursor;
+  bool _hasMoreOlder = true;
   bool _isLoading = true;
+  bool _isLoadingOlder = false;
   bool _isSending = false;
   String? _error;
+
+  List<PostCommentModel> get _comments {
+    final byId = <String, PostCommentModel>{};
+    for (final comment in _olderComments) {
+      byId[comment.id] = comment;
+    }
+    for (final comment in _liveComments) {
+      byId[comment.id] = comment;
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return merged;
+  }
 
   @override
   void initState() {
     super.initState();
-    _subscription = _socialService.watchPostComments(widget.post.id).listen(
-      (comments) {
+    _subscription =
+        _socialService.watchPostComments(widget.post.id).listen(
+      (page) {
         if (!mounted) {
           return;
         }
         setState(() {
-          _comments = comments;
+          if (_olderComments.isEmpty) {
+            _liveComments = page.items;
+            _olderCursor = page.cursor;
+            _hasMoreOlder = page.hasMore;
+          } else {
+            // Páginas viejas ya cargadas: el stream solo refresca la ventana
+            // reciente. El cursor de "más viejos" no se toca.
+            _liveComments = page.items;
+          }
           _isLoading = false;
           _error = null;
         });
@@ -79,6 +106,39 @@ class _PostCommentsSheetState extends State<PostCommentsSheet> {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadOlder() async {
+    if (!_hasMoreOlder || _isLoadingOlder || _olderCursor == null) {
+      return;
+    }
+    setState(() => _isLoadingOlder = true);
+    try {
+      final page = await _socialService.fetchOlderPostComments(
+        widget.post.id,
+        endBefore: _olderCursor!,
+      );
+      if (!mounted) {
+        return;
+      }
+      final knownIds = {
+        for (final c in _olderComments) c.id,
+        for (final c in _liveComments) c.id,
+      };
+      final fresh =
+          page.items.where((c) => !knownIds.contains(c.id)).toList();
+      setState(() {
+        _olderComments = [...fresh, ..._olderComments];
+        _olderCursor = page.cursor;
+        _hasMoreOlder = page.hasMore;
+        _isLoadingOlder = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingOlder = false);
+        AppSnackBar.show(context, 'No se pudieron cargar más comentarios.');
+      }
+    }
   }
 
   Future<void> _send() async {
@@ -165,6 +225,12 @@ class _PostCommentsSheetState extends State<PostCommentsSheet> {
     try {
       await _socialService.deleteComment(comment.id);
       if (mounted) {
+        setState(() {
+          _liveComments =
+              _liveComments.where((c) => c.id != comment.id).toList();
+          _olderComments =
+              _olderComments.where((c) => c.id != comment.id).toList();
+        });
         AppSnackBar.show(context, 'Comentario eliminado.');
       }
     } catch (_) {
@@ -177,6 +243,13 @@ class _PostCommentsSheetState extends State<PostCommentsSheet> {
   void _openAuthor(String userId) {
     Navigator.of(context).pop();
     context.push('/user/$userId');
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.metrics.pixels <= 80) {
+      unawaited(_loadOlder());
+    }
+    return false;
   }
 
   @override
@@ -258,19 +331,42 @@ class _PostCommentsSheetState extends State<PostCommentsSheet> {
       );
     }
 
-    return ListView.builder(
-      controller: sheetScrollController,
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      itemCount: _comments.length,
-      itemBuilder: (context, index) {
-        final comment = _comments[index];
-        final isOwn = comment.authorId == currentUserId;
-        return _CommentTile(
-          comment: comment,
-          onOpenAuthor: () => _openAuthor(comment.authorId),
-          onDelete: isOwn ? () => _delete(comment) : null,
-        );
-      },
+    final comments = _comments;
+    final showHeader = _hasMoreOlder || _isLoadingOlder;
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: ListView.builder(
+        controller: sheetScrollController,
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        itemCount: comments.length + (showHeader ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (showHeader && index == 0) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Center(
+                child: _isLoadingOlder
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : HapticTextButton(
+                        onPressed: _loadOlder,
+                        child: const Text('Ver comentarios anteriores'),
+                      ),
+              ),
+            );
+          }
+          final comment = comments[showHeader ? index - 1 : index];
+          final isOwn = comment.authorId == currentUserId;
+          return _CommentTile(
+            comment: comment,
+            onOpenAuthor: () => _openAuthor(comment.authorId),
+            onDelete: isOwn ? () => _delete(comment) : null,
+          );
+        },
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,8 +13,9 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'app_snackbar.dart';
 import 'follow_user_row.dart';
+import 'haptic_controls.dart';
 
-/// Lista completa de quienes dieron "me gusta" a una publicación.
+/// Lista de quienes dieron "me gusta" a una publicación, con páginas.
 Future<void> showPostLikesSheet(BuildContext context, String postId) {
   return showModalBottomSheet<void>(
     context: context,
@@ -35,23 +38,28 @@ class _PostLikesSheetState extends State<PostLikesSheet> {
   final _socialService = SocialService();
 
   List<PublicProfile> _profiles = [];
+  Object? _nextCursor;
+  bool _hasMore = true;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadInitial();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadInitial() async {
     try {
-      final profiles = await _socialService.getPostLikeProfiles(widget.postId);
+      final page = await _socialService.fetchPostLikeProfiles(widget.postId);
       if (!mounted) {
         return;
       }
       setState(() {
-        _profiles = profiles;
+        _profiles = page.items;
+        _nextCursor = page.cursor;
+        _hasMore = page.hasMore;
         _isLoading = false;
         _error = null;
       });
@@ -64,6 +72,44 @@ class _PostLikesSheetState extends State<PostLikesSheet> {
         _error = 'No se pudo cargar la lista.';
       });
     }
+  }
+
+  Future<void> _loadMore() async {
+    if (!_hasMore || _isLoadingMore || _nextCursor == null) {
+      return;
+    }
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _socialService.fetchPostLikeProfiles(
+        widget.postId,
+        startAfter: _nextCursor,
+      );
+      if (!mounted) {
+        return;
+      }
+      final known = _profiles.map((p) => p.id).toSet();
+      final fresh =
+          page.items.where((p) => !known.contains(p.id)).toList();
+      setState(() {
+        _profiles = [..._profiles, ...fresh];
+        _nextCursor = page.cursor;
+        _hasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+        AppSnackBar.show(context, 'No se pudieron cargar más me gusta.');
+      }
+    }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 120) {
+      unawaited(_loadMore());
+    }
+    return false;
   }
 
   Future<void> _toggleFollow(String targetUserId) async {
@@ -142,24 +188,45 @@ class _PostLikesSheetState extends State<PostLikesSheet> {
       );
     }
 
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-      itemCount: _profiles.length,
-      itemBuilder: (context, index) {
-        final profile = _profiles[index];
-        final isSelf = profile.id == currentUserId;
-        return FollowUserRow(
-          profile: profile,
-          showFollowButton: !isSelf,
-          isFollowing: social.isFollowing(profile.id),
-          onOpenProfile: () {
-            Navigator.of(context).pop();
-            context.push('/user/${profile.id}');
-          },
-          onToggleFollow: () => _toggleFollow(profile.id),
-        );
-      },
+    final footer = _hasMore || _isLoadingMore;
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: ListView.builder(
+        controller: scrollController,
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        itemCount: _profiles.length + (footer ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (footer && index == _profiles.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: _isLoadingMore
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : HapticTextButton(
+                        onPressed: _loadMore,
+                        child: const Text('Cargar más'),
+                      ),
+              ),
+            );
+          }
+          final profile = _profiles[index];
+          final isSelf = profile.id == currentUserId;
+          return FollowUserRow(
+            profile: profile,
+            showFollowButton: !isSelf,
+            isFollowing: social.isFollowing(profile.id),
+            onOpenProfile: () {
+              Navigator.of(context).pop();
+              context.push('/user/${profile.id}');
+            },
+            onToggleFollow: () => _toggleFollow(profile.id),
+          );
+        },
+      ),
     );
   }
 }
