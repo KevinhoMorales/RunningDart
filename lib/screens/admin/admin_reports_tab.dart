@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -97,6 +99,18 @@ class _AdminReportsTabState extends State<AdminReportsTab> {
     final provider = context.watch<AdminReportsProvider>();
     final items = _onlyPending ? provider.pendingReports : provider.reports;
 
+    if (_onlyPending &&
+        provider.hasMore &&
+        !provider.isLoadingMore &&
+        !provider.isLoading &&
+        items.length < 12) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(context.read<AdminReportsProvider>().loadMore());
+        }
+      });
+    }
+
     if (provider.isLoading && provider.reports.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -168,29 +182,60 @@ class _AdminReportsTabState extends State<AdminReportsTab> {
       );
     }
 
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _ReportCard(
-          item: item,
-          isUpdating: provider.isUpdating,
-          onOpenPost: item.post == null
-              ? null
-              : () => showPostViewer(context, item.post!),
-          onOpenAuthor: item.post == null
-              ? null
-              : () => context.push('/user/${item.post!.authorId}'),
-          onHide: item.post == null || item.post!.isHidden
-              ? null
-              : () => _hidePost(item),
-          onResolve: () => _setStatus(item, PostReportStatus.resolved),
-          onDismiss: () => _setStatus(item, PostReportStatus.dismissed),
-        );
-      },
+    final footer = provider.hasMore || provider.isLoadingMore;
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onReportsScroll,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+        itemCount: items.length + (footer ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (footer && index == items.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: provider.isLoadingMore
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : HapticTextButton(
+                        onPressed: () =>
+                            context.read<AdminReportsProvider>().loadMore(),
+                        child: const Text('Cargar más'),
+                      ),
+              ),
+            );
+          }
+          final item = items[index];
+          return _ReportCard(
+            item: item,
+            isUpdating: provider.isUpdating,
+            onOpenPost: item.post == null
+                ? null
+                : () => showPostViewer(context, item.post!),
+            onOpenAuthor: item.post == null
+                ? null
+                : () => context.push('/user/${item.post!.authorId}'),
+            onHide: item.post == null || item.post!.isHidden
+                ? null
+                : () => _hidePost(item),
+            onResolve: () => _setStatus(item, PostReportStatus.resolved),
+            onDismiss: () => _setStatus(item, PostReportStatus.dismissed),
+          );
+        },
+      ),
     );
+  }
+
+  bool _onReportsScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+      unawaited(context.read<AdminReportsProvider>().loadMore());
+    }
+    return false;
   }
 }
 

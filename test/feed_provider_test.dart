@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:running_dart/models/page_result.dart';
 import 'package:running_dart/models/post_model.dart';
 import 'package:running_dart/providers/feed_provider.dart';
 import 'package:running_dart/services/post_service.dart';
@@ -15,13 +16,14 @@ PostModel _post(
   String authorId, {
   int likesCount = 0,
   bool hidden = false,
+  DateTime? createdAt,
 }) {
   return PostModel(
     id: id,
     authorId: authorId,
     authorName: authorId,
     imageUrl: 'https://example.com/$id.jpg',
-    createdAt: DateTime(2026, 1, 1),
+    createdAt: createdAt ?? DateTime(2026, 1, 1),
     likesCount: likesCount,
     hiddenReason: hidden ? PostHiddenReason.offensive : null,
     hiddenAt: hidden ? DateTime(2026, 1, 2) : null,
@@ -35,16 +37,41 @@ class _FakePostService implements PostService {
   final List<PostModel> feed;
   final List<PostModel> userPosts;
   String? requestedUserId;
+  int fetchCalls = 0;
 
   /// Filtra como Firestore, donde la consulta ya excluye las ocultas, y no
   /// como una lista en memoria que las devuelve todas.
   @override
-  Stream<List<PostModel>> watchFeed({
-    int limit = 50,
+  Stream<PageResult<PostModel>> watchFeed({
+    int limit = PostService.feedPageSize,
     bool includeHidden = false,
   }) {
-    return Stream.value(
-      _visible(feed, includeHidden).take(limit).toList(growable: false),
+    return Stream.value(_page(_visible(feed, includeHidden), limit: limit));
+  }
+
+  @override
+  Future<PageResult<PostModel>> fetchFeedPage({
+    Object? startAfter,
+    int limit = PostService.feedPageSize,
+    bool includeHidden = false,
+  }) async {
+    fetchCalls++;
+    final visible = _visible(feed, includeHidden).toList(growable: false);
+    var start = 0;
+    if (startAfter is String) {
+      final index = visible.indexWhere((post) => post.id == startAfter);
+      start = index < 0 ? visible.length : index + 1;
+    }
+    return _page(visible.skip(start).toList(), limit: limit);
+  }
+
+  PageResult<PostModel> _page(Iterable<PostModel> source, {required int limit}) {
+    final list = source.toList(growable: false);
+    final items = list.take(limit).toList(growable: false);
+    return PageResult<PostModel>(
+      items: items,
+      hasMore: list.length > limit,
+      cursor: items.isEmpty ? null : items.last.id,
     );
   }
 
@@ -328,6 +355,58 @@ void main() {
 
     provider.dispose();
   });
+
+  test('loadMore appends the next page without duplicating', () async {
+    final feed = List.generate(
+      45,
+      (i) => _post(
+        'p-$i',
+        'author',
+        createdAt: DateTime(2026, 1, 1).add(Duration(minutes: 45 - i)),
+      ),
+    );
+    final postService = _FakePostService(feed: feed, userPosts: const []);
+    final provider = FeedProvider(postService, _FakeSocialService());
+
+    provider.start(_myId);
+    await _settle();
+
+    expect(provider.posts.length, PostService.feedPageSize);
+    expect(provider.hasMore, isTrue);
+
+    await provider.loadMore();
+    expect(postService.fetchCalls, 1);
+    expect(provider.posts.length, PostService.feedPageSize * 2);
+    expect(provider.posts.map((p) => p.id).toSet().length, provider.posts.length);
+
+    await provider.loadMore();
+    expect(provider.posts.length, 45);
+    expect(provider.hasMore, isFalse);
+
+    provider.dispose();
+  });
+
+  test('refresh discards an in-flight loadMore', () async {
+    final feed = List.generate(
+      40,
+      (i) => _post('p-$i', 'author'),
+    );
+    final postService = _FakePostService(feed: feed, userPosts: const []);
+    final provider = FeedProvider(postService, _FakeSocialService());
+
+    provider.start(_myId);
+    await _settle();
+
+    final load = provider.loadMore();
+    await provider.refresh();
+    await load;
+    await _settle();
+
+    expect(provider.posts.length, PostService.feedPageSize);
+    expect(provider.isLoadingMore, isFalse);
+
+    provider.dispose();
+  });
 }
 
 class _RecordingPostService implements PostService {
@@ -362,11 +441,19 @@ class _RecordingPostService implements PostService {
   }
 
   @override
-  Stream<List<PostModel>> watchFeed({
-    int limit = 50,
+  Stream<PageResult<PostModel>> watchFeed({
+    int limit = PostService.feedPageSize,
     bool includeHidden = false,
   }) =>
-      Stream.value(const []);
+      Stream.value(const PageResult(items: [], hasMore: false));
+
+  @override
+  Future<PageResult<PostModel>> fetchFeedPage({
+    Object? startAfter,
+    int limit = PostService.feedPageSize,
+    bool includeHidden = false,
+  }) async =>
+      const PageResult(items: [], hasMore: false);
 
   @override
   Stream<List<PostModel>> watchUserPosts(

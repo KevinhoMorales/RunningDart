@@ -276,6 +276,9 @@ class _FeedScreenState extends State<FeedScreen>
               _PostList(
                 posts: explorePosts,
                 isLoading: feed.isLoading,
+                isLoadingMore: feed.isLoadingMore,
+                hasMore: feed.hasMore,
+                onLoadMore: () => context.read<FeedProvider>().loadMore(),
                 error: feed.error,
                 currentUserId: currentUserId,
                 isAdmin: isAdmin,
@@ -294,6 +297,9 @@ class _FeedScreenState extends State<FeedScreen>
               _PostList(
                 posts: followingPosts,
                 isLoading: feed.isLoading,
+                isLoadingMore: feed.isLoadingMore,
+                hasMore: feed.hasMore,
+                onLoadMore: () => context.read<FeedProvider>().loadMore(),
                 error: feed.error,
                 currentUserId: currentUserId,
                 isAdmin: isAdmin,
@@ -367,6 +373,9 @@ class _PostList extends StatelessWidget {
   const _PostList({
     required this.posts,
     required this.isLoading,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.onLoadMore,
     required this.error,
     required this.currentUserId,
     required this.isAdmin,
@@ -384,6 +393,9 @@ class _PostList extends StatelessWidget {
 
   final List<PostModel> posts;
   final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback onLoadMore;
   final String? error;
   final String currentUserId;
   final bool isAdmin;
@@ -397,6 +409,14 @@ class _PostList extends StatelessWidget {
   final String emptySubtitle;
   final String? emptyActionLabel;
   final VoidCallback? onEmptyAction;
+
+  bool _onScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 240) {
+      onLoadMore();
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -452,34 +472,55 @@ class _PostList extends StatelessWidget {
     }
 
     final feed = context.watch<FeedProvider>();
+    final footer = hasMore || isLoadingMore;
 
     return HapticRefreshIndicator(
       onRefresh: onRefresh,
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        itemCount: posts.length,
-        itemBuilder: (context, index) {
-          final post = posts[index];
-          final canDelete = post.authorId == currentUserId;
-          return PostCard(
-            post: post,
-            currentUserId: currentUserId,
-            isAdmin: isAdmin,
-            onOpenAuthor: () => onOpenAuthor(post),
-            onAction: (action) => onAction(post, action),
-            isLiked: feed.isLiked(post.id),
-            likesCount: feed.likesFor(post),
-            onToggleLike: () => onToggleLike(post),
-            onOpenLikes: () => showPostLikesSheet(context, post.id),
-            onOpenComments: () => showPostCommentsSheet(context, post),
-            onOpenPost: () => showPostViewer(
-              context,
-              post,
-              onDelete: canDelete ? () => onDeletePost(post) : null,
-            ),
-          );
-        },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+          itemCount: posts.length + (footer ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (footer && index == posts.length) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Center(
+                  child: isLoadingMore
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : HapticTextButton(
+                          onPressed: onLoadMore,
+                          child: const Text('Cargar más'),
+                        ),
+                ),
+              );
+            }
+            final post = posts[index];
+            final canDelete = post.authorId == currentUserId;
+            return PostCard(
+              post: post,
+              currentUserId: currentUserId,
+              isAdmin: isAdmin,
+              onOpenAuthor: () => onOpenAuthor(post),
+              onAction: (action) => onAction(post, action),
+              isLiked: feed.isLiked(post.id),
+              likesCount: feed.likesFor(post),
+              onToggleLike: () => onToggleLike(post),
+              onOpenLikes: () => showPostLikesSheet(context, post.id),
+              onOpenComments: () => showPostCommentsSheet(context, post),
+              onOpenPost: () => showPostViewer(
+                context,
+                post,
+                onDelete: canDelete ? () => onDeletePost(post) : null,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

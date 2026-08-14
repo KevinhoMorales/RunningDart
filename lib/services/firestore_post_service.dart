@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../config/firebase_paths.dart';
+import '../models/page_result.dart';
 import '../models/post_model.dart';
 import '../utils/user_messages.dart';
 import 'post_service.dart';
@@ -32,15 +33,55 @@ class FirestorePostService implements PostService {
       FirebasePaths.collection(_firestore, 'posts');
 
   @override
-  Stream<List<PostModel>> watchFeed({
-    int limit = 50,
+  Stream<PageResult<PostModel>> watchFeed({
+    int limit = PostService.feedPageSize,
     bool includeHidden = false,
+  }) {
+    return _feedQuery(includeHidden: includeHidden, limit: limit)
+        .snapshots()
+        .map((snapshot) => _pageFromSnapshot(snapshot, limit));
+  }
+
+  @override
+  Future<PageResult<PostModel>> fetchFeedPage({
+    Object? startAfter,
+    int limit = PostService.feedPageSize,
+    bool includeHidden = false,
+  }) async {
+    var query = _feedQuery(includeHidden: includeHidden, limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de feed inválido.');
+    }
+    try {
+      final snapshot = await query.get();
+      return _pageFromSnapshot(snapshot, limit);
+    } on FirebaseException catch (e) {
+      throw PostServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  Query<Map<String, dynamic>> _feedQuery({
+    required bool includeHidden,
+    required int limit,
   }) {
     return _visible(_posts, includeHidden)
         .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map(_parseSnapshot);
+        .limit(limit);
+  }
+
+  PageResult<PostModel> _pageFromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
+  ) {
+    final items = _parseSnapshot(snapshot);
+    final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+    return PageResult<PostModel>(
+      items: items,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: lastDoc,
+    );
   }
 
   @override

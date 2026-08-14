@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../config/firebase_paths.dart';
+import '../models/page_result.dart';
 import '../models/post_comment_model.dart';
 import '../models/post_report_model.dart';
 import '../models/public_profile.dart';
@@ -196,6 +197,12 @@ class SocialService {
   /// fuera likes viejos que ya no están a la vista.
   static const likedPostsWindow = 500;
 
+  /// Página de la hoja "Me gusta" de una publicación.
+  static const likesPageSize = 40;
+
+  /// Página de la cola de reportes en admin.
+  static const reportsPageSize = 40;
+
   Future<void> likePost({
     required String postId,
     required String userId,
@@ -236,48 +243,111 @@ class SocialService {
             .toSet());
   }
 
-  Future<List<PublicProfile>> getPostLikeProfiles(
+  Future<PageResult<PublicProfile>> fetchPostLikeProfiles(
     String postId, {
-    int limit = 100,
+    Object? startAfter,
+    int limit = likesPageSize,
   }) async {
     try {
-      final snapshot = await _postLikes
+      var query = _postLikes
           .where('postId', isEqualTo: postId)
           .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
+          .limit(limit);
+      if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+        query = query.startAfterDocument(startAfter);
+      } else if (startAfter != null) {
+        throw ArgumentError('Cursor de likes inválido.');
+      }
+
+      final snapshot = await query.get();
       final ids = snapshot.docs
           .map((doc) => doc.data()['userId'] as String? ?? '')
           .where((id) => id.isNotEmpty)
           .toList(growable: false);
-      return await getPublicProfilesByIds(ids);
+      final profiles = await getPublicProfilesByIds(ids);
+      final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+      return PageResult<PublicProfile>(
+        items: profiles,
+        hasMore: snapshot.docs.length >= limit,
+        cursor: lastDoc,
+      );
     } on FirebaseException catch (e) {
       throw SocialServiceException(UserMessages.firestore(e));
     }
   }
 
+  /// Primera página de likes (compat). Preferir [fetchPostLikeProfiles].
+  Future<List<PublicProfile>> getPostLikeProfiles(
+    String postId, {
+    int limit = likesPageSize,
+  }) async {
+    final page = await fetchPostLikeProfiles(postId, limit: limit);
+    return page.items;
+  }
+
   // --- Comments ---
 
-  Stream<List<PostCommentModel>> watchPostComments(
+  /// Página de comentarios: los más recientes, en orden ASC para el hilo.
+  ///
+  /// Usa `limitToLast` sobre `createdAt ASC` (índice existente). Un `.limit`
+  /// plano devolvía los *más viejos* y escondía los nuevos cuando había más
+  /// de N comentarios.
+  static const commentsPageSize = 30;
+
+  Stream<PageResult<PostCommentModel>> watchPostComments(
     String postId, {
-    int limit = 100,
+    int limit = commentsPageSize,
   }) {
     return _postComments
         .where('postId', isEqualTo: postId)
         .orderBy('createdAt', descending: false)
-        .limit(limit)
+        .limitToLast(limit)
         .snapshots()
-        .map((snapshot) {
-      final items = <PostCommentModel>[];
-      for (final doc in snapshot.docs) {
-        try {
-          items.add(PostCommentModel.fromFirestore(doc));
-        } catch (_) {
-          // Skip malformed documents.
-        }
+        .map((snapshot) => _commentsPageFromSnapshot(snapshot, limit));
+  }
+
+  /// Comentarios más viejos que [endBefore] (cursor = doc más antiguo ya
+  /// visible). También en ASC vía `limitToLast`.
+  Future<PageResult<PostCommentModel>> fetchOlderPostComments(
+    String postId, {
+    required Object endBefore,
+    int limit = commentsPageSize,
+  }) async {
+    if (endBefore is! DocumentSnapshot<Map<String, dynamic>>) {
+      throw ArgumentError('Cursor de comentarios inválido.');
+    }
+    try {
+      final snapshot = await _postComments
+          .where('postId', isEqualTo: postId)
+          .orderBy('createdAt', descending: false)
+          .endBeforeDocument(endBefore)
+          .limitToLast(limit)
+          .get();
+      return _commentsPageFromSnapshot(snapshot, limit);
+    } on FirebaseException catch (e) {
+      throw SocialServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  PageResult<PostCommentModel> _commentsPageFromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
+  ) {
+    final items = <PostCommentModel>[];
+    for (final doc in snapshot.docs) {
+      try {
+        items.add(PostCommentModel.fromFirestore(doc));
+      } catch (_) {
+        // Skip malformed documents.
       }
-      return items;
-    });
+    }
+    // Cursor = doc más antiguo de la página → endBefore para cargar más viejos.
+    final oldestDoc = snapshot.docs.isEmpty ? null : snapshot.docs.first;
+    return PageResult<PostCommentModel>(
+      items: items,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: oldestDoc,
+    );
   }
 
   Future<PostCommentModel> addComment({
@@ -348,17 +418,52 @@ class SocialService {
   /// Cola de moderación, de la más reciente a la más antigua. El filtro por
   /// estado se hace en memoria: así basta el índice de un solo campo y los
   /// reportes viejos, que no traen `status`, siguen apareciendo.
-  Stream<List<PostReportModel>> watchReports({int limit = 200}) {
-    return _reports
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(PostReportModel.fromFirestore)
-              .where((report) => report.postId.isNotEmpty)
-              .toList(growable: false),
+  ///
+  /// Primera página en vivo; [fetchReportsPage] trae las siguientes.
+  Stream<PageResult<PostReportModel>> watchReports({
+    int limit = reportsPageSize,
+  }) {
+    return _reportsQuery(limit: limit).snapshots().map(
+          (snapshot) => _reportsPageFromSnapshot(snapshot, limit),
         );
+  }
+
+  Future<PageResult<PostReportModel>> fetchReportsPage({
+    Object? startAfter,
+    int limit = reportsPageSize,
+  }) async {
+    var query = _reportsQuery(limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de reportes inválido.');
+    }
+    try {
+      final snapshot = await query.get();
+      return _reportsPageFromSnapshot(snapshot, limit);
+    } on FirebaseException catch (e) {
+      throw SocialServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  Query<Map<String, dynamic>> _reportsQuery({required int limit}) {
+    return _reports.orderBy('createdAt', descending: true).limit(limit);
+  }
+
+  PageResult<PostReportModel> _reportsPageFromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
+  ) {
+    final items = snapshot.docs
+        .map(PostReportModel.fromFirestore)
+        .where((report) => report.postId.isNotEmpty)
+        .toList(growable: false);
+    final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+    return PageResult<PostReportModel>(
+      items: items,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: lastDoc,
+    );
   }
 
   Future<void> setReportStatus({

@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 
+import '../models/page_result.dart';
 import '../models/post_model.dart';
 import 'post_service.dart';
 
@@ -16,11 +17,35 @@ class MockPostService implements PostService {
   ];
 
   @override
-  Stream<List<PostModel>> watchFeed({
-    int limit = 50,
+  Stream<PageResult<PostModel>> watchFeed({
+    int limit = PostService.feedPageSize,
     bool includeHidden = false,
   }) async* {
-    yield _visible(_posts, includeHidden).take(limit).toList(growable: false);
+    yield _page(_visible(_posts, includeHidden).toList(), limit: limit);
+  }
+
+  @override
+  Future<PageResult<PostModel>> fetchFeedPage({
+    Object? startAfter,
+    int limit = PostService.feedPageSize,
+    bool includeHidden = false,
+  }) async {
+    final visible = _visible(_posts, includeHidden).toList(growable: false);
+    var start = 0;
+    if (startAfter is String) {
+      final index = visible.indexWhere((post) => post.id == startAfter);
+      start = index < 0 ? visible.length : index + 1;
+    }
+    return _page(visible.skip(start).toList(), limit: limit);
+  }
+
+  PageResult<PostModel> _page(List<PostModel> source, {required int limit}) {
+    final items = source.take(limit).toList(growable: false);
+    return PageResult<PostModel>(
+      items: items,
+      hasMore: source.length > limit,
+      cursor: items.isEmpty ? null : items.last.id,
+    );
   }
 
   @override
