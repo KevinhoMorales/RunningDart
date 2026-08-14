@@ -14,6 +14,10 @@ const logger = require("firebase-functions/logger");
 
 const { deleteEnvironmentAccountData } = require("./account_deletion");
 const { deletePostLikes, syncPostLikeSummary } = require("./post_likes");
+const {
+  deletePostComments,
+  syncPostCommentCount,
+} = require("./post_comments");
 
 initializeApp();
 
@@ -155,6 +159,26 @@ exports.onPostLikeWritten = onDocumentWritten(
   },
 );
 
+exports.onPostCommentWritten = onDocumentWritten(
+  "environments/{environment}/post_comments/{commentId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
+
+    const after = event.data?.after?.data();
+    const before = event.data?.before?.data();
+    const postId = after?.postId ?? before?.postId;
+
+    if (typeof postId !== "string" || postId.length === 0) {
+      return;
+    }
+
+    await syncPostCommentCount(getFirestore(), environment, postId);
+  },
+);
+
 exports.onPostDeleted = onDocumentDeleted(
   "environments/{environment}/posts/{postId}",
   async (event) => {
@@ -163,7 +187,12 @@ exports.onPostDeleted = onDocumentDeleted(
       return;
     }
 
-    await deletePostLikes(getFirestore(), environment, event.params.postId);
+    const db = getFirestore();
+    const postId = event.params.postId;
+    await Promise.all([
+      deletePostLikes(db, environment, postId),
+      deletePostComments(db, environment, postId),
+    ]);
   },
 );
 

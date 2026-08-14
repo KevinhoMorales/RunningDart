@@ -18,6 +18,7 @@ import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/modern_text_field.dart';
+import '../../widgets/photo_lightbox.dart';
 import '../../widgets/post_grid.dart';
 import '../../widgets/post_viewer.dart';
 import '../../widgets/user_avatar.dart';
@@ -485,6 +486,13 @@ class _ProfileHeader extends StatelessWidget {
                 displayName: displayName,
                 photoUrl: photoUrl,
                 radius: 40,
+                onTap: photoUrl == null || photoUrl!.trim().isEmpty
+                    ? null
+                    : () => showPhotoLightbox(
+                          context,
+                          photoUrl: photoUrl,
+                          displayName: displayName,
+                        ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(

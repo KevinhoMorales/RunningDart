@@ -25,6 +25,7 @@ class PostCard extends StatelessWidget {
     required this.onToggleLike,
     required this.onOpenLikes,
     required this.onOpenPost,
+    required this.onOpenComments,
   });
 
   final PostModel post;
@@ -37,6 +38,7 @@ class PostCard extends StatelessWidget {
   final VoidCallback onToggleLike;
   final VoidCallback onOpenLikes;
   final VoidCallback onOpenPost;
+  final VoidCallback onOpenComments;
 
   bool get _isAuthor => post.authorId == currentUserId;
 
@@ -48,6 +50,7 @@ class PostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final hasImage = post.imageUrl != null && post.imageUrl!.isNotEmpty;
+    final commentsCount = post.commentsCount;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -82,7 +85,11 @@ class PostCard extends StatelessWidget {
                 onLike: onToggleLike,
                 onOpen: onOpenPost,
               ),
-            _LikeBar(isLiked: isLiked, onToggleLike: onToggleLike),
+            _ActionBar(
+              isLiked: isLiked,
+              onToggleLike: onToggleLike,
+              onOpenComments: onOpenComments,
+            ),
             if (likesCount > 0)
               LikesSummary(
                 likesCount: likesCount,
@@ -95,15 +102,30 @@ class PostCard extends StatelessWidget {
                   AppSpacing.md,
                   AppSpacing.xs,
                   AppSpacing.md,
-                  AppSpacing.md,
+                  AppSpacing.xs,
                 ),
-                child: Text(
-                  post.caption!.trim(),
-                  style: AppTypography.body(context).copyWith(height: 1.4),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: post.authorName,
+                        style: AppTypography.body(
+                          context,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' ${post.caption!.trim()}',
+                        style: AppTypography.body(context).copyWith(height: 1.4),
+                      ),
+                    ],
+                  ),
                 ),
-              )
-            else
-              const SizedBox(height: AppSpacing.sm),
+              ),
+            _CommentsTeaser(
+              commentsCount: commentsCount,
+              onOpenComments: onOpenComments,
+            ),
           ],
         ),
       ),
@@ -357,11 +379,16 @@ class _HeartBurst extends StatelessWidget {
   }
 }
 
-class _LikeBar extends StatelessWidget {
-  const _LikeBar({required this.isLiked, required this.onToggleLike});
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({
+    required this.isLiked,
+    required this.onToggleLike,
+    required this.onOpenComments,
+  });
 
   final bool isLiked;
   final VoidCallback onToggleLike;
+  final VoidCallback onOpenComments;
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +408,58 @@ class _LikeBar extends StatelessWidget {
               color: isLiked ? _likeColor : palette.textPrimary,
             ),
           ),
+          IconButton(
+            onPressed: AppHaptics.wrap(onOpenComments),
+            enableFeedback: false,
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Comentar',
+            icon: Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: palette.textPrimary,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Enlace bajo la publicación: invita a comentar o a ver el hilo completo.
+class _CommentsTeaser extends StatelessWidget {
+  const _CommentsTeaser({
+    required this.commentsCount,
+    required this.onOpenComments,
+  });
+
+  final int commentsCount;
+  final VoidCallback onOpenComments;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final label = commentsCount <= 0
+        ? 'Agregar un comentario…'
+        : commentsCount == 1
+            ? 'Ver 1 comentario'
+            : 'Ver los $commentsCount comentarios';
+
+    return InkWell(
+      onTap: AppHaptics.wrap(onOpenComments),
+      enableFeedback: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.xs,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: AppTypography.caption(context, color: palette.textMuted),
+          ),
+        ),
       ),
     );
   }
@@ -568,6 +646,7 @@ class _Header extends StatelessWidget {
                     displayName: post.authorName,
                     photoUrl: post.authorPhotoUrl,
                     radius: 20,
+                    onTap: onOpenAuthor,
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(

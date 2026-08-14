@@ -30,6 +30,7 @@ Future<void> _pumpCard(
   VoidCallback? onToggleLike,
   VoidCallback? onOpenLikes,
   VoidCallback? onOpenPost,
+  VoidCallback? onOpenComments,
 }) {
   // La tarjeta lleva una foto cuadrada, así que necesita más alto que la
   // ventana de prueba por defecto para caber completa.
@@ -52,6 +53,7 @@ Future<void> _pumpCard(
           onToggleLike: onToggleLike ?? () {},
           onOpenLikes: onOpenLikes ?? () {},
           onOpenPost: onOpenPost ?? () {},
+          onOpenComments: onOpenComments ?? () {},
         ),
       ),
     ),
@@ -145,6 +147,32 @@ void main() {
     await _pumpCard(tester, post: _post());
 
     expect(find.byType(LikesSummary), findsNothing);
+  });
+
+  testWidgets('shows a comment affordance that opens the thread', (tester) async {
+    var opened = 0;
+    await _pumpCard(
+      tester,
+      post: _post(),
+      onOpenComments: () => opened++,
+    );
+
+    expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+    expect(find.text('Agregar un comentario…'), findsOneWidget);
+
+    await tester.tap(find.text('Agregar un comentario…'));
+    await tester.pump();
+
+    expect(opened, 1);
+  });
+
+  testWidgets('names how many comments there are', (tester) async {
+    await _pumpCard(
+      tester,
+      post: _post().copyWith(commentsCount: 3),
+    );
+
+    expect(find.text('Ver los 3 comentarios'), findsOneWidget);
   });
 
   testWidgets('opens the list when the summary is tapped', (tester) async {

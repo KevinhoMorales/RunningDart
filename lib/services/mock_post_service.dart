@@ -92,6 +92,7 @@ class MockPostService implements PostService {
         caption: post.caption,
         likesCount: post.likesCount,
         recentLikes: post.recentLikes,
+        commentsCount: post.commentsCount,
       ),
     );
   }

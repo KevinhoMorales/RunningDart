@@ -17,6 +17,7 @@ import '../../widgets/haptic_controls.dart';
 import '../../widgets/hide_post_dialog.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
 import '../../widgets/post_card.dart';
+import '../../widgets/post_comments_sheet.dart';
 import '../../widgets/post_grid.dart';
 import '../../widgets/post_likes_sheet.dart';
 import '../../widgets/post_viewer.dart';
@@ -527,6 +528,7 @@ class _PostList extends StatelessWidget {
             likesCount: feed.likesFor(post),
             onToggleLike: () => onToggleLike(post),
             onOpenLikes: () => showPostLikesSheet(context, post.id),
+            onOpenComments: () => showPostCommentsSheet(context, post),
             onOpenPost: () => showPostViewer(
               context,
               post,

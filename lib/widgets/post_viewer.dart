@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/post_model.dart';
 import '../theme/app_spacing.dart';
@@ -7,7 +8,9 @@ import '../utils/app_haptics.dart';
 import '../utils/helpers.dart';
 import 'delete_post_dialog.dart';
 import 'haptic_controls.dart';
+import 'post_comments_sheet.dart';
 import 'post_likes_sheet.dart';
+import 'user_avatar.dart';
 
 /// Abre una publicación a pantalla completa, con zoom y cierre por arrastre.
 ///
@@ -292,6 +295,11 @@ class _Details extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final caption = post.caption?.trim();
+    final commentsLabel = post.commentsCount <= 0
+        ? 'Comentar'
+        : post.commentsCount == 1
+            ? '1 comentario'
+            : '${post.commentsCount} comentarios';
 
     return Container(
       decoration: const BoxDecoration(
@@ -314,6 +322,36 @@ class _Details extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              InkWell(
+                onTap: AppHaptics.wrap(
+                  () => context.push('/user/${post.authorId}'),
+                ),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                child: Row(
+                  children: [
+                    UserAvatar(
+                      displayName: post.authorName,
+                      photoUrl: post.authorPhotoUrl,
+                      radius: 16,
+                      onTap: () => context.push('/user/${post.authorId}'),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        post.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.body(
+                          context,
+                          color: Colors.white,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 Helpers.formatDate(post.createdAt),
                 style: AppTypography.caption(context, color: Colors.white70),
@@ -348,6 +386,34 @@ class _Details extends StatelessWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: AppSpacing.xs),
+              HapticTextButton(
+                onPressed: () => showPostCommentsSheet(context, post),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      commentsLabel,
+                      style: AppTypography.body(
+                        context,
+                        color: Colors.white,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (caption != null && caption.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(

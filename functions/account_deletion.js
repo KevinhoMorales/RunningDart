@@ -108,6 +108,18 @@ async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
     postLikes.where("postAuthorId", "==", uid),
   );
 
+  // Igual que likes: los comentarios de sus posts caen con el post; los que
+  // escribió en posts ajenos hay que limpiarlos aparte.
+  const postComments = collectionFor(db, environment, "post_comments");
+  const commentsGiven = await deleteByQuery(
+    db,
+    postComments.where("authorId", "==", uid),
+  );
+  const commentsReceived = await deleteByQuery(
+    db,
+    postComments.where("postAuthorId", "==", uid),
+  );
+
   const reports = await deleteByQuery(
     db,
     collectionFor(db, environment, "post_reports")
@@ -159,6 +171,8 @@ async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
     blocksReceived,
     likesGiven,
     likesReceived,
+    commentsGiven,
+    commentsReceived,
     reports,
     payments,
     usernamesReleased,

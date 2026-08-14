@@ -86,6 +86,7 @@ class PostModel {
     this.imageUrl,
     this.caption,
     this.likesCount = 0,
+    this.commentsCount = 0,
     this.recentLikes = const [],
     this.hiddenReason,
     this.hiddenNote,
@@ -103,6 +104,9 @@ class PostModel {
 
   /// Lo mantiene la Cloud Function `onPostLikeWritten`, no la app.
   final int likesCount;
+
+  /// Lo mantiene la Cloud Function `onPostCommentWritten`, no la app.
+  final int commentsCount;
   final List<PostLikePreview> recentLikes;
 
   /// Moderación: solo la escribe un administrador al ocultar la publicación,
@@ -124,6 +128,7 @@ class PostModel {
       'caption': caption,
       'createdAt': createdAt.toIso8601String(),
       'likesCount': likesCount,
+      'commentsCount': commentsCount,
       'recentLikes': recentLikes.map((like) => like.toJson()).toList(),
       'hiddenReason': hiddenReason?.key,
       'hiddenNote': hiddenNote,
@@ -132,9 +137,9 @@ class PostModel {
     };
   }
 
-  /// `likesCount`, `recentLikes` y el detalle de moderación quedan fuera a
-  /// propósito: los escriben la Cloud Function y el administrador, así que
-  /// publicar o editar no debe pisarlos.
+  /// `likesCount`, `commentsCount`, `recentLikes` y el detalle de moderación
+  /// quedan fuera a propósito: los escriben la Cloud Function y el
+  /// administrador, así que publicar o editar no debe pisarlos.
   ///
   /// `isHidden` sí va: duplica lo que ya dice [hiddenAt], pero las reglas no
   /// dejan listar publicaciones ocultas y `hiddenAt` se borra al restaurarlas,
@@ -163,6 +168,7 @@ class PostModel {
       caption: json['caption'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       likesCount: (json['likesCount'] as num?)?.toInt() ?? 0,
+      commentsCount: (json['commentsCount'] as num?)?.toInt() ?? 0,
       recentLikes: PostLikePreview.listFrom(json['recentLikes']),
       hiddenReason: PostHiddenReason.fromKey(json['hiddenReason'] as String?),
       hiddenNote: json['hiddenNote'] as String?,
@@ -195,6 +201,7 @@ class PostModel {
       caption: data['caption'] as String?,
       createdAt: readDate(data['createdAt']),
       likesCount: (data['likesCount'] as num?)?.toInt() ?? 0,
+      commentsCount: (data['commentsCount'] as num?)?.toInt() ?? 0,
       recentLikes: PostLikePreview.listFrom(data['recentLikes']),
       hiddenReason: PostHiddenReason.fromKey(data['hiddenReason'] as String?),
       hiddenNote: data['hiddenNote'] as String?,
@@ -212,6 +219,7 @@ class PostModel {
     String? imageUrl,
     String? caption,
     int? likesCount,
+    int? commentsCount,
     List<PostLikePreview>? recentLikes,
     PostHiddenReason? hiddenReason,
     String? hiddenNote,
@@ -227,6 +235,7 @@ class PostModel {
       imageUrl: imageUrl ?? this.imageUrl,
       caption: caption ?? this.caption,
       likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
       recentLikes: recentLikes ?? this.recentLikes,
       hiddenReason: hiddenReason ?? this.hiddenReason,
       hiddenNote: hiddenNote ?? this.hiddenNote,
