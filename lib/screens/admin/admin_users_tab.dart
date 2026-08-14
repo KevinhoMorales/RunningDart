@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -153,6 +155,18 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
     }
 
     final users = admin.filteredUsers;
+
+    if (admin.userFilter != AdminUserFilter.all &&
+        admin.hasMore &&
+        !admin.isLoadingMore &&
+        !admin.isLoading &&
+        users.length < 12) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(context.read<AdminProvider>().loadMore());
+        }
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,16 +330,49 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
           Expanded(
             child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: users.length,
-                itemBuilder: (context, index) {
-                  final user = users[index];
-                  return UserListTile(
-                    user: user,
-                    onTap: () => context.push('/admin/users/${user.id}'),
-                  );
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  final metrics = notification.metrics;
+                  if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+                    unawaited(context.read<AdminProvider>().loadMore());
+                  }
+                  return false;
                 },
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: users.length +
+                      (admin.hasMore || admin.isLoadingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == users.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
+                        child: Center(
+                          child: admin.isLoadingMore
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : HapticTextButton(
+                                  onPressed: () => context
+                                      .read<AdminProvider>()
+                                      .loadMore(),
+                                  child: const Text('Cargar más'),
+                                ),
+                        ),
+                      );
+                    }
+                    final user = users[index];
+                    return UserListTile(
+                      user: user,
+                      onTap: () => context.push('/admin/users/${user.id}'),
+                    );
+                  },
+                ),
               ),
             ),
           ),

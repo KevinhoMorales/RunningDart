@@ -3,12 +3,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/firebase_paths.dart';
 import '../models/membership_modality.dart';
 import '../models/membership_status.dart';
+import '../models/page_result.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import '../utils/membership_helpers.dart';
 
 abstract class UserServiceBase {
-  Stream<List<UserModel>> watchAllUsers();
+  static const usersPageSize = 40;
+
+  /// Primera página en vivo (más recientes). El panel Admin pagina con
+  /// [fetchUsersPage]; el sort "pendientes primero" se aplica sobre lo cargado.
+  Stream<PageResult<UserModel>> watchUsers({
+    int limit = usersPageSize,
+  });
+
+  Future<PageResult<UserModel>> fetchUsersPage({
+    Object? startAfter,
+    int limit = usersPageSize,
+  });
+
   Future<UserModel?> getUserById(String id);
   Future<void> setUserActive(String id, bool isActive);
   Future<void> setUserRole(String id, UserRole role);
@@ -38,13 +51,78 @@ class UserService implements UserServiceBase {
       FirebasePaths.collection(_firestore, 'users');
 
   @override
-  Stream<List<UserModel>> watchAllUsers() {
-    return _users.snapshots().map((snapshot) {
-      final users = snapshot.docs
-          .map(UserModel.fromFirestore)
-          .toList(growable: false);
-      return sortUsersForAdmin(users);
-    });
+  Stream<PageResult<UserModel>> watchUsers({
+    int limit = UserServiceBase.usersPageSize,
+  }) {
+    return _usersQuery(limit: limit).snapshots().map(
+          (snapshot) => _pageFromSnapshot(snapshot, limit),
+        );
+  }
+
+  @override
+  Future<PageResult<UserModel>> fetchUsersPage({
+    Object? startAfter,
+    int limit = UserServiceBase.usersPageSize,
+  }) async {
+    var query = _usersQuery(limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de usuarios inválido.');
+    }
+    final snapshot = await query.get();
+    return _pageFromSnapshot(snapshot, limit);
+  }
+
+  Query<Map<String, dynamic>> _usersQuery({required int limit}) {
+    return _users.orderBy('createdAt', descending: true).limit(limit);
+  }
+
+  PageResult<UserModel> _pageFromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
+  ) {
+    final users = snapshot.docs
+        .map(UserModel.fromFirestore)
+        .toList(growable: false);
+    final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+    // No reordenar aquí: el AdminProvider ordena el conjunto cargado entero
+    // (pendientes primero) al fusionar páginas.
+    return PageResult<UserModel>(
+      items: users,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: lastDoc,
+    );
+  }
+
+  /// Conteos del resumen Admin (sin bajar la lista completa).
+  Future<({int total, int pending, int activeMembers, int operators})>
+      countAdminUserStats() async {
+    final totalSnap = await _users.count().get();
+    final pendingSnap = await _users
+        .where(
+          'membershipStatus',
+          isEqualTo: MembershipStatus.pending.firestoreValue,
+        )
+        .count()
+        .get();
+    final activeSnap = await _users
+        .where('isActive', isEqualTo: true)
+        .where(
+          'membershipStatus',
+          isEqualTo: MembershipStatus.active.firestoreValue,
+        )
+        .where('role', isEqualTo: UserRole.member.firestoreValue)
+        .count()
+        .get();
+    final operatorsSnap =
+        await _users.where('businessId', isNotEqualTo: '').count().get();
+    return (
+      total: totalSnap.count ?? 0,
+      pending: pendingSnap.count ?? 0,
+      activeMembers: activeSnap.count ?? 0,
+      operators: operatorsSnap.count ?? 0,
+    );
   }
 
   @override

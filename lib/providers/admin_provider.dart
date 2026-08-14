@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/membership_modality.dart';
 import '../models/membership_status.dart';
+import '../models/page_result.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import '../services/user_service.dart';
@@ -50,9 +51,15 @@ class AdminProvider extends ChangeNotifier {
 
   final UserServiceBase _userService;
 
-  StreamSubscription<List<UserModel>>? _usersSubscription;
+  StreamSubscription<PageResult<UserModel>>? _usersSubscription;
 
-  List<UserModel> _users = [];
+  List<UserModel> _liveUsers = [];
+  List<UserModel> _olderUsers = [];
+  Object? _nextCursor;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  int _generation = 0;
+
   String _searchQuery = '';
   AdminUserFilter _userFilter = AdminUserFilter.all;
   bool _isLoading = false;
@@ -60,22 +67,35 @@ class AdminProvider extends ChangeNotifier {
   String? _error;
   String? _errorDetail;
 
-  List<UserModel> get users => _users;
+  List<UserModel> get users {
+    final byId = <String, UserModel>{};
+    for (final user in _olderUsers) {
+      byId[user.id] = user;
+    }
+    for (final user in _liveUsers) {
+      byId[user.id] = user;
+    }
+    return UserService.sortUsersForAdmin(byId.values.toList());
+  }
+
   String get searchQuery => _searchQuery;
   AdminUserFilter get userFilter => _userFilter;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _hasMore;
   bool get isUpdating => _isUpdating;
   String? get error => _error;
   String? get errorDetail => _errorDetail;
   bool get isListening => _usersSubscription != null;
 
   List<UserModel> get filteredUsers {
+    final all = users;
     final filtered = switch (_userFilter) {
-      AdminUserFilter.all => _users,
-      AdminUserFilter.pending => _users
+      AdminUserFilter.all => all,
+      AdminUserFilter.pending => all
           .where((u) => u.membershipStatus == MembershipStatus.pending)
           .toList(),
-      AdminUserFilter.activeMembers => _users
+      AdminUserFilter.activeMembers => all
           .where(
             (u) =>
                 u.isActive &&
@@ -84,17 +104,17 @@ class AdminProvider extends ChangeNotifier {
           )
           .toList(),
       AdminUserFilter.operators =>
-        _users.where((u) => u.isBusinessOperator).toList(),
+        all.where((u) => u.isBusinessOperator).toList(),
       AdminUserFilter.users =>
-        _users.where((u) => u.role.isUser).toList(),
+        all.where((u) => u.role.isUser).toList(),
       AdminUserFilter.members =>
-        _users.where((u) => u.role.isMember).toList(),
+        all.where((u) => u.role.isMember).toList(),
       AdminUserFilter.admins =>
-        _users.where((u) => u.role.isAdmin).toList(),
+        all.where((u) => u.role.isAdmin).toList(),
       AdminUserFilter.coaches =>
-        _users.where((u) => u.role.isCoach).toList(),
+        all.where((u) => u.role.isCoach).toList(),
       AdminUserFilter.inactive =>
-        _users.where((u) => !u.isActive).toList(),
+        all.where((u) => !u.isActive).toList(),
     };
     return UserService.filterUsers(filtered, _searchQuery);
   }
@@ -119,12 +139,18 @@ class AdminProvider extends ChangeNotifier {
       return;
     }
 
-    unawaited(_listenForUsers(showInitialLoading: _users.isEmpty));
+    unawaited(_listenForUsers(showInitialLoading: users.isEmpty));
   }
 
   Future<void> refresh() async {
     stopListening();
-    return _listenForUsers(showInitialLoading: _users.isEmpty);
+    _generation++;
+    _liveUsers = [];
+    _olderUsers = [];
+    _nextCursor = null;
+    _hasMore = true;
+    _isLoadingMore = false;
+    return _listenForUsers(showInitialLoading: users.isEmpty);
   }
 
   void retry() {
@@ -141,9 +167,17 @@ class AdminProvider extends ChangeNotifier {
 
     final completer = Completer<void>();
 
-    _usersSubscription = _userService.watchAllUsers().listen(
-      (users) {
-        _users = users;
+    _usersSubscription = _userService.watchUsers().listen(
+      (page) {
+        _liveUsers = page.items;
+        if (_olderUsers.isEmpty) {
+          _nextCursor = page.cursor;
+          _hasMore = page.hasMore;
+        } else {
+          final liveIds = page.items.map((u) => u.id).toSet();
+          _olderUsers =
+              _olderUsers.where((u) => !liveIds.contains(u.id)).toList();
+        }
         _isLoading = false;
         _error = null;
         _errorDetail = null;
@@ -164,6 +198,41 @@ class AdminProvider extends ChangeNotifier {
     );
 
     return completer.future;
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _isLoadingMore || _isLoading || _nextCursor == null) {
+      return;
+    }
+
+    final generation = _generation;
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final page = await _userService.fetchUsersPage(startAfter: _nextCursor);
+      if (generation != _generation) {
+        return;
+      }
+      final known = <String>{
+        for (final u in _liveUsers) u.id,
+        for (final u in _olderUsers) u.id,
+      };
+      final fresh = page.items.where((u) => !known.contains(u.id)).toList();
+      _olderUsers = [..._olderUsers, ...fresh];
+      _nextCursor = page.cursor;
+      _hasMore = page.hasMore;
+    } catch (error) {
+      if (generation != _generation) {
+        return;
+      }
+      debugPrint('No se pudieron cargar más usuarios: $error');
+    } finally {
+      if (generation == _generation) {
+        _isLoadingMore = false;
+        notifyListeners();
+      }
+    }
   }
 
   void stopListening() {

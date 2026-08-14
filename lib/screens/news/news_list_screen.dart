@@ -106,16 +106,46 @@ class _NewsListScreenState extends State<NewsListScreen> {
           Expanded(
             child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: news.length,
-                itemBuilder: (context, index) {
-                  final item = news[index];
-                  return NewsCard(
-                    news: item,
-                    onTap: () => _openItem(item),
-                  );
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  final metrics = notification.metrics;
+                  if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+                    context.read<NewsProvider>().loadMore();
+                  }
+                  return false;
                 },
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: news.length +
+                      (provider.hasMore || provider.isLoadingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == news.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: provider.isLoadingMore
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : HapticTextButton(
+                                  onPressed: () =>
+                                      context.read<NewsProvider>().loadMore(),
+                                  child: const Text('Cargar más'),
+                                ),
+                        ),
+                      );
+                    }
+                    final item = news[index];
+                    return NewsCard(
+                      news: item,
+                      onTap: () => _openItem(item),
+                    );
+                  },
+                ),
               ),
             ),
           ),

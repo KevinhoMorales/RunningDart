@@ -129,6 +129,72 @@ class SocialService {
         .toList(growable: false);
   }
 
+  /// Página de seguidores (más recientes primero).
+  static const followListPageSize = 30;
+
+  Future<PageResult<PublicProfile>> fetchFollowersPage(
+    String userId, {
+    Object? startAfter,
+    int limit = followListPageSize,
+  }) {
+    return _fetchFollowProfilesPage(
+      field: 'followedId',
+      idField: 'followerId',
+      userId: userId,
+      startAfter: startAfter,
+      limit: limit,
+    );
+  }
+
+  Future<PageResult<PublicProfile>> fetchFollowingPage(
+    String userId, {
+    Object? startAfter,
+    int limit = followListPageSize,
+  }) {
+    return _fetchFollowProfilesPage(
+      field: 'followerId',
+      idField: 'followedId',
+      userId: userId,
+      startAfter: startAfter,
+      limit: limit,
+    );
+  }
+
+  Future<PageResult<PublicProfile>> _fetchFollowProfilesPage({
+    required String field,
+    required String idField,
+    required String userId,
+    Object? startAfter,
+    required int limit,
+  }) async {
+    try {
+      var query = _follows
+          .where(field, isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit);
+      if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+        query = query.startAfterDocument(startAfter);
+      } else if (startAfter != null) {
+        throw ArgumentError('Cursor de lista de follows inválido.');
+      }
+
+      final snapshot = await query.get();
+      final ids = snapshot.docs
+          .map((doc) => doc.data()[idField] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
+      final profiles = await getPublicProfilesByIds(ids);
+      final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+      return PageResult<PublicProfile>(
+        items: profiles,
+        hasMore: snapshot.docs.length >= limit,
+        cursor: lastDoc,
+      );
+    } on FirebaseException catch (e) {
+      throw SocialServiceException(UserMessages.firestore(e));
+    }
+  }
+
   Future<List<PublicProfile>> getPublicProfilesByIds(List<String> ids) async {
     if (ids.isEmpty) {
       return const [];

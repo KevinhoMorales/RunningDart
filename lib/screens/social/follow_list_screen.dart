@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/page_result.dart';
 import '../../models/public_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/social_provider.dart';
@@ -33,7 +36,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
   final _socialService = SocialService();
 
   List<PublicProfile> _profiles = [];
+  Object? _nextCursor;
+  bool _hasMore = true;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  int _generation = 0;
   String? _error;
 
   String get _title =>
@@ -47,36 +54,90 @@ class _FollowListScreenState extends State<FollowListScreen> {
       if (currentUserId != null) {
         context.read<SocialProvider>().start(currentUserId);
       }
-      _load();
+      _loadInitial();
     });
   }
 
-  Future<void> _load() async {
+  Future<PageResult<PublicProfile>> _fetchPage({Object? startAfter}) {
+    if (widget.mode == FollowListMode.followers) {
+      return _socialService.fetchFollowersPage(
+        widget.userId,
+        startAfter: startAfter,
+      );
+    }
+    return _socialService.fetchFollowingPage(
+      widget.userId,
+      startAfter: startAfter,
+    );
+  }
+
+  Future<void> _loadInitial() async {
+    final generation = ++_generation;
     setState(() {
       _isLoading = _profiles.isEmpty;
       _error = null;
+      _nextCursor = null;
+      _hasMore = true;
+      _isLoadingMore = false;
+      _profiles = [];
     });
     try {
-      final ids = widget.mode == FollowListMode.followers
-          ? await _socialService.getFollowerIds(widget.userId)
-          : await _socialService.getFollowingIds(widget.userId);
-      final profiles = await _socialService.getPublicProfilesByIds(ids);
-      if (!mounted) {
+      final page = await _fetchPage();
+      if (!mounted || generation != _generation) {
         return;
       }
       setState(() {
-        _profiles = profiles;
+        _profiles = page.items;
+        _nextCursor = page.cursor;
+        _hasMore = page.hasMore;
         _isLoading = false;
       });
     } catch (_) {
-      if (!mounted) {
+      if (!mounted || generation != _generation) {
         return;
       }
       setState(() {
         _error = 'No se pudo cargar la lista.';
         _isLoading = false;
+        _hasMore = false;
       });
     }
+  }
+
+  Future<void> _loadMore() async {
+    if (!_hasMore || _isLoadingMore || _isLoading || _nextCursor == null) {
+      return;
+    }
+    final generation = _generation;
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _fetchPage(startAfter: _nextCursor);
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      final known = _profiles.map((p) => p.id).toSet();
+      final fresh = page.items.where((p) => !known.contains(p.id)).toList();
+      setState(() {
+        _profiles = [..._profiles, ...fresh];
+        _nextCursor = page.cursor;
+        _hasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      setState(() => _isLoadingMore = false);
+      AppSnackBar.show(context, 'No se pudieron cargar más personas.');
+    }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 160) {
+      unawaited(_loadMore());
+    }
+    return false;
   }
 
   Future<void> _toggleFollow(String targetUserId) async {
@@ -107,7 +168,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : HapticRefreshIndicator(
-              onRefresh: _load,
+              onRefresh: _loadInitial,
               child: _error != null && _profiles.isEmpty
                   ? CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -121,7 +182,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
                               subtitle:
                                   'Desliza hacia abajo para reintentar.',
                               actionLabel: 'Reintentar',
-                              onAction: _load,
+                              onAction: _loadInitial,
                             ),
                           ),
                         ),
@@ -151,24 +212,50 @@ class _FollowListScreenState extends State<FollowListScreen> {
                             ),
                           ],
                         )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.sm,
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: _onScroll,
+                          child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.sm,
+                            ),
+                            itemCount: _profiles.length +
+                                (_hasMore || _isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == _profiles.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppSpacing.md,
+                                  ),
+                                  child: Center(
+                                    child: _isLoadingMore
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : HapticTextButton(
+                                            onPressed: _loadMore,
+                                            child: const Text('Cargar más'),
+                                          ),
+                                  ),
+                                );
+                              }
+                              final profile = _profiles[index];
+                              final isSelf = profile.id == currentUserId;
+                              return FollowUserRow(
+                                profile: profile,
+                                showFollowButton: !isSelf,
+                                isFollowing: social.isFollowing(profile.id),
+                                onOpenProfile: () =>
+                                    context.push('/user/${profile.id}'),
+                                onToggleFollow: () =>
+                                    _toggleFollow(profile.id),
+                              );
+                            },
                           ),
-                          itemCount: _profiles.length,
-                          itemBuilder: (context, index) {
-                            final profile = _profiles[index];
-                            final isSelf = profile.id == currentUserId;
-                            return FollowUserRow(
-                              profile: profile,
-                              showFollowButton: !isSelf,
-                              isFollowing: social.isFollowing(profile.id),
-                              onOpenProfile: () =>
-                                  context.push('/user/${profile.id}'),
-                              onToggleFollow: () => _toggleFollow(profile.id),
-                            );
-                          },
                         ),
             ),
     );

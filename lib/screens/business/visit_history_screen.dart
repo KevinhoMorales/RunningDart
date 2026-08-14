@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +42,14 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
     if (businessId != null && businessId.isNotEmpty) {
       context.read<VisitProvider>().refresh(businessId);
     }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+      unawaited(context.read<VisitProvider>().loadMore());
+    }
+    return false;
   }
 
   @override
@@ -86,20 +96,43 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
       );
     }
 
+    final footer = visitProvider.hasMore || visitProvider.isLoadingMore;
+
     return HapticRefreshIndicator(
       color: AppConstants.primaryColor,
       onRefresh: () async => _refreshVisits(),
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.sm,
-          horizontal: AppSpacing.sm,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.sm,
+          ),
+          itemCount: visitProvider.visits.length + (footer ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (footer && index == visitProvider.visits.length) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Center(
+                  child: visitProvider.isLoadingMore
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : HapticTextButton(
+                          onPressed: () =>
+                              context.read<VisitProvider>().loadMore(),
+                          child: const Text('Cargar más'),
+                        ),
+                ),
+              );
+            }
+            final visit = visitProvider.visits[index];
+            return _VisitTile(visit: visit);
+          },
         ),
-        itemCount: visitProvider.visits.length,
-        itemBuilder: (context, index) {
-          final visit = visitProvider.visits[index];
-          return _VisitTile(visit: visit);
-        },
       ),
     );
   }
@@ -139,25 +172,17 @@ class _VisitTile extends StatelessWidget {
           style: AppTypography.title(context),
         ),
         subtitle: Text(
-          '${Helpers.formatDate(visit.visitedAt)} · ${visit.validationResult.displayName}${visit.benefitUsed != null ? ' · ${visit.benefitUsed}' : ''}',
+          '${Helpers.formatDate(visit.visitedAt)} · '
+          '${visit.validationResult.displayName}'
+          '${visit.benefitUsed != null ? ' · ${visit.benefitUsed}' : ''}',
           style: AppTypography.caption(context),
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: palette.iconButtonBackground,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          ),
-          child: Text(
-            _formatTime(visit.visitedAt),
-            style: AppTypography.caption(
-              context,
-              color: palette.textPrimary,
-            ).copyWith(fontWeight: FontWeight.w700),
-          ),
+        trailing: Text(
+          _formatTime(visit.visitedAt),
+          style: AppTypography.caption(
+            context,
+            color: palette.textPrimary,
+          ).copyWith(fontWeight: FontWeight.w700),
         ),
       ),
     );

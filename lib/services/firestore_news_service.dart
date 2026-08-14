@@ -3,6 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import '../config/firebase_paths.dart';
 import '../models/news_model.dart';
+import '../models/page_result.dart';
 import '../utils/helpers.dart';
 import 'news_service.dart';
 
@@ -20,32 +21,78 @@ class FirestoreNewsService implements NewsService {
       FirebasePaths.collection(_firestore, 'news');
 
   @override
-  Stream<List<NewsModel>> watchPublishedNews() {
-    return _news.where('isPublished', isEqualTo: true).snapshots().map(
-          _mapPublishedSnapshot,
+  Stream<PageResult<NewsModel>> watchPublishedNews({
+    int limit = NewsService.newsPageSize,
+  }) {
+    return _publishedQuery(limit: limit).snapshots().map(
+          (snapshot) => _pageFromSnapshot(snapshot, limit),
         );
   }
 
   @override
-  Stream<List<NewsModel>> watchAllNews() {
-    return _news.snapshots().map(_mapAllNewsSnapshot);
+  Future<PageResult<NewsModel>> fetchPublishedNewsPage({
+    Object? startAfter,
+    int limit = NewsService.newsPageSize,
+  }) async {
+    var query = _publishedQuery(limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de noticias inválido.');
+    }
+    final snapshot = await query.get();
+    return _pageFromSnapshot(snapshot, limit);
   }
 
-  List<NewsModel> _mapPublishedSnapshot(
-    QuerySnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    final items = _parseDocuments(snapshot.docs);
-    return items
-        .where((item) => Helpers.isEventUpcoming(item.eventDate))
-        .toList(growable: false)
-      ..sort((a, b) => a.eventDate.compareTo(b.eventDate));
+  @override
+  Stream<PageResult<NewsModel>> watchAllNews({
+    int limit = NewsService.newsPageSize,
+  }) {
+    return _allQuery(limit: limit).snapshots().map(
+          (snapshot) => _pageFromSnapshot(snapshot, limit),
+        );
   }
 
-  List<NewsModel> _mapAllNewsSnapshot(
+  @override
+  Future<PageResult<NewsModel>> fetchAllNewsPage({
+    Object? startAfter,
+    int limit = NewsService.newsPageSize,
+  }) async {
+    var query = _allQuery(limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de noticias inválido.');
+    }
+    final snapshot = await query.get();
+    return _pageFromSnapshot(snapshot, limit);
+  }
+
+  /// Solo próximos (desde hoy), ordenados por fecha de evento.
+  Query<Map<String, dynamic>> _publishedQuery({required int limit}) {
+    final today = Helpers.startOfDay(DateTime.now());
+    return _news
+        .where('isPublished', isEqualTo: true)
+        .where('eventDate', isGreaterThanOrEqualTo: Timestamp.fromDate(today))
+        .orderBy('eventDate')
+        .limit(limit);
+  }
+
+  Query<Map<String, dynamic>> _allQuery({required int limit}) {
+    return _news.orderBy('eventDate', descending: true).limit(limit);
+  }
+
+  PageResult<NewsModel> _pageFromSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
   ) {
     final items = _parseDocuments(snapshot.docs);
-    return items..sort((a, b) => b.eventDate.compareTo(a.eventDate));
+    final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+    return PageResult<NewsModel>(
+      items: items,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: lastDoc,
+    );
   }
 
   List<NewsModel> _parseDocuments(
