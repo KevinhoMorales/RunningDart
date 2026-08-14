@@ -9,8 +9,6 @@ import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/helpers.dart';
-import '../../utils/constants.dart';
-import '../../utils/whatsapp_launcher.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
@@ -27,7 +25,7 @@ class ProfilePage extends StatelessWidget {
     if (user == null) {
       return Scaffold(
         backgroundColor: context.palette.scaffoldBackground,
-        appBar: const CustomAppBar(title: 'Mi cuenta'),
+        appBar: const CustomAppBar(title: 'Perfil'),
         body: Center(
           child: Text(
             'No hay sesión activa',
@@ -37,16 +35,18 @@ class ProfilePage extends StatelessWidget {
       );
     }
 
+    // Perfil social propio: encabezado + cuadrícula. La membresía va aparte.
     return UserProfileScreen(
       key: ValueKey(user.id),
       userId: user.id,
-      isAccountView: true,
+      isAccountView: false,
+      isOwnShell: true,
     );
   }
 }
 
-/// Credencial, membresía y accesos de la cuenta. Se muestra embebido dentro del
-/// perfil propio, por eso no incluye Scaffold ni scroll propio.
+/// Credencial, membresía y accesos del club. Sin grupos de WhatsApp: ese
+/// acceso vive una sola vez en Contacto.
 class AccountSections extends StatelessWidget {
   const AccountSections({super.key, required this.user});
 
@@ -95,25 +95,6 @@ class AccountSections extends StatelessWidget {
             subtitle: 'Comunidad, Oficial y Pro Team',
             onTap: () => context.push('/training-schedule'),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          ProfileActionTile(
-            icon: Icons.groups_rounded,
-            title: 'Grupo Comunidad SAINTS',
-            subtitle: 'Avisos, coordinación y fines de semana',
-            onTap: () => launchWhatsAppGroupInviteFromContext(
-              context,
-              AppConstants.communityWhatsAppGroupUrl,
-            ),
-          ),
-          if (auth.isProTeamMember) ...[
-            const SizedBox(height: AppSpacing.sm),
-            ProfileActionTile(
-              icon: Icons.fitness_center_rounded,
-              title: 'SAINTS Pro Team',
-              subtitle: 'Sesiones, coach e indicaciones',
-              onTap: () => context.push('/pro-team'),
-            ),
-          ],
           if (auth.canManageSchedules) ...[
             const SizedBox(height: AppSpacing.sm),
             ProfileActionTile(
@@ -127,7 +108,7 @@ class AccountSections extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             ProfileActionTile(
               icon: Icons.chat_rounded,
-              title: 'WhatsApp',
+              title: 'Tu WhatsApp',
               subtitle: user.whatsapp,
               trailing: Icon(Icons.open_in_new_rounded, color: palette.textMuted),
               onTap: null,
@@ -163,6 +144,13 @@ class AccountSections extends StatelessWidget {
               onTap: null,
             ),
           ],
+          const SizedBox(height: AppSpacing.sm),
+          ProfileActionTile(
+            icon: Icons.support_agent_outlined,
+            title: 'Contacto SAINTS',
+            subtitle: 'Soporte y grupo de la comunidad',
+            onTap: () => context.push('/settings/contact'),
+          ),
         ],
       ),
     );
@@ -180,14 +168,11 @@ class _ContextBanner extends StatelessWidget {
       return _CompactInfoBanner(
         icon: Icons.hourglass_top_rounded,
         title: 'Solicitud en revisión',
-        message:
-            'Te avisaremos cuando tu credencial esté activa.',
+        message: 'Te avisaremos cuando tu credencial esté activa.',
       );
     }
 
     if (!auth.canUseMembershipFeatures) {
-      // Quien ya pagó una vez no necesita que le digan que "active": lo suyo
-      // venció y el paso siguiente es renovar.
       return MembershipUpsellCard(
         message: auth.user?.isMembershipExpired == true
             ? 'Tu membresía SAINTS venció. Contacta a SAINTS para reactivarla y volver a usar beneficios y credencial digital.'

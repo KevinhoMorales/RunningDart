@@ -51,7 +51,7 @@ class AppInfoFooter extends StatelessWidget {
                 'Versión $version · Build $build',
                 style: AppTypography.caption(context),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -61,29 +61,15 @@ class AppInfoFooter extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
                     ),
-                    child: Column(
-                      children: [
-                        ClipOval(
-                          child: Image.asset(
-                            AppConstants.devLokosLogoAsset,
-                            width: 36,
-                            height: 36,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Aplicación creada por ${AppConstants.devLokosEnterpriseName}',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.body(
-                            context,
-                            color: palette.accentPrimary,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'Hecho por ${AppConstants.devLokosEnterpriseName}',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.caption(
+                        context,
+                        color: palette.textMuted,
+                      ),
                     ),
                   ),
                 ),

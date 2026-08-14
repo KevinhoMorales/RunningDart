@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
@@ -21,14 +23,23 @@ class GlassCard extends StatelessWidget {
 
     return Container(
       margin: margin,
-      padding: padding,
       decoration: BoxDecoration(
-        color: palette.glassBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: palette.glassBorder),
         boxShadow: palette.cardShadow,
       ),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: palette.glassBackground,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(color: palette.glassBorder),
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }

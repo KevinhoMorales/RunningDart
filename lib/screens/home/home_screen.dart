@@ -17,6 +17,7 @@ import '../business/business_list_screen.dart';
 import '../business/operator_scan_screen.dart';
 import '../feed/feed_screen.dart';
 import '../news/news_list_screen.dart';
+import 'club_home_screen.dart';
 
 enum _HomeMode { member, operator, admin }
 
@@ -47,97 +48,80 @@ class _HomeScreenState extends State<HomeScreen> {
     return Helpers.timeOfDayGreeting();
   }
 
+  /// Orden fijo: Inicio → Comunidad → Marcas → Noticias → (Admin|Escanear).
   List<Widget> _pages(_HomeMode mode) {
     switch (mode) {
       case _HomeMode.operator:
         return const [
-          BusinessListScreen(),
+          ClubHomeScreen(),
           FeedScreen(),
+          BusinessListScreen(),
           NewsListScreen(),
           OperatorScanScreen(),
         ];
       case _HomeMode.admin:
         return const [
-          BusinessListScreen(),
+          ClubHomeScreen(),
           FeedScreen(),
+          BusinessListScreen(),
           NewsListScreen(),
           AdminPanelScreen(),
         ];
       case _HomeMode.member:
         return const [
-          BusinessListScreen(),
+          ClubHomeScreen(),
           FeedScreen(),
+          BusinessListScreen(),
           NewsListScreen(),
         ];
     }
   }
 
   List<NavigationDestination> _destinations(_HomeMode mode) {
+    const shared = <NavigationDestination>[
+      NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home_rounded),
+        label: 'Inicio',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.people_alt_outlined),
+        selectedIcon: Icon(Icons.people_alt_rounded),
+        label: 'Comunidad',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.storefront_outlined),
+        selectedIcon: Icon(Icons.storefront_rounded),
+        label: 'Marcas',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.event_note_outlined),
+        selectedIcon: Icon(Icons.event_rounded),
+        label: 'Noticias',
+      ),
+    ];
+
     switch (mode) {
       case _HomeMode.operator:
-        return const [
-          NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront_rounded),
-            label: 'Marcas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_alt_outlined),
-            selectedIcon: Icon(Icons.people_alt_rounded),
-            label: 'Comunidad',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_note_outlined),
-            selectedIcon: Icon(Icons.event_rounded),
-            label: 'Noticias',
-          ),
-          NavigationDestination(
+        return [
+          ...shared,
+          const NavigationDestination(
             icon: Icon(Icons.qr_code_scanner_outlined),
             selectedIcon: Icon(Icons.qr_code_scanner_rounded),
             label: 'Escanear',
           ),
         ];
       case _HomeMode.admin:
-        return const [
-          NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront_rounded),
-            label: 'Marcas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_alt_outlined),
-            selectedIcon: Icon(Icons.people_alt_rounded),
-            label: 'Comunidad',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_note_outlined),
-            selectedIcon: Icon(Icons.event_rounded),
-            label: 'Noticias',
-          ),
-          NavigationDestination(
+        return [
+          ...shared,
+          const NavigationDestination(
             icon: Icon(Icons.admin_panel_settings_outlined),
             selectedIcon: Icon(Icons.admin_panel_settings_rounded),
             label: 'Admin',
           ),
         ];
       case _HomeMode.member:
-        return const [
-          NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront_rounded),
-            label: 'Marcas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_alt_outlined),
-            selectedIcon: Icon(Icons.people_alt_rounded),
-            label: 'Comunidad',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_note_outlined),
-            selectedIcon: Icon(Icons.event_rounded),
-            label: 'Noticias',
-          ),
-        ];
+        return shared;
     }
   }
 
@@ -167,17 +151,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final mode = _mode(auth);
     final pages = _pages(mode);
     final safeIndex = _currentIndex.clamp(0, pages.length - 1);
-    final adminUpcomingNewsCount = auth.isAdmin
-        ? context
-            .watch<AdminNewsProvider>()
-            .news
-            .where((item) => Helpers.isEventUpcoming(item.eventDate))
-            .length
-        : 0;
-    final showAdminBusinessFab = mode == _HomeMode.admin && safeIndex == 0;
-    final showAdminNewsFab = mode == _HomeMode.admin &&
-        safeIndex == adminNewsHomeTabIndex &&
-        adminUpcomingNewsCount > 0;
+    // Publicar solo en Comunidad. Los FABs de Marca/Evento viven en el panel
+    // Admin: el socio no debe ver chrome de administración en Marcas/Noticias.
     final showPublishFab = safeIndex == communityHomeTabIndex;
 
     return Scaffold(
@@ -185,6 +160,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: CustomAppBar(
         title: _homeAppBarTitle(auth.user?.displayName),
         actions: [
+          HapticIconButton(
+            onPressed: () => context.push('/membership'),
+            tooltip: 'Mi QR',
+            icon: Icon(Icons.qr_code_2_rounded, color: palette.textPrimary),
+          ),
           HapticIconButton(
             onPressed: () => context.push('/profile'),
             tooltip: 'Mi perfil',
@@ -203,19 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.add_rounded),
               label: const Text('Publicar'),
             )
-          : showAdminBusinessFab
-              ? HapticFloatingActionButton(
-                  onPressed: () => context.push('/admin/businesses/new'),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Marca'),
-                )
-              : showAdminNewsFab
-                  ? HapticFloatingActionButton(
-                      onPressed: () => context.push('/admin/news/new'),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Evento'),
-                    )
-                  : null,
+          : null,
       body: IndexedStack(
         index: safeIndex,
         children: pages,

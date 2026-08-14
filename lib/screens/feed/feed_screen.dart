@@ -18,7 +18,6 @@ import '../../widgets/hide_post_dialog.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/post_comments_sheet.dart';
-import '../../widgets/post_grid.dart';
 import '../../widgets/post_likes_sheet.dart';
 import '../../widgets/post_viewer.dart';
 import '../social/user_search_tab.dart';
@@ -39,7 +38,8 @@ class _FeedScreenState extends State<FeedScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    // Explorar / Siguiendo / Conoce. Las propias van en el perfil.
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());
   }
 
@@ -260,10 +260,9 @@ class _FeedScreenState extends State<FeedScreen>
             onRetry: _handleRefresh,
           ),
         HorizontalChipTabBar(
-          labels: const ['Explorar', 'Mi feed', 'Para ti', 'Conoce'],
+          labels: const ['Explorar', 'Siguiendo', 'Conoce'],
           icons: const [
             Icons.public_rounded,
-            Icons.grid_on_rounded,
             Icons.people_alt_rounded,
             Icons.search_rounded,
           ],
@@ -291,13 +290,6 @@ class _FeedScreenState extends State<FeedScreen>
                     'Sé el primero en compartir algo con la comunidad.',
                 emptyActionLabel: 'Publicar',
                 onEmptyAction: () => context.push('/post/new'),
-              ),
-              _MyPostsGridTab(
-                posts: feed.myPosts,
-                isLoading: feed.isLoadingMyPosts,
-                error: feed.myPostsError,
-                onRefresh: _handleRefresh,
-                onDeletePost: _deleteConfirmedPost,
               ),
               _PostList(
                 posts: followingPosts,
@@ -364,54 +356,6 @@ class _FeedWarningBanner extends StatelessWidget {
           HapticTextButton(
             onPressed: () => onRetry(),
             child: const Text('Reintentar'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MyPostsGridTab extends StatelessWidget {
-  const _MyPostsGridTab({
-    required this.posts,
-    required this.isLoading,
-    required this.error,
-    required this.onRefresh,
-    required this.onDeletePost,
-  });
-
-  final List<PostModel> posts;
-  final bool isLoading;
-  final String? error;
-  final Future<void> Function() onRefresh;
-  final Future<void> Function(PostModel post) onDeletePost;
-
-  @override
-  Widget build(BuildContext context) {
-    return HapticRefreshIndicator(
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          PostGrid(
-            posts: posts,
-            isLoading: isLoading,
-            onOpenPost: (post) => showPostViewer(
-              context,
-              post,
-              onDelete: () => onDeletePost(post),
-            ),
-            onDeletePost: onDeletePost,
-            emptyMessage: 'Aún no has publicado nada',
-            emptySubtitle:
-                'Comparte tu primera carrera con la comunidad SAINTS.',
-            emptyActionLabel: 'Publicar',
-            onEmptyAction: () => context.push('/post/new'),
-            errorMessage: error,
-            onRetry: onRefresh,
-          ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: AppSpacing.xl),
           ),
         ],
       ),

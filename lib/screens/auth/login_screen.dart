@@ -119,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: AppSpacing.lg),
                           ModernTextField(
                             controller: _emailController,
-                            labelText: 'correo electrónico',
+                            labelText: 'Correo electrónico',
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             prefixIcon: Icons.email_outlined,
@@ -136,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: AppSpacing.md),
                           ModernTextField(
                             controller: _passwordController,
-                            labelText: 'contraseña',
+                            labelText: 'Contraseña',
                             obscureText: _obscurePassword,
                             textInputAction: TextInputAction.done,
                             prefixIcon: Icons.lock_outline,

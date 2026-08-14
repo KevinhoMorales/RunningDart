@@ -3,17 +3,14 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/news_model.dart';
-import '../../providers/admin_news_provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/news_provider.dart';
-import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/news_card.dart';
 
-const adminNewsHomeTabIndex = 2;
-const memberNewsHomeTabIndex = 2;
-const operatorNewsHomeTabIndex = 2;
+/// Tab de Noticias para socios (también admin/operador en el shell). Solo
+/// publica lo publicado: los borradores viven en el panel Admin.
+const memberNewsHomeTabIndex = 3;
 
 class NewsListScreen extends StatefulWidget {
   const NewsListScreen({super.key});
@@ -33,50 +30,21 @@ class _NewsListScreenState extends State<NewsListScreen> {
     if (!mounted) {
       return;
     }
-
-    final auth = context.read<AuthProvider>();
-    if (auth.isAdmin) {
-      context.read<AdminNewsProvider>().startListening();
-    } else {
-      context.read<NewsProvider>().startListening();
-    }
+    context.read<NewsProvider>().startListening();
   }
 
-  Future<void> _handleRefresh() async {
-    final auth = context.read<AuthProvider>();
-    if (auth.isAdmin) {
-      await context.read<AdminNewsProvider>().refresh();
-    } else {
-      await context.read<NewsProvider>().refresh();
-    }
-  }
+  Future<void> _handleRefresh() => context.read<NewsProvider>().refresh();
 
-  void _openItem(NewsModel item, {required bool isAdmin}) {
-    if (isAdmin && !item.isPublished) {
-      context.push('/admin/news/${item.id}/edit');
-      return;
-    }
+  void _openItem(NewsModel item) {
     context.push('/news/${item.id}');
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final isAdmin = auth.isAdmin;
-
-    final isLoading = isAdmin
-        ? context.watch<AdminNewsProvider>().isLoading
-        : context.watch<NewsProvider>().isLoading;
-    final error = isAdmin
-        ? context.watch<AdminNewsProvider>().error
-        : context.watch<NewsProvider>().error;
-    final news = isAdmin
-        ? context
-            .watch<AdminNewsProvider>()
-            .news
-            .where((item) => Helpers.isEventUpcoming(item.eventDate))
-            .toList(growable: false)
-        : context.watch<NewsProvider>().news;
+    final provider = context.watch<NewsProvider>();
+    final isLoading = provider.isLoading;
+    final error = provider.error;
+    final news = provider.news;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,19 +91,10 @@ class _NewsListScreenState extends State<NewsListScreen> {
                     hasScrollBody: false,
                     child: Center(
                       child: EmptyStateCard(
-                        icon: isAdmin
-                            ? Icons.event_note_outlined
-                            : Icons.event_available_outlined,
-                        message: isAdmin
-                            ? 'Aún no hay eventos'
-                            : 'Sin eventos por ahora',
-                        subtitle: isAdmin
-                            ? 'Publica el primero para que la comunidad lo vea en este tab.'
-                            : 'Vuelve pronto para ver actividades y novedades de SAINTS. Desliza hacia abajo para actualizar.',
-                        actionLabel: isAdmin ? 'Crear evento' : null,
-                        onAction: isAdmin
-                            ? () => context.push('/admin/news/new')
-                            : null,
+                        icon: Icons.event_note_outlined,
+                        message: 'Aún no hay eventos',
+                        subtitle:
+                            'Cuando SAINTS publique actividades, aparecerán aquí.',
                       ),
                     ),
                   ),
@@ -154,8 +113,7 @@ class _NewsListScreenState extends State<NewsListScreen> {
                   final item = news[index];
                   return NewsCard(
                     news: item,
-                    showDraftBadge: isAdmin,
-                    onTap: () => _openItem(item, isAdmin: isAdmin),
+                    onTap: () => _openItem(item),
                   );
                 },
               ),

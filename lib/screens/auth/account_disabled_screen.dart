@@ -67,7 +67,7 @@ class AccountDisabledScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         Text(
-                          'cuenta desactivada',
+                          'Cuenta desactivada',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w800,

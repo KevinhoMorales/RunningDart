@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/admin_provider.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/haptic_controls.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
 import 'admin_businesses_tab.dart';
 import 'admin_news_management_tab.dart';
@@ -12,7 +14,8 @@ import 'admin_stats_tab.dart';
 import 'admin_training_schedule_tab.dart';
 import 'admin_users_tab.dart';
 
-const adminPanelHomeTabIndex = 3;
+/// Índice del tab Admin en el shell de Home (Inicio=0 … Admin=4).
+const adminPanelHomeTabIndex = 4;
 const adminPanelUsersTabIndex = 0;
 const adminPanelEventsTabIndex = 1;
 const adminPanelBusinessesTabIndex = 2;
@@ -53,6 +56,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabLabels.length, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -61,47 +69,78 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     super.dispose();
   }
 
+  Widget? _fabForTab() {
+    final index = _tabController.index;
+    if (index == adminPanelEventsTabIndex) {
+      return HapticFloatingActionButton(
+        onPressed: () => context.push('/admin/news/new'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Evento'),
+      );
+    }
+    if (index == adminPanelBusinessesTabIndex) {
+      return HapticFloatingActionButton(
+        onPressed: () => context.push('/admin/businesses/new'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Marca'),
+      );
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final fab = _fabForTab();
+
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.sm,
-          ),
-          child: Text(
-            'Panel de administración',
-            style: AppTypography.sectionTitle(context),
-          ),
-        ),
-        HorizontalChipTabBar(
-          labels: _tabLabels,
-          icons: _tabIcons,
-          controller: _tabController,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              const AdminUsersTab(),
-              const AdminNewsManagementTab(),
-              const AdminBusinessesTab(),
-              const AdminTrainingScheduleTab(),
-              const AdminReportsTab(),
-              AdminStatsTab(
-                onNavigateToUsers: (filter) {
-                  context.read<AdminProvider>().setUserFilter(filter);
-                  _tabController.animateTo(adminPanelUsersTabIndex);
-                },
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.sm,
               ),
-            ],
-          ),
+              child: Text(
+                'Panel de administración',
+                style: AppTypography.sectionTitle(context),
+              ),
+            ),
+            HorizontalChipTabBar(
+              labels: _tabLabels,
+              icons: _tabIcons,
+              controller: _tabController,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  const AdminUsersTab(),
+                  const AdminNewsManagementTab(),
+                  const AdminBusinessesTab(),
+                  const AdminTrainingScheduleTab(),
+                  const AdminReportsTab(),
+                  AdminStatsTab(
+                    onNavigateToUsers: (filter) {
+                      context.read<AdminProvider>().setUserFilter(filter);
+                      _tabController.animateTo(adminPanelUsersTabIndex);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+        if (fab != null)
+          Positioned(
+            right: AppSpacing.md,
+            bottom: AppSpacing.md,
+            child: fab,
+          ),
       ],
     );
   }
