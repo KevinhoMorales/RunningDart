@@ -111,25 +111,9 @@ class SocialService {
     return snapshot.count ?? 0;
   }
 
-  Future<List<String>> getFollowerIds(String userId) async {
-    final snapshot =
-        await _follows.where('followedId', isEqualTo: userId).get();
-    return snapshot.docs
-        .map((doc) => doc.data()['followerId'] as String? ?? '')
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
-  }
-
-  Future<List<String>> getFollowingIds(String userId) async {
-    final snapshot =
-        await _follows.where('followerId', isEqualTo: userId).get();
-    return snapshot.docs
-        .map((doc) => doc.data()['followedId'] as String? ?? '')
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
-  }
-
   /// Página de seguidores (más recientes primero).
+  /// No hay `getFollowerIds`/`getFollowingIds` unbounded: la UI usa estas
+  /// páginas, y los contadores usan `count()`.
   static const followListPageSize = 30;
 
   Future<PageResult<PublicProfile>> fetchFollowersPage(
