@@ -27,7 +27,7 @@ class FeedProvider extends ChangeNotifier {
   final SocialService _socialService;
 
   StreamSubscription<PageResult<PostModel>>? _feedSubscription;
-  StreamSubscription<List<PostModel>>? _myPostsSubscription;
+  StreamSubscription<PageResult<PostModel>>? _myPostsSubscription;
   StreamSubscription<Set<String>>? _blockedSubscription;
   StreamSubscription<Set<String>>? _likedSubscription;
 
@@ -324,12 +324,14 @@ class FeedProvider extends ChangeNotifier {
     _isLoadingMyPosts = _myPosts.isEmpty;
 
     _myPostsSubscription?.cancel();
-    // Las propias sí van completas: es donde el autor se entera de que le
-    // ocultaron una publicación y por qué.
-    _myPostsSubscription =
-        _postService.watchUserPosts(userId, includeHidden: true).listen(
-      (posts) {
-        _myPosts = posts;
+    // Primera página de las propias: basta para el corazón optimista y para
+    // enterarse de ocultas recientes. La cuadrícula del perfil pagina por su
+    // cuenta (no reutiliza esta lista completa).
+    _myPostsSubscription = _postService
+        .watchUserPosts(userId, includeHidden: true)
+        .listen(
+      (page) {
+        _myPosts = page.items;
         _isLoadingMyPosts = false;
         _myPostsError = null;
         _prunePendingLikes();

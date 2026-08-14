@@ -85,14 +85,68 @@ class FirestorePostService implements PostService {
   }
 
   @override
-  Stream<List<PostModel>> watchUserPosts(
+  Stream<PageResult<PostModel>> watchUserPosts(
     String userId, {
+    int limit = PostService.userPostsPageSize,
     bool includeHidden = false,
   }) {
-    return _visible(_posts.where('authorId', isEqualTo: userId), includeHidden)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(_parseSnapshot);
+    return _userPostsQuery(
+      userId,
+      includeHidden: includeHidden,
+      limit: limit,
+    ).snapshots().map((snapshot) => _pageFromSnapshot(snapshot, limit));
+  }
+
+  @override
+  Future<PageResult<PostModel>> fetchUserPostsPage(
+    String userId, {
+    Object? startAfter,
+    int limit = PostService.userPostsPageSize,
+    bool includeHidden = false,
+  }) async {
+    var query = _userPostsQuery(
+      userId,
+      includeHidden: includeHidden,
+      limit: limit,
+    );
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de publicaciones de perfil inválido.');
+    }
+    try {
+      final snapshot = await query.get();
+      return _pageFromSnapshot(snapshot, limit);
+    } on FirebaseException catch (e) {
+      throw PostServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  @override
+  Future<int> countUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) async {
+    try {
+      final snapshot = await _visible(
+        _posts.where('authorId', isEqualTo: userId),
+        includeHidden,
+      ).count().get();
+      return snapshot.count ?? 0;
+    } on FirebaseException catch (e) {
+      throw PostServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  Query<Map<String, dynamic>> _userPostsQuery(
+    String userId, {
+    required bool includeHidden,
+    required int limit,
+  }) {
+    return _visible(
+      _posts.where('authorId', isEqualTo: userId),
+      includeHidden,
+    ).orderBy('createdAt', descending: true).limit(limit);
   }
 
   /// El filtro va en la consulta, no en memoria: las reglas rechazan un `list`

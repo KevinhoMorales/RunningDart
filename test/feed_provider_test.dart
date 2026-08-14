@@ -76,14 +76,39 @@ class _FakePostService implements PostService {
   }
 
   @override
-  Stream<List<PostModel>> watchUserPosts(
+  Stream<PageResult<PostModel>> watchUserPosts(
     String userId, {
+    int limit = PostService.userPostsPageSize,
     bool includeHidden = false,
   }) {
     requestedUserId = userId;
     return Stream.value(
-      _visible(userPosts, includeHidden).toList(growable: false),
+      _page(_visible(userPosts, includeHidden), limit: limit),
     );
+  }
+
+  @override
+  Future<PageResult<PostModel>> fetchUserPostsPage(
+    String userId, {
+    Object? startAfter,
+    int limit = PostService.userPostsPageSize,
+    bool includeHidden = false,
+  }) async {
+    final visible = _visible(userPosts, includeHidden).toList(growable: false);
+    var start = 0;
+    if (startAfter is String) {
+      final index = visible.indexWhere((post) => post.id == startAfter);
+      start = index < 0 ? visible.length : index + 1;
+    }
+    return _page(visible.skip(start).toList(), limit: limit);
+  }
+
+  @override
+  Future<int> countUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) async {
+    return _visible(userPosts, includeHidden).length;
   }
 
   Iterable<PostModel> _visible(Iterable<PostModel> posts, bool includeHidden) {
@@ -407,6 +432,34 @@ void main() {
 
     provider.dispose();
   });
+
+  test('user posts pages append without duplicating', () async {
+    final userPosts = List.generate(
+      50,
+      (i) => _post(
+        'mine-$i',
+        _myId,
+        createdAt: DateTime(2026, 1, 1).add(Duration(minutes: 50 - i)),
+      ),
+    );
+    final postService = _FakePostService(feed: const [], userPosts: userPosts);
+
+    final first = await postService
+        .watchUserPosts(_myId)
+        .first;
+    expect(first.items.length, PostService.userPostsPageSize);
+    expect(first.hasMore, isTrue);
+
+    final second = await postService.fetchUserPostsPage(
+      _myId,
+      startAfter: first.cursor,
+    );
+    expect(second.items.length, PostService.userPostsPageSize);
+    final ids = {...first.items.map((p) => p.id), ...second.items.map((p) => p.id)};
+    expect(ids.length, PostService.userPostsPageSize * 2);
+
+    expect(await postService.countUserPosts(_myId), 50);
+  });
 }
 
 class _RecordingPostService implements PostService {
@@ -456,11 +509,28 @@ class _RecordingPostService implements PostService {
       const PageResult(items: [], hasMore: false);
 
   @override
-  Stream<List<PostModel>> watchUserPosts(
+  Stream<PageResult<PostModel>> watchUserPosts(
     String userId, {
+    int limit = PostService.userPostsPageSize,
     bool includeHidden = false,
   }) =>
-      Stream.value(const []);
+      Stream.value(const PageResult(items: [], hasMore: false));
+
+  @override
+  Future<PageResult<PostModel>> fetchUserPostsPage(
+    String userId, {
+    Object? startAfter,
+    int limit = PostService.userPostsPageSize,
+    bool includeHidden = false,
+  }) async =>
+      const PageResult(items: [], hasMore: false);
+
+  @override
+  Future<int> countUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) async =>
+      0;
 
   @override
   Future<PostModel> createPost({

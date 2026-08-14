@@ -49,14 +49,48 @@ class MockPostService implements PostService {
   }
 
   @override
-  Stream<List<PostModel>> watchUserPosts(
+  Stream<PageResult<PostModel>> watchUserPosts(
     String userId, {
+    int limit = PostService.userPostsPageSize,
     bool includeHidden = false,
   }) async* {
-    yield _visible(
+    yield _page(
+      _visible(
+        _posts.where((post) => post.authorId == userId),
+        includeHidden,
+      ).toList(),
+      limit: limit,
+    );
+  }
+
+  @override
+  Future<PageResult<PostModel>> fetchUserPostsPage(
+    String userId, {
+    Object? startAfter,
+    int limit = PostService.userPostsPageSize,
+    bool includeHidden = false,
+  }) async {
+    final visible = _visible(
       _posts.where((post) => post.authorId == userId),
       includeHidden,
     ).toList(growable: false);
+    var start = 0;
+    if (startAfter is String) {
+      final index = visible.indexWhere((post) => post.id == startAfter);
+      start = index < 0 ? visible.length : index + 1;
+    }
+    return _page(visible.skip(start).toList(), limit: limit);
+  }
+
+  @override
+  Future<int> countUserPosts(
+    String userId, {
+    bool includeHidden = false,
+  }) async {
+    return _visible(
+      _posts.where((post) => post.authorId == userId),
+      includeHidden,
+    ).length;
   }
 
   Iterable<PostModel> _visible(Iterable<PostModel> posts, bool includeHidden) {

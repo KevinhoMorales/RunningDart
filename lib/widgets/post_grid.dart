@@ -23,6 +23,9 @@ class PostGrid extends StatelessWidget {
     this.onDeletePost,
     this.errorMessage,
     this.onRetry,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.onLoadMore,
   });
 
   final List<PostModel> posts;
@@ -41,6 +44,10 @@ class PostGrid extends StatelessWidget {
   /// Cuando llega, mantener pulsada una foto ofrece eliminarla. Va nulo en los
   /// perfiles ajenos, donde no hay nada que borrar.
   final Future<void> Function(PostModel post)? onDeletePost;
+
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback? onLoadMore;
 
   @override
   Widget build(BuildContext context) {
@@ -82,55 +89,81 @@ class PostGrid extends StatelessWidget {
     }
 
     final palette = context.palette;
+    final showFooter = onLoadMore != null && (hasMore || isLoadingMore);
 
-    return SliverPadding(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 2,
-          crossAxisSpacing: 2,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final post = withImage[index];
-            return GestureDetector(
-              onTap: AppHaptics.wrap(() => onOpenPost(post)),
-              onLongPress: onDeletePost == null
-                  ? null
-                  : () {
-                      AppHaptics.lightTap();
-                      _showPostActions(context, post);
-                    },
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    post.imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: palette.skeletonColor,
-                    ),
-                  ),
-                  // Las ocultas por moderación se atenúan para distinguirlas de
-                  // un vistazo entre las demás.
-                  if (post.isHidden)
-                    Container(
-                      color: Colors.black54,
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.visibility_off_outlined,
-                        color: Colors.white,
-                        size: 20,
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final post = withImage[index];
+                return GestureDetector(
+                  onTap: AppHaptics.wrap(() => onOpenPost(post)),
+                  onLongPress: onDeletePost == null
+                      ? null
+                      : () {
+                          AppHaptics.lightTap();
+                          _showPostActions(context, post);
+                        },
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        post.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: palette.skeletonColor,
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            );
-          },
-          childCount: withImage.length,
+                      // Las ocultas por moderación se atenúan para distinguirlas de
+                      // un vistazo entre las demás.
+                      if (post.isHidden)
+                        Container(
+                          color: Colors.black54,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.visibility_off_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+              childCount: withImage.length,
+            ),
+          ),
         ),
-      ),
+        if (showFooter)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(
+                child: isLoadingMore
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : TextButton(
+                        onPressed: AppHaptics.wrap(onLoadMore!),
+                        child: Text(
+                          'Cargar más',
+                          style: AppTypography.body(context),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

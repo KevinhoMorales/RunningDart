@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/page_result.dart';
 import '../../models/post_model.dart';
 import '../../models/public_profile.dart';
 import '../../providers/auth_provider.dart';
@@ -49,15 +50,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final _postService = FirestorePostService();
   final _socialService = SocialService();
 
-  StreamSubscription<List<PostModel>>? _postsSubscription;
+  StreamSubscription<PageResult<PostModel>>? _postsSubscription;
 
   PublicProfile? _profile;
-  List<PostModel> _posts = const [];
+  List<PostModel> _livePosts = const [];
+  List<PostModel> _olderPosts = const [];
+  Object? _postsCursor;
+  bool _hasMorePosts = true;
+  bool _loadingMorePosts = false;
+  int _postsGeneration = 0;
+  int _postsCount = 0;
   bool _loadingPosts = true;
   bool _loadingProfile = true;
   String? _postsError;
   int _followers = 0;
   int _following = 0;
+
+  List<PostModel> get _posts {
+    final byId = <String, PostModel>{};
+    for (final post in _olderPosts) {
+      byId[post.id] = post;
+    }
+    for (final post in _livePosts) {
+      byId[post.id] = post;
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged.where(_canSee).toList(growable: false);
+  }
 
   @override
   void initState() {
@@ -82,15 +102,30 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   void _listenPosts() {
     _postsSubscription?.cancel();
+    _postsGeneration++;
+    _olderPosts = const [];
+    _postsCursor = null;
+    _hasMorePosts = true;
+    _loadingMorePosts = false;
+
     _postsSubscription = _postService
         .watchUserPosts(widget.userId, includeHidden: _canSeeHidden)
         .listen(
-      (posts) {
+      (page) {
         if (!mounted) {
           return;
         }
         setState(() {
-          _posts = posts.where(_canSee).toList(growable: false);
+          _livePosts = page.items;
+          if (_olderPosts.isEmpty) {
+            _postsCursor = page.cursor;
+            _hasMorePosts = page.hasMore;
+          } else {
+            final liveIds = page.items.map((post) => post.id).toSet();
+            _olderPosts = _olderPosts
+                .where((post) => !liveIds.contains(post.id))
+                .toList();
+          }
           _loadingPosts = false;
           _postsError = null;
         });
@@ -105,6 +140,80 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         }
       },
     );
+    unawaited(_refreshPostsCount());
+  }
+
+  Future<void> _refreshPostsCount() async {
+    try {
+      final count = await _postService.countUserPosts(
+        widget.userId,
+        includeHidden: _canSeeHidden,
+      );
+      if (mounted) {
+        setState(() => _postsCount = count);
+      }
+    } catch (error) {
+      debugPrint('No se pudo contar publicaciones del perfil: $error');
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    if (!_hasMorePosts ||
+        _loadingMorePosts ||
+        _loadingPosts ||
+        _postsCursor == null) {
+      return;
+    }
+
+    final generation = _postsGeneration;
+    setState(() => _loadingMorePosts = true);
+
+    try {
+      final page = await _postService.fetchUserPostsPage(
+        widget.userId,
+        startAfter: _postsCursor,
+        includeHidden: _canSeeHidden,
+      );
+      if (!mounted || generation != _postsGeneration) {
+        return;
+      }
+      final knownIds = <String>{
+        for (final post in _livePosts) post.id,
+        for (final post in _olderPosts) post.id,
+      };
+      final fresh = page.items
+          .where((post) => !knownIds.contains(post.id))
+          .toList(growable: false);
+      setState(() {
+        _olderPosts = [..._olderPosts, ...fresh];
+        _postsCursor = page.cursor;
+        _hasMorePosts = page.hasMore;
+        _loadingMorePosts = false;
+      });
+    } catch (error) {
+      debugPrint('No se pudieron cargar más publicaciones: $error');
+      if (mounted && generation == _postsGeneration) {
+        setState(() => _loadingMorePosts = false);
+        AppSnackBar.show(context, 'No se pudieron cargar más publicaciones.');
+      }
+    }
+  }
+
+  bool _onPostsScroll(ScrollNotification notification) {
+    final metrics = notification.metrics;
+    if (metrics.pixels >= metrics.maxScrollExtent - 240) {
+      unawaited(_loadMorePosts());
+    }
+    return false;
+  }
+
+  Future<void> _refreshAll() async {
+    setState(() {
+      _loadingPosts = _posts.isEmpty;
+      _postsError = null;
+    });
+    _listenPosts();
+    await _loadProfile();
   }
 
   /// En el perfil de otra persona las publicaciones ocultas por moderación no
@@ -298,6 +407,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       await _postService.deletePost(post.id);
       if (mounted) {
+        setState(() {
+          _livePosts = _livePosts.where((p) => p.id != post.id).toList();
+          _olderPosts = _olderPosts.where((p) => p.id != post.id).toList();
+          if (_postsCount > 0) {
+            _postsCount -= 1;
+          }
+        });
         AppSnackBar.show(context, 'Publicación eliminada.');
       }
     } catch (_) {
@@ -384,63 +500,69 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             )
           : HapticRefreshIndicator(
-              onRefresh: _loadProfile,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _ProfileHeader(
-                      userId: widget.userId,
-                      displayName: _displayName,
-                      username: _username,
-                      photoUrl: _photoUrl,
-                      bio: _bio,
-                      email: showAccount || showOwnShell ? authUser?.email : null,
-                      posts: _posts.length,
-                      followers: _followers,
-                      following: _following,
-                      isSelf: isSelf,
-                      isFollowing: isFollowing,
-                      onToggleFollow: _toggleFollow,
-                    ),
-                  ),
-                  if (showAccount)
-                    SliverToBoxAdapter(child: AccountSections(user: authUser)),
-                  // Publicaciones en el perfil social (propias y ajenas).
-                  if (!widget.isAccountView)
-                    PostGrid(
-                      posts: _posts,
-                      isLoading: _loadingPosts,
-                      onOpenPost: (post) => showPostViewer(
-                        context,
-                        post,
-                        onDelete: canDelete
-                            ? () => _deleteConfirmedPost(post)
-                            : null,
+              onRefresh: _refreshAll,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onPostsScroll,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _ProfileHeader(
+                        userId: widget.userId,
+                        displayName: _displayName,
+                        username: _username,
+                        photoUrl: _photoUrl,
+                        bio: _bio,
+                        email: showAccount || showOwnShell ? authUser?.email : null,
+                        posts: _postsCount,
+                        followers: _followers,
+                        following: _following,
+                        isSelf: isSelf,
+                        isFollowing: isFollowing,
+                        onToggleFollow: _toggleFollow,
                       ),
-                      onDeletePost: canDelete ? _deleteConfirmedPost : null,
-                      emptyMessage: isSelf
-                          ? 'Aún no has publicado nada'
-                          : 'Sin publicaciones todavía',
-                      emptySubtitle: isSelf
-                          ? 'Comparte tu primera carrera con la comunidad SAINTS.'
-                          : null,
-                      emptyActionLabel: isSelf ? 'Publicar' : null,
-                      onEmptyAction:
-                          isSelf ? () => context.push('/post/new') : null,
-                      errorMessage: _postsError,
-                      onRetry: () {
-                        setState(() {
-                          _loadingPosts = true;
-                          _postsError = null;
-                        });
-                        _listenPosts();
-                      },
                     ),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: AppSpacing.xl),
-                  ),
-                ],
+                    if (showAccount)
+                      SliverToBoxAdapter(child: AccountSections(user: authUser)),
+                    // Publicaciones en el perfil social (propias y ajenas).
+                    if (!widget.isAccountView)
+                      PostGrid(
+                        posts: _posts,
+                        isLoading: _loadingPosts,
+                        hasMore: _hasMorePosts,
+                        isLoadingMore: _loadingMorePosts,
+                        onLoadMore: _loadMorePosts,
+                        onOpenPost: (post) => showPostViewer(
+                          context,
+                          post,
+                          onDelete: canDelete
+                              ? () => _deleteConfirmedPost(post)
+                              : null,
+                        ),
+                        onDeletePost: canDelete ? _deleteConfirmedPost : null,
+                        emptyMessage: isSelf
+                            ? 'Aún no has publicado nada'
+                            : 'Sin publicaciones todavía',
+                        emptySubtitle: isSelf
+                            ? 'Comparte tu primera carrera con la comunidad SAINTS.'
+                            : null,
+                        emptyActionLabel: isSelf ? 'Publicar' : null,
+                        onEmptyAction:
+                            isSelf ? () => context.push('/post/new') : null,
+                        errorMessage: _postsError,
+                        onRetry: () {
+                          setState(() {
+                            _loadingPosts = true;
+                            _postsError = null;
+                          });
+                          _listenPosts();
+                        },
+                      ),
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.xl),
+                    ),
+                  ],
+                ),
               ),
             ),
     );

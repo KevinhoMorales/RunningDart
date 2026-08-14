@@ -312,6 +312,9 @@ class _FeedScreenState extends State<FeedScreen>
                 emptyTitle: 'Sigue a más personas',
                 emptySubtitle:
                     'Cuando sigas a alguien, sus publicaciones aparecerán aquí.',
+                // Siguiendo filtra el feed global: si hay pocas de seguidos,
+                // seguimos paginando el feed hasta llenar o agotar.
+                autofillWhenSparse: true,
               ),
               const UserSearchTab(),
             ],
@@ -389,6 +392,7 @@ class _PostList extends StatelessWidget {
     required this.emptySubtitle,
     this.emptyActionLabel,
     this.onEmptyAction,
+    this.autofillWhenSparse = false,
   });
 
   final List<PostModel> posts;
@@ -410,6 +414,10 @@ class _PostList extends StatelessWidget {
   final String? emptyActionLabel;
   final VoidCallback? onEmptyAction;
 
+  /// Cuando la lista visible es un filtro del feed (p. ej. Siguiendo), pide
+  /// más páginas del feed global hasta tener contenido o agotar el cursor.
+  final bool autofillWhenSparse;
+
   bool _onScroll(ScrollNotification notification) {
     final metrics = notification.metrics;
     if (metrics.pixels >= metrics.maxScrollExtent - 240) {
@@ -420,6 +428,14 @@ class _PostList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (autofillWhenSparse &&
+        !isLoading &&
+        !isLoadingMore &&
+        hasMore &&
+        posts.length < 8) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onLoadMore());
+    }
+
     if (isLoading && posts.isEmpty) {
       return const LoadingSkeleton();
     }
