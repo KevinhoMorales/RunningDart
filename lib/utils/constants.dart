@@ -28,6 +28,7 @@ class AppConstants {
   static const String proTeamWhatsAppGroupUrl =
       'https://chat.whatsapp.com/lbs975Y30T0HsJQHMnSDR';
 
+  static const String saintsMarkAsset = 'assets/icon/app_icon.png';
   static const String devLokosEnterpriseUrl =
       'https://devlokos.com/empresarial';
   static const String devLokosEnterpriseName = 'DevLokos Enterprise';
@@ -99,24 +100,24 @@ class AppConstants {
 
   static const List<Color> brandGradientColors = [
     primaryColor,
-    primaryColor,
+    primaryColorLight,
   ];
 
   static const List<Color> brandGradientAccentColors = [
-    primaryColor,
-    primaryColor,
+    Color(0xFF244024),
+    primaryColorLight,
   ];
 
   static List<Color> brandGradientFor(Brightness brightness) {
     return brightness == Brightness.dark
-        ? const [primaryColorLight, primaryColorLight]
+        ? const [Color(0xFF1E3A20), primaryColorLight]
         : brandGradientColors;
   }
 
-  /// Header de perfil: verde solido, adaptado a light/dark.
+  /// Header de perfil: degradado verde real, adaptado a light/dark.
   static List<Color> profileCardGradientFor(Brightness brightness) {
     return brightness == Brightness.dark
-        ? const [primaryColorLight, primaryColorLight]
+        ? const [Color(0xFF1E3A20), primaryColorLight]
         : brandGradientAccentColors;
   }
 

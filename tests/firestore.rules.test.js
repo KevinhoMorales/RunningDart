@@ -860,6 +860,64 @@ async function runTests() {
         }),
     );
 
+    // Comentarios: autenticados leen; solo el autor crea/borra el suyo;
+    // `postAuthorId` tiene que coincidir con el post.
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'post_comments').doc('c-1').set({
+        postId: 'post-visible',
+        postAuthorId: 'member-1',
+        authorId: 'user-plain',
+        authorName: 'Plain User',
+        text: 'Gran foto',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'post_comments').doc('c-bad-author').set({
+        postId: 'post-visible',
+        postAuthorId: 'member-1',
+        authorId: 'member-1',
+        authorName: 'Impostor',
+        text: 'No soy yo',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'post_comments').doc('c-bad-post-author').set({
+        postId: 'post-visible',
+        postAuthorId: 'user-plain',
+        authorId: 'user-plain',
+        authorName: 'Plain User',
+        text: 'Autor inventado',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'post_comments').doc('c-empty').set({
+        postId: 'post-visible',
+        postAuthorId: 'member-1',
+        authorId: 'user-plain',
+        authorName: 'Plain User',
+        text: '',
+        createdAt: new Date(),
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'post_comments').doc('c-1').get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('member-1'), 'post_comments').doc('c-1').delete(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'post_comments').doc('c-1').delete(),
+    );
+
     await assertSucceeds(
       envCollection(authedDb('member-1'), 'blocks').doc('member-1_user-plain').set({
         blockerId: 'member-1',

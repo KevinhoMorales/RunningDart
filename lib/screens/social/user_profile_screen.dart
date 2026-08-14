@@ -18,6 +18,7 @@ import '../../widgets/app_snackbar.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/modern_text_field.dart';
+import '../../widgets/photo_lightbox.dart';
 import '../../widgets/post_grid.dart';
 import '../../widgets/post_viewer.dart';
 import '../../widgets/user_avatar.dart';
@@ -28,13 +29,17 @@ class UserProfileScreen extends StatefulWidget {
     super.key,
     required this.userId,
     this.isAccountView = false,
+    this.isOwnShell = false,
   });
 
   final String userId;
 
-  /// Cuando es `true` la pantalla es "Mi cuenta": suma la credencial, la
-  /// membresía y los accesos del socio debajo del encabezado social.
+  /// Legacy: embebe membresía bajo el encabezado. Preferir `/membership`.
   final bool isAccountView;
+
+  /// Perfil propio abierto desde el shell (avatar): muestra publicaciones y
+  /// accesos a membresía / ajustes.
+  final bool isOwnShell;
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -311,24 +316,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final isFollowing = social.isFollowing(widget.userId);
     final isBlocked = !isSelf && social.isBlocked(widget.userId);
     final showAccount = widget.isAccountView && isSelf && authUser != null;
+    final showOwnShell = widget.isOwnShell && isSelf;
     // Borrar es solo del autor: el administrador oculta desde el feed.
     final canDelete = isSelf;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
-        title: widget.isAccountView ? 'Mi cuenta' : 'Perfil',
+        title: 'Perfil',
         leading: HapticIconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
         actions: [
-          if (widget.isAccountView)
+          if (showOwnShell || widget.isAccountView) ...[
+            HapticIconButton(
+              onPressed: () => context.push('/membership'),
+              tooltip: 'Membresía',
+              icon: Icon(Icons.badge_outlined, color: palette.textPrimary),
+            ),
             HapticIconButton(
               onPressed: () => context.push('/settings'),
               tooltip: 'Ajustes',
               icon: Icon(Icons.settings_rounded, color: palette.textPrimary),
             ),
+          ],
           if (!isSelf)
             PopupMenuButton<String>(
               icon: Icon(Icons.more_horiz_rounded, color: palette.textPrimary),
@@ -383,7 +395,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       username: _username,
                       photoUrl: _photoUrl,
                       bio: _bio,
-                      email: showAccount ? authUser.email : null,
+                      email: showAccount || showOwnShell ? authUser?.email : null,
                       posts: _posts.length,
                       followers: _followers,
                       following: _following,
@@ -394,8 +406,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   if (showAccount)
                     SliverToBoxAdapter(child: AccountSections(user: authUser)),
-                  // En "Mi cuenta" no va la cuadrícula: esas publicaciones ya
-                  // se ven en el chip "Mi feed" de Comunidad.
+                  // Publicaciones en el perfil social (propias y ajenas).
                   if (!widget.isAccountView)
                     PostGrid(
                       posts: _posts,
@@ -485,6 +496,13 @@ class _ProfileHeader extends StatelessWidget {
                 displayName: displayName,
                 photoUrl: photoUrl,
                 radius: 40,
+                onTap: photoUrl == null || photoUrl!.trim().isEmpty
+                    ? null
+                    : () => showPhotoLightbox(
+                          context,
+                          photoUrl: photoUrl,
+                          displayName: displayName,
+                        ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(

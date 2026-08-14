@@ -92,6 +92,23 @@ describe("deleteEnvironmentAccountData", { skip: !EMULATOR }, () => {
       postAuthorId: UID,
     });
 
+    batch.set(collection("post_comments").doc("comment-given"), {
+      postId: "post-other",
+      postAuthorId: OTHER_UID,
+      authorId: UID,
+      authorName: "Delete Me",
+      text: "Mi comentario",
+      createdAt: new Date(),
+    });
+    batch.set(collection("post_comments").doc("comment-received"), {
+      postId: "post-1",
+      postAuthorId: UID,
+      authorId: OTHER_UID,
+      authorName: "Someone Else",
+      text: "Comentario ajeno",
+      createdAt: new Date(),
+    });
+
     batch.set(collection("post_reports").doc("report-1"), {
       reportedByUserId: UID,
     });
@@ -126,6 +143,7 @@ describe("deleteEnvironmentAccountData", { skip: !EMULATOR }, () => {
       "follows",
       "blocks",
       "post_likes",
+      "post_comments",
       "post_reports",
       "payments",
       "visits",
@@ -156,6 +174,8 @@ describe("deleteEnvironmentAccountData", { skip: !EMULATOR }, () => {
     assert.equal(deleted.blocksReceived, 1);
     assert.equal(deleted.likesGiven, 1);
     assert.equal(deleted.likesReceived, 1);
+    assert.equal(deleted.commentsGiven, 1);
+    assert.equal(deleted.commentsReceived, 1);
     assert.equal(deleted.reports, 1);
     assert.equal(deleted.payments, 1);
     assert.equal(deleted.visitsAnonymized, 1);
@@ -173,6 +193,7 @@ describe("deleteEnvironmentAccountData", { skip: !EMULATOR }, () => {
     assert.equal((await collection("follows").get()).empty, true);
     assert.equal((await collection("blocks").get()).empty, true);
     assert.equal((await collection("post_likes").get()).empty, true);
+    assert.equal((await collection("post_comments").get()).empty, true);
     assert.equal((await collection("post_reports").get()).empty, true);
     assert.equal((await collection("payments").get()).empty, true);
 

@@ -155,7 +155,7 @@ class _AdminNewsManagementTabState extends State<AdminNewsManagementTab> {
                   icon: Icons.event_note_outlined,
                   message: 'No hay eventos registrados',
                   subtitle:
-                      'Crea el primero desde el tab Noticias con el botón + Evento.',
+                      'Crea el primero con el botón + Evento de este panel.',
                   actionLabel: 'Crear evento',
                   onAction: () => context.push('/admin/news/new'),
                 ),

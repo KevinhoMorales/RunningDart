@@ -93,9 +93,10 @@ service cloud.firestore {
     }
 
     // Los escribe el servidor: `authorId` y `createdAt` al publicar, y el resto
-    // la Cloud Function de likes. El autor no debe poder tocarlos al editar.
+    // la Cloud Function de likes/comentarios. El autor no debe poder tocarlos
+    // al editar.
     function postServerFields() {
-      return ['authorId', 'createdAt', 'likesCount', 'recentLikes'];
+      return ['authorId', 'createdAt', 'likesCount', 'commentsCount', 'recentLikes'];
     }
 
     function usernameCooldownOk() {
@@ -296,6 +297,38 @@ service cloud.firestore {
       allow delete: if isValidEnvironment(environment)
         && isSignedIn()
         && resource.data.userId == request.auth.uid;
+    }
+
+    match /environments/{environment}/post_comments/{commentId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+
+      // Solo el autor autenticado crea; el texto va acotado y `postAuthorId`
+      // debe coincidir con el post (mismo patrón que likes para el borrado
+      // de cuenta).
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'postId',
+          'postAuthorId',
+          'authorId',
+          'authorName',
+          'text',
+          'createdAt',
+        ])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() > 0
+        && request.resource.data.postAuthorId
+            == postAuthorId(environment, request.resource.data.postId);
+
+      allow update: if false;
+
+      allow delete: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.authorId == request.auth.uid;
     }
 
     match /environments/{environment}/blocks/{blockId} {

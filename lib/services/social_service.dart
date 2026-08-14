@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../config/firebase_paths.dart';
+import '../models/post_comment_model.dart';
 import '../models/post_report_model.dart';
 import '../models/public_profile.dart';
 import '../models/user_model.dart';
@@ -35,6 +36,9 @@ class SocialService {
 
   CollectionReference<Map<String, dynamic>> get _postLikes =>
       FirebasePaths.collection(_firestore, 'post_likes');
+
+  CollectionReference<Map<String, dynamic>> get _postComments =>
+      FirebasePaths.collection(_firestore, 'post_comments');
 
   String _followId(String followerId, String followedId) =>
       '${followerId}_$followedId';
@@ -246,7 +250,76 @@ class SocialService {
           .map((doc) => doc.data()['userId'] as String? ?? '')
           .where((id) => id.isNotEmpty)
           .toList(growable: false);
-      return getPublicProfilesByIds(ids);
+      return await getPublicProfilesByIds(ids);
+    } on FirebaseException catch (e) {
+      throw SocialServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  // --- Comments ---
+
+  Stream<List<PostCommentModel>> watchPostComments(
+    String postId, {
+    int limit = 100,
+  }) {
+    return _postComments
+        .where('postId', isEqualTo: postId)
+        .orderBy('createdAt', descending: false)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      final items = <PostCommentModel>[];
+      for (final doc in snapshot.docs) {
+        try {
+          items.add(PostCommentModel.fromFirestore(doc));
+        } catch (_) {
+          // Skip malformed documents.
+        }
+      }
+      return items;
+    });
+  }
+
+  Future<PostCommentModel> addComment({
+    required String postId,
+    required String postAuthorId,
+    required String authorId,
+    required String authorName,
+    String? authorPhotoUrl,
+    required String text,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      throw SocialServiceException('Escribe un comentario.');
+    }
+    if (trimmed.length > PostCommentModel.maxTextLength) {
+      throw SocialServiceException(
+        'El comentario es demasiado largo (máx. ${PostCommentModel.maxTextLength}).',
+      );
+    }
+
+    try {
+      final docRef = _postComments.doc();
+      final comment = PostCommentModel(
+        id: docRef.id,
+        postId: postId,
+        postAuthorId: postAuthorId,
+        authorId: authorId,
+        authorName: authorName,
+        authorPhotoUrl: authorPhotoUrl,
+        text: trimmed,
+        createdAt: DateTime.now(),
+      );
+      await docRef.set(comment.toFirestore());
+      return comment;
+    } on FirebaseException catch (e) {
+      throw SocialServiceException(UserMessages.firestore(e));
+    }
+  }
+
+  Future<void> deleteComment(String commentId) async {
+    try {
+      await _postComments.doc(commentId).delete();
     } on FirebaseException catch (e) {
       throw SocialServiceException(UserMessages.firestore(e));
     }

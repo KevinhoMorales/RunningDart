@@ -50,6 +50,7 @@ Future<void> _pumpCard(
           onToggleLike: () {},
           onOpenLikes: () {},
           onOpenPost: () {},
+          onOpenComments: () {},
         ),
       ),
     ),

@@ -151,7 +151,7 @@ class _AdminBusinessesTabState extends State<AdminBusinessesTab> {
                   icon: Icons.storefront_outlined,
                   message: 'No hay marcas aliadas registradas',
                   subtitle:
-                      'Agrega la primera desde el tab Marcas con el botón + Marca.',
+                      'Agrega la primera con el botón + Marca de este panel.',
                   actionLabel: 'Agregar marca',
                   onAction: () => context.push('/admin/businesses/new'),
                 ),

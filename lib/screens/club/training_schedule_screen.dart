@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../models/training_schedule_model.dart';
-import '../../providers/auth_provider.dart';
 import '../../services/training_schedule_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
@@ -10,9 +8,7 @@ import '../../theme/app_typography.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/constants.dart';
 import '../../utils/schedule_helpers.dart';
-import '../../utils/whatsapp_launcher.dart';
 import '../../widgets/custom_app_bar.dart';
-import '../../widgets/profile_action_tile.dart';
 import '../../widgets/schedule_card.dart';
 
 class TrainingScheduleScreen extends StatelessWidget {
@@ -121,7 +117,6 @@ class _TrainingScheduleTabsState extends State<_TrainingScheduleTabs>
   @override
   Widget build(BuildContext context) {
     final palette = widget.palette;
-    final isProTeamMember = context.watch<AuthProvider>().isProTeamMember;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,50 +154,27 @@ class _TrainingScheduleTabsState extends State<_TrainingScheduleTabs>
             controller: _tabController,
             children: widget.sections
                 .map(
-                  (section) {
-                    final groupUrl = whatsAppGroupUrlForScheduleSection(
-                      section.title,
-                      isProTeamMember: isProTeamMember,
-                    );
-
-                    return ListView(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      children: [
-                        ScheduleCard(
-                          title: section.title,
-                          subtitle: section.subtitle,
-                          icon: ScheduleHelpers.iconFor(section.iconName),
-                          scheduleLines: section.lines,
-                        ),
-                        if (groupUrl != null) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          ProfileActionTile(
-                            icon: Icons.groups_rounded,
-                            title: whatsAppGroupCtaLabelForScheduleSection(
-                              section.title,
-                            ),
-                            subtitle: section.title.contains('Pro Team')
-                                ? 'Coordinación con el coach y el equipo'
-                                : 'Avisos, coordinación y fines de semana',
-                            onTap: () => launchWhatsAppGroupInviteFromContext(
-                              context,
-                              groupUrl,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          'Los horarios pueden variar según el calendario del club. '
-                          'Consulta comunicados para cambios puntuales.',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.caption(
-                            context,
-                            color: palette.textMuted,
-                          ).copyWith(height: 1.4),
-                        ),
-                      ],
-                    );
-                  },
+                  (section) => ListView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    children: [
+                      ScheduleCard(
+                        title: section.title,
+                        subtitle: section.subtitle,
+                        icon: ScheduleHelpers.iconFor(section.iconName),
+                        scheduleLines: section.lines,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        'Los horarios pueden variar según el calendario del club. '
+                        'Consulta comunicados para cambios puntuales.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.caption(
+                          context,
+                          color: palette.textMuted,
+                        ).copyWith(height: 1.4),
+                      ),
+                    ],
+                  ),
                 )
                 .toList(),
           ),

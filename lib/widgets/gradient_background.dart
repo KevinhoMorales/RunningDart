@@ -95,20 +95,28 @@ class AuthHero extends StatelessWidget {
           width: 88,
           height: 88,
           decoration: BoxDecoration(
-            color: palette.accentPrimary,
+            color: palette.cardBackground,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             boxShadow: [
               BoxShadow(
-                color: AppConstants.primaryColor.withValues(alpha: 0.35),
+                color: AppConstants.primaryColor.withValues(alpha: 0.28),
                 blurRadius: 24,
                 offset: const Offset(0, 12),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.directions_run_rounded,
-            size: 44,
-            color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset(
+            AppConstants.saintsMarkAsset,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => ColoredBox(
+              color: palette.accentPrimary,
+              child: const Icon(
+                Icons.directions_run_rounded,
+                size: 44,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),

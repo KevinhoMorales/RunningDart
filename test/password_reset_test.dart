@@ -102,7 +102,7 @@ void main() {
     await _pumpLogin(tester, AuthProvider(service));
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'correo electrónico'),
+      find.widgetWithText(TextFormField, 'Correo electrónico'),
       'socio@saints.com',
     );
     await _openResetDialog(tester);

@@ -36,6 +36,18 @@ class SettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
+                    'Ajustes',
+                    style: AppTypography.sectionTitle(context),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ProfileActionTile(
+                    icon: Icons.badge_outlined,
+                    title: 'Membresía y credencial',
+                    subtitle: 'QR, horarios y datos del club',
+                    onTap: () => context.push('/membership'),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
                     'Apariencia',
                     style: AppTypography.sectionTitle(context),
                   ),
