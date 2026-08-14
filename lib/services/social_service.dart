@@ -545,58 +545,142 @@ class SocialService {
     }
   }
 
-  /// Prefix search sobre `usernameLower` y `displayNameLower`.
+  /// Prefijos sobre `usernameLower` / `displayNameLower`, o browse reciente
+  /// cuando la consulta está vacía.
   ///
-  /// Con la consulta vacia devuelve los perfiles actualizados mas recientes
-  /// como sugeridos.
-  Future<List<PublicProfile>> searchProfiles(
+  /// Página de [discoverPageSize]. Pasar [startAfter] del [PageResult.cursor]
+  /// anterior; al cambiar el texto de búsqueda hay que pedir de nuevo sin cursor.
+  static const discoverPageSize = 20;
+
+  Future<PageResult<PublicProfile>> searchProfilesPage(
     String query, {
-    int limit = 20,
+    Object? startAfter,
+    int limit = discoverPageSize,
   }) async {
     final term = query.trim().toLowerCase().replaceFirst('@', '');
 
     try {
       if (term.isEmpty) {
-        final snapshot = await _publicProfiles
-            .orderBy('updatedAt', descending: true)
-            .limit(30)
-            .get();
-        return snapshot.docs
-            .map(PublicProfile.fromFirestore)
-            .toList(growable: false);
+        return await _browseProfilesPage(startAfter: startAfter, limit: limit);
       }
-
-      final results = await Future.wait([
-        _prefixQuery('usernameLower', term, limit),
-        _prefixQuery('displayNameLower', term, limit),
-      ]);
-
-      final byId = <String, PublicProfile>{};
-      for (final profiles in results) {
-        for (final profile in profiles) {
-          byId.putIfAbsent(profile.id, () => profile);
-        }
-      }
-      return byId.values.take(limit).toList(growable: false);
+      return await _prefixSearchPage(term, startAfter: startAfter, limit: limit);
     } on FirebaseException catch (e) {
       throw SocialServiceException(UserMessages.firestore(e));
     }
   }
 
-  Future<List<PublicProfile>> _prefixQuery(
+  /// Primera página (compat). Preferir [searchProfilesPage].
+  Future<List<PublicProfile>> searchProfiles(
+    String query, {
+    int limit = discoverPageSize,
+  }) async {
+    final page = await searchProfilesPage(query, limit: limit);
+    return page.items;
+  }
+
+  Future<PageResult<PublicProfile>> _browseProfilesPage({
+    Object? startAfter,
+    required int limit,
+  }) async {
+    var query = _publicProfiles
+        .orderBy('updatedAt', descending: true)
+        .limit(limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de Conoce inválido.');
+    }
+
+    final snapshot = await query.get();
+    final items = snapshot.docs
+        .map(PublicProfile.fromFirestore)
+        .toList(growable: false);
+    final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+    return PageResult<PublicProfile>(
+      items: items,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: lastDoc,
+    );
+  }
+
+  Future<PageResult<PublicProfile>> _prefixSearchPage(
+    String term, {
+    Object? startAfter,
+    required int limit,
+  }) async {
+    final previous = startAfter is _PrefixSearchCursor
+        ? startAfter
+        : (startAfter == null
+            ? null
+            : (throw ArgumentError('Cursor de búsqueda inválido.')));
+
+    final usernameFuture = previous?.usernameDone == true
+        ? Future.value(const _PrefixLeg(items: [], lastDoc: null, done: true))
+        : _prefixQueryLeg(
+            'usernameLower',
+            term,
+            limit: limit,
+            startAfter: previous?.usernameDoc,
+          );
+    final displayNameFuture = previous?.displayNameDone == true
+        ? Future.value(const _PrefixLeg(items: [], lastDoc: null, done: true))
+        : _prefixQueryLeg(
+            'displayNameLower',
+            term,
+            limit: limit,
+            startAfter: previous?.displayNameDoc,
+          );
+
+    final legs = await Future.wait([usernameFuture, displayNameFuture]);
+    final usernameLeg = legs[0];
+    final displayNameLeg = legs[1];
+
+    final byId = <String, PublicProfile>{};
+    for (final profile in [...usernameLeg.items, ...displayNameLeg.items]) {
+      byId.putIfAbsent(profile.id, () => profile);
+    }
+
+    final usernameDone = usernameLeg.done;
+    final displayNameDone = displayNameLeg.done;
+    final hasMore = !usernameDone || !displayNameDone;
+    final cursor = hasMore
+        ? _PrefixSearchCursor(
+            usernameDoc: usernameLeg.lastDoc ?? previous?.usernameDoc,
+            displayNameDoc: displayNameLeg.lastDoc ?? previous?.displayNameDoc,
+            usernameDone: usernameDone,
+            displayNameDone: displayNameDone,
+          )
+        : null;
+
+    return PageResult<PublicProfile>(
+      items: byId.values.toList(growable: false),
+      hasMore: hasMore,
+      cursor: cursor,
+    );
+  }
+
+  Future<_PrefixLeg> _prefixQueryLeg(
     String field,
-    String term,
-    int limit,
-  ) async {
-    final snapshot = await _publicProfiles
+    String term, {
+    required int limit,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) async {
+    var query = _publicProfiles
         .orderBy(field)
         .where(field, isGreaterThanOrEqualTo: term)
         .where(field, isLessThanOrEqualTo: '$term\uf8ff')
-        .limit(limit)
-        .get();
-    return snapshot.docs
-        .map(PublicProfile.fromFirestore)
-        .toList(growable: false);
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    final snapshot = await query.get();
+    return _PrefixLeg(
+      items: snapshot.docs
+          .map(PublicProfile.fromFirestore)
+          .toList(growable: false),
+      lastDoc: snapshot.docs.isEmpty ? null : snapshot.docs.last,
+      done: snapshot.docs.length < limit,
+    );
   }
 
   Future<PublicProfile?> getPublicProfile(String userId) async {
@@ -606,4 +690,31 @@ class SocialService {
     }
     return PublicProfile.fromFirestore(doc);
   }
+}
+
+/// Cursor interno de búsqueda por prefijo (dos consultas en paralelo).
+class _PrefixSearchCursor {
+  const _PrefixSearchCursor({
+    this.usernameDoc,
+    this.displayNameDoc,
+    this.usernameDone = false,
+    this.displayNameDone = false,
+  });
+
+  final DocumentSnapshot<Map<String, dynamic>>? usernameDoc;
+  final DocumentSnapshot<Map<String, dynamic>>? displayNameDoc;
+  final bool usernameDone;
+  final bool displayNameDone;
+}
+
+class _PrefixLeg {
+  const _PrefixLeg({
+    required this.items,
+    required this.lastDoc,
+    required this.done,
+  });
+
+  final List<PublicProfile> items;
+  final DocumentSnapshot<Map<String, dynamic>>? lastDoc;
+  final bool done;
 }
