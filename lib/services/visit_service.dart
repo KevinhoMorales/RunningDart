@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/firebase_paths.dart';
 import '../models/business_model.dart';
 import '../models/membership_status.dart';
+import '../models/page_result.dart';
 import '../models/user_model.dart';
 import '../models/user_role.dart';
 import '../models/visit_model.dart';
@@ -43,7 +44,29 @@ class VisitScanValidator {
 }
 
 abstract class VisitServiceBase {
-  Stream<List<VisitModel>> watchVisitsForBusiness(String businessId);
+  static const visitsPageSize = 40;
+
+  /// Primera página en vivo del historial de una marca.
+  Stream<PageResult<VisitModel>> watchVisitsForBusiness(
+    String businessId, {
+    int limit = visitsPageSize,
+  });
+
+  Future<PageResult<VisitModel>> fetchVisitsForBusinessPage(
+    String businessId, {
+    Object? startAfter,
+    int limit = visitsPageSize,
+  });
+
+  Stream<PageResult<VisitModel>> watchAllVisits({
+    int limit = visitsPageSize,
+  });
+
+  Future<PageResult<VisitModel>> fetchAllVisitsPage({
+    Object? startAfter,
+    int limit = visitsPageSize,
+  });
+
   Future<ScanValidationResult> processScan({
     required String rawQrValue,
     required String businessId,
@@ -76,25 +99,96 @@ class VisitService implements VisitServiceBase {
       FirebasePaths.collection(_firestore, 'businesses');
 
   @override
-  Stream<List<VisitModel>> watchVisitsForBusiness(String businessId) {
+  Stream<PageResult<VisitModel>> watchVisitsForBusiness(
+    String businessId, {
+    int limit = VisitServiceBase.visitsPageSize,
+  }) {
+    return _businessVisitsQuery(businessId, limit: limit).snapshots().map(
+          (snapshot) => _pageFromSnapshot(snapshot, limit),
+        );
+  }
+
+  @override
+  Future<PageResult<VisitModel>> fetchVisitsForBusinessPage(
+    String businessId, {
+    Object? startAfter,
+    int limit = VisitServiceBase.visitsPageSize,
+  }) async {
+    var query = _businessVisitsQuery(businessId, limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de visitas inválido.');
+    }
+    final snapshot = await query.get();
+    return _pageFromSnapshot(snapshot, limit);
+  }
+
+  @override
+  Stream<PageResult<VisitModel>> watchAllVisits({
+    int limit = VisitServiceBase.visitsPageSize,
+  }) {
+    return _allVisitsQuery(limit: limit).snapshots().map(
+          (snapshot) => _pageFromSnapshot(snapshot, limit),
+        );
+  }
+
+  @override
+  Future<PageResult<VisitModel>> fetchAllVisitsPage({
+    Object? startAfter,
+    int limit = VisitServiceBase.visitsPageSize,
+  }) async {
+    var query = _allVisitsQuery(limit: limit);
+    if (startAfter is DocumentSnapshot<Map<String, dynamic>>) {
+      query = query.startAfterDocument(startAfter);
+    } else if (startAfter != null) {
+      throw ArgumentError('Cursor de visitas inválido.');
+    }
+    final snapshot = await query.get();
+    return _pageFromSnapshot(snapshot, limit);
+  }
+
+  Query<Map<String, dynamic>> _businessVisitsQuery(
+    String businessId, {
+    required int limit,
+  }) {
     return _visits
         .where('businessId', isEqualTo: businessId)
-        .snapshots()
-        .map(_mapVisitSnapshot);
+        .orderBy('visitedAt', descending: true)
+        .limit(limit);
   }
 
-  Stream<List<VisitModel>> watchAllVisits() {
-    return _visits
-        .snapshots()
-        .map(_mapVisitSnapshot);
+  Query<Map<String, dynamic>> _allVisitsQuery({required int limit}) {
+    return _visits.orderBy('visitedAt', descending: true).limit(limit);
   }
 
-  List<VisitModel> _mapVisitSnapshot(
+  PageResult<VisitModel> _pageFromSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
   ) {
-    final items = snapshot.docs.map(VisitModel.fromFirestore).toList();
-    items.sort((a, b) => b.visitedAt.compareTo(a.visitedAt));
-    return items;
+    final items = snapshot.docs.map(VisitModel.fromFirestore).toList(growable: false);
+    final lastDoc = snapshot.docs.isEmpty ? null : snapshot.docs.last;
+    return PageResult<VisitModel>(
+      items: items,
+      hasMore: snapshot.docs.length >= limit,
+      cursor: lastDoc,
+    );
+  }
+
+  /// Conteos para el panel de stats (sin bajar el historial completo).
+  Future<({int total, int approved})> countValidationStats() async {
+    final totalSnap = await _visits.count().get();
+    final approvedSnap = await _visits
+        .where(
+          'validationResult',
+          isEqualTo: ValidationResult.approved.firestoreValue,
+        )
+        .count()
+        .get();
+    return (
+      total: totalSnap.count ?? 0,
+      approved: approvedSnap.count ?? 0,
+    );
   }
 
   @override

@@ -179,18 +179,50 @@ class _AdminNewsManagementTabState extends State<AdminNewsManagementTab> {
           Expanded(
             child: HapticRefreshIndicator(
               onRefresh: _handleRefresh,
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  AppSpacing.xl,
-                ),
-                itemCount: filteredNews.length,
-                itemBuilder: (context, index) {
-                  final item = filteredNews[index];
-                  return Card(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  final metrics = notification.metrics;
+                  if (metrics.pixels >= metrics.maxScrollExtent - 200) {
+                    context.read<AdminNewsProvider>().loadMore();
+                  }
+                  return false;
+                },
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    0,
+                    AppSpacing.md,
+                    AppSpacing.xl,
+                  ),
+                  itemCount: filteredNews.length +
+                      (provider.hasMore || provider.isLoadingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == filteredNews.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
+                        child: Center(
+                          child: provider.isLoadingMore
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : HapticTextButton(
+                                  onPressed: () => context
+                                      .read<AdminNewsProvider>()
+                                      .loadMore(),
+                                  child: const Text('Cargar más'),
+                                ),
+                        ),
+                      );
+                    }
+                    final item = filteredNews[index];
+                    return Card(
                     margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: HapticListTile(
                       contentPadding: const EdgeInsets.all(AppSpacing.md),
@@ -248,6 +280,7 @@ class _AdminNewsManagementTabState extends State<AdminNewsManagementTab> {
                     ),
                   );
                 },
+                ),
               ),
             ),
           ),

@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/membership_status.dart';
-import '../../models/visit_model.dart';
 import '../../providers/admin_provider.dart';
+import '../../services/user_service.dart';
 import '../../services/visit_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
@@ -27,28 +26,31 @@ class AdminStatsTab extends StatefulWidget {
 class _AdminStatsTabState extends State<AdminStatsTab> {
   int _totalValidations = 0;
   int _approvedValidations = 0;
+  int _totalUsers = 0;
+  int _pendingUsers = 0;
+  int _activeMembers = 0;
+  int _operators = 0;
   bool _isLoadingStats = true;
 
   @override
   void initState() {
     super.initState();
-    _loadValidationStats();
+    _loadStats();
   }
 
-  Future<void> _loadValidationStats() async {
+  Future<void> _loadStats() async {
     setState(() => _isLoadingStats = true);
     try {
-      final visits = await VisitService().watchAllVisits().first;
-      var approved = 0;
-      for (final visit in visits) {
-        if (visit.validationResult == ValidationResult.approved) {
-          approved++;
-        }
-      }
+      final visitStats = await VisitService().countValidationStats();
+      final userStats = await UserService().countAdminUserStats();
       if (mounted) {
         setState(() {
-          _totalValidations = visits.length;
-          _approvedValidations = approved;
+          _totalValidations = visitStats.total;
+          _approvedValidations = visitStats.approved;
+          _totalUsers = userStats.total;
+          _pendingUsers = userStats.pending;
+          _activeMembers = userStats.activeMembers;
+          _operators = userStats.operators;
           _isLoadingStats = false;
         });
       }
@@ -69,25 +71,11 @@ class _AdminStatsTabState extends State<AdminStatsTab> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final admin = context.watch<AdminProvider>();
-    final users = admin.users;
-
-    final pending = users
-        .where((u) => u.membershipStatus == MembershipStatus.pending)
-        .length;
-    final activeMembers = users
-        .where(
-          (u) =>
-              u.isActive &&
-              u.membershipStatus == MembershipStatus.active &&
-              u.role.isMember,
-        )
-        .length;
-    final operators = users.where((u) => u.isBusinessOperator).length;
 
     return HapticRefreshIndicator(
       onRefresh: () async {
         await admin.refresh();
-        await _loadValidationStats();
+        await _loadStats();
       },
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -98,47 +86,51 @@ class _AdminStatsTabState extends State<AdminStatsTab> {
             style: AppTypography.sectionTitle(context),
           ),
           const SizedBox(height: AppSpacing.md),
-          _StatCard(
-            icon: Icons.people_rounded,
-            label: 'Usuarios registrados',
-            value: '${users.length}',
-            onTap: widget.onNavigateToUsers == null
-                ? null
-                : () => widget.onNavigateToUsers!(AdminUserFilter.all),
-          ),
-          _StatCard(
-            icon: Icons.hourglass_top_rounded,
-            label: 'Solicitudes pendientes',
-            value: '$pending',
-            onTap: widget.onNavigateToUsers == null
-                ? null
-                : () => widget.onNavigateToUsers!(AdminUserFilter.pending),
-          ),
-          _StatCard(
-            icon: Icons.verified_rounded,
-            label: 'Miembros activos',
-            value: '$activeMembers',
-            onTap: widget.onNavigateToUsers == null
-                ? null
-                : () => widget.onNavigateToUsers!(AdminUserFilter.activeMembers),
-          ),
-          _StatCard(
-            icon: Icons.storefront_rounded,
-            label: 'Operadores de marcas',
-            value: '$operators',
-            onTap: widget.onNavigateToUsers == null
-                ? null
-                : () => widget.onNavigateToUsers!(AdminUserFilter.operators),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Validaciones QR',
-            style: AppTypography.title(context),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           if (_isLoadingStats)
-            const Center(child: CircularProgressIndicator())
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Center(child: CircularProgressIndicator()),
+            )
           else ...[
+            _StatCard(
+              icon: Icons.people_rounded,
+              label: 'Usuarios registrados',
+              value: '$_totalUsers',
+              onTap: widget.onNavigateToUsers == null
+                  ? null
+                  : () => widget.onNavigateToUsers!(AdminUserFilter.all),
+            ),
+            _StatCard(
+              icon: Icons.hourglass_top_rounded,
+              label: 'Solicitudes pendientes',
+              value: '$_pendingUsers',
+              onTap: widget.onNavigateToUsers == null
+                  ? null
+                  : () => widget.onNavigateToUsers!(AdminUserFilter.pending),
+            ),
+            _StatCard(
+              icon: Icons.verified_rounded,
+              label: 'Miembros activos',
+              value: '$_activeMembers',
+              onTap: widget.onNavigateToUsers == null
+                  ? null
+                  : () =>
+                      widget.onNavigateToUsers!(AdminUserFilter.activeMembers),
+            ),
+            _StatCard(
+              icon: Icons.storefront_rounded,
+              label: 'Operadores de marcas',
+              value: '$_operators',
+              onTap: widget.onNavigateToUsers == null
+                  ? null
+                  : () => widget.onNavigateToUsers!(AdminUserFilter.operators),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Validaciones QR',
+              style: AppTypography.title(context),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             _StatCard(
               icon: Icons.qr_code_scanner_rounded,
               label: 'Total validaciones',

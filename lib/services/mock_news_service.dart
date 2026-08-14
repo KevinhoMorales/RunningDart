@@ -1,4 +1,5 @@
 import '../models/news_model.dart';
+import '../models/page_result.dart';
 import '../utils/helpers.dart';
 import 'news_service.dart';
 
@@ -18,19 +19,71 @@ class MockNewsService implements NewsService {
     ),
   ];
 
+  PageResult<NewsModel> _page(
+    List<NewsModel> source, {
+    required int limit,
+    Object? startAfter,
+  }) {
+    var start = 0;
+    if (startAfter is String) {
+      final index = source.indexWhere((item) => item.id == startAfter);
+      start = index < 0 ? source.length : index + 1;
+    }
+    final slice = source.skip(start).toList(growable: false);
+    final items = slice.take(limit).toList(growable: false);
+    return PageResult(
+      items: items,
+      hasMore: slice.length > limit,
+      cursor: items.isEmpty ? null : items.last.id,
+    );
+  }
+
   @override
-  Stream<List<NewsModel>> watchPublishedNews() async* {
-    yield _mockNews
+  Stream<PageResult<NewsModel>> watchPublishedNews({
+    int limit = NewsService.newsPageSize,
+  }) async* {
+    final upcoming = _mockNews
         .where(
           (item) =>
               item.isPublished && Helpers.isEventUpcoming(item.eventDate),
         )
-        .toList(growable: false);
+        .toList(growable: false)
+      ..sort((a, b) => a.eventDate.compareTo(b.eventDate));
+    yield _page(upcoming, limit: limit);
   }
 
   @override
-  Stream<List<NewsModel>> watchAllNews() async* {
-    yield List.unmodifiable(_mockNews);
+  Future<PageResult<NewsModel>> fetchPublishedNewsPage({
+    Object? startAfter,
+    int limit = NewsService.newsPageSize,
+  }) async {
+    final upcoming = _mockNews
+        .where(
+          (item) =>
+              item.isPublished && Helpers.isEventUpcoming(item.eventDate),
+        )
+        .toList(growable: false)
+      ..sort((a, b) => a.eventDate.compareTo(b.eventDate));
+    return _page(upcoming, limit: limit, startAfter: startAfter);
+  }
+
+  @override
+  Stream<PageResult<NewsModel>> watchAllNews({
+    int limit = NewsService.newsPageSize,
+  }) async* {
+    final all = List<NewsModel>.from(_mockNews)
+      ..sort((a, b) => b.eventDate.compareTo(a.eventDate));
+    yield _page(all, limit: limit);
+  }
+
+  @override
+  Future<PageResult<NewsModel>> fetchAllNewsPage({
+    Object? startAfter,
+    int limit = NewsService.newsPageSize,
+  }) async {
+    final all = List<NewsModel>.from(_mockNews)
+      ..sort((a, b) => b.eventDate.compareTo(a.eventDate));
+    return _page(all, limit: limit, startAfter: startAfter);
   }
 
   @override
