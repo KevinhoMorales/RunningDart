@@ -58,6 +58,10 @@ dependencies:
   firebase_remote_config: ^5.5.0
   image_picker_android: ^0.8.13+17
   image_picker_platform_interface: ^2.11.1
+  # Pin (no ^): >=2.6.0 pulls package:objective_c native assets that App Store
+  # rejects (ASC 91169, IOSSIMULATOR tag on arm64). Keep until Flutter ships a
+  # fixed objective_c / path_provider_foundation on stable.
+  path_provider_foundation: 2.5.1
 
 dev_dependencies:
   flutter_test:

@@ -291,6 +291,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				A20000010000000000000004 /* Embed Watch Content */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				F1X0BJC0STRIP00000000001 /* Strip bad objective_c.framework */,
 				7582AF603718E9383C6D8462 /* [CP] Embed Pods Frameworks */,
 				87703B239B1B9B7A6ABEC331 /* [CP] Copy Pods Resources */,
 			);
@@ -430,6 +431,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		F1X0BJC0STRIP00000000001 /* Strip bad objective_c.framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Strip bad objective_c.framework";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${SRCROOT}/scripts/strip_objective_c_framework.sh\"\n";
 		};
 		67E0C633108395613808AF47 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
