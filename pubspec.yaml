@@ -71,6 +71,13 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
+# path_provider_foundation >=2.6.0 bundles objective_c as a native asset whose
+# arm64 slice is tagged IOSSIMULATOR. App Store Connect rejects that IPA
+# (error 91169: "unsupported platform in the arm64 slice"). 2.5.1 keeps the
+# previous non-FFI implementation and uploads cleanly.
+dependency_overrides:
+  path_provider_foundation: 2.5.1
+
 flutter_launcher_icons:
   android: true
   ios: true
