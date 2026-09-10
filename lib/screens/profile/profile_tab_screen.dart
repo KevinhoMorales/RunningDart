@@ -55,6 +55,13 @@ class ProfileTabScreen extends StatelessWidget {
           UserBadgesSection(userId: user.id),
           const SizedBox(height: AppSpacing.md),
           ProfileActionTile(
+            icon: Icons.forum_outlined,
+            title: 'Comunidad',
+            subtitle: 'Feed, publicaciones y vida del club',
+            onTap: () => context.push('/feed'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ProfileActionTile(
             icon: Icons.storefront_outlined,
             title: 'Marcas aliadas',
             subtitle: 'Beneficios exclusivos SAINTS',

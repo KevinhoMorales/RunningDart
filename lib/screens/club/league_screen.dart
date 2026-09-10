@@ -89,17 +89,12 @@ class _LeagueScreenState extends State<LeagueScreen> {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (league.leaderboard.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: palette.cardBackground,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: palette.cardBorder),
-              ),
-              child: Text(
-                'Aún no hay puntos este mes. Haz check-in en un Social Run para aparecer en la liga.',
-                style: AppTypography.muted(context),
-              ),
+            EmptyStateCard(
+              icon: Icons.emoji_events_outlined,
+              message: 'La Liga aún está en calentamiento',
+              subtitle:
+                  'Haz check-in en un Social Run y aparecerás en el ranking '
+                  'del mes. Comunidad y Oficial suman igual.',
             )
           else
             ...List.generate(league.leaderboard.length, (index) {

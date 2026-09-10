@@ -74,6 +74,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
 
 # path_provider_foundation >=2.6.0 bundles objective_c as a native asset whose
 # arm64 slice is tagged IOSSIMULATOR. App Store Connect rejects that IPA
@@ -93,6 +94,21 @@ flutter_launcher_icons:
   # La zona segura del ícono adaptativo es el 66% central: con menos margen el
   # launcher recorta la marca al aplicar la máscara circular.
   adaptive_icon_foreground_inset: 20
+
+# Cold start: forest-green brand on SAINTS surface (dev + prod flavors share main).
+flutter_native_splash:
+  color: "#F5F7F5"
+  image: assets/icon/app_icon.png
+  color_dark: "#F5F7F5"
+  image_dark: assets/icon/app_icon.png
+  android_12:
+    color: "#F5F7F5"
+    image: assets/icon/app_icon.png
+    color_dark: "#F5F7F5"
+    image_dark: assets/icon/app_icon.png
+  ios: true
+  android: true
+  fullscreen: false
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

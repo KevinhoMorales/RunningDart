@@ -9,48 +9,73 @@ class AppStartupLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AppPalette.light;
+    // Match native splash: SAINTS surface + brand mark (not a generic run icon).
+    const surface = AppConstants.surfaceColor;
 
-    return ColoredBox(
-      color: palette.scaffoldBackground,
+    return const ColoredBox(
+      color: surface,
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
+        child: _StartupBrand(),
+      ),
+    );
+  }
+}
+
+class _StartupBrand extends StatelessWidget {
+  const _StartupBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          child: Image.asset(
+            AppConstants.saintsMarkAsset,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+            errorBuilder: (_, error, stackTrace) => Container(
+              width: 96,
+              height: 96,
               decoration: BoxDecoration(
-                color: palette.accentPrimary,
+                color: AppConstants.primaryColor,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               ),
-              child: const Icon(
-                Icons.directions_run_rounded,
-                size: 36,
-                color: Colors.white,
+              alignment: Alignment.center,
+              child: const Text(
+                'SAINTS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  letterSpacing: 0.6,
+                ),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              AppConstants.appName,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: palette.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: AppConstants.primaryColor,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          AppConstants.appName,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.light.textPrimary,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: AppConstants.primaryColor,
+          ),
+        ),
+      ],
     );
   }
 }

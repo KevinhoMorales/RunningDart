@@ -23,7 +23,7 @@ import '../../widgets/post_viewer.dart';
 import '../social/user_search_tab.dart';
 
 /// Índice legacy del tab Comunidad (retirado de la nav primaria en point 3).
-/// El feed sigue disponible por deep-link `/feed`.
+/// El feed sigue en `/feed`; acceso desde Perfil e Inicio.
 const communityHomeTabIndex = -1;
 
 class FeedScreen extends StatefulWidget {
