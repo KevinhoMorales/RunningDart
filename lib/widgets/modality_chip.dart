@@ -20,6 +20,8 @@ class ModalityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final highlightOfficial =
+        !onDarkBackground && modality == MembershipModality.official;
 
     return Container(
       height: compact ? 28 : 32,
@@ -30,14 +32,14 @@ class ModalityChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: onDarkBackground
             ? Colors.white.withValues(alpha: 0.12)
-            : modality == MembershipModality.proTeam
+            : highlightOfficial
                 ? palette.accentPrimary
                 : palette.chipBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(
           color: onDarkBackground
               ? Colors.white.withValues(alpha: 0.22)
-              : modality == MembershipModality.proTeam
+              : highlightOfficial
                   ? Colors.transparent
                   : palette.inputBorder,
         ),
@@ -50,7 +52,7 @@ class ModalityChip extends StatelessWidget {
         ),
         style: AppTypography.caption(
           context,
-          color: onDarkBackground || modality == MembershipModality.proTeam
+          color: onDarkBackground || highlightOfficial
               ? Colors.white
               : palette.textPrimary,
         ).copyWith(fontWeight: FontWeight.w700, height: 1),

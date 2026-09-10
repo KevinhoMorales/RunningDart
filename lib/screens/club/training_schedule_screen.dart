@@ -56,9 +56,6 @@ class TrainingScheduleScreen extends StatelessWidget {
   }
 
   static String _tabLabel(String title) {
-    if (title.contains('Pro Team')) {
-      return 'Pro Team';
-    }
     if (title.contains('Oficial')) {
       return 'Oficial';
     }

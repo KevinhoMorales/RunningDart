@@ -47,7 +47,7 @@ class MembershipHelpers {
     }
     if (!modality.requiresAdminApproval) {
       return 'La modalidad Comunidad no incluye credencial digital. '
-          'Pásate a Miembro Oficial o Pro Team para obtener la tuya.';
+          'Pásate a Miembro Oficial (USD 5/mes) para obtener la tuya.';
     }
     if (isExpired) {
       return 'Tu membresía venció. Contacta a SAINTS para reactivarla.';

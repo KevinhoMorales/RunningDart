@@ -103,11 +103,11 @@ void main() {
     expect(auth.postAuthRoute, '/membership-pending');
   });
 
-  test('postAuthRoute sends pending pro team users to membership-pending', () async {
+  test('postAuthRoute sends pending official users to membership-pending', () async {
     final auth = AuthProvider(
       _StaticAuthService(
         _user(
-          modality: MembershipModality.proTeam,
+          modality: MembershipModality.official,
           status: MembershipStatus.pending,
         ),
       ),
@@ -115,5 +115,20 @@ void main() {
     await auth.initialize();
 
     expect(auth.postAuthRoute, '/membership-pending');
+  });
+
+  test('legacy proTeam modality maps to official without crashing auth', () async {
+    final auth = AuthProvider(
+      _StaticAuthService(
+        _user(
+          modality: MembershipModality.fromFirestore('proTeam'),
+          status: MembershipStatus.active,
+        ),
+      ),
+    );
+    await auth.initialize();
+
+    expect(auth.user?.membershipModality, MembershipModality.official);
+    expect(auth.postAuthRoute, '/home');
   });
 }

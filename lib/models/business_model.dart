@@ -191,9 +191,16 @@ class BusinessModel {
     if (value is! List) {
       return const [];
     }
-    return value
-        .map((item) => MembershipModality.fromFirestore(item as String?))
-        .toList(growable: false);
+    // Dedupe after legacy `proTeam` → `official` mapping in fromFirestore.
+    final seen = <MembershipModality>{};
+    final result = <MembershipModality>[];
+    for (final item in value) {
+      final modality = MembershipModality.fromFirestore(item as String?);
+      if (seen.add(modality)) {
+        result.add(modality);
+      }
+    }
+    return result;
   }
 
   BusinessModel copyWith({

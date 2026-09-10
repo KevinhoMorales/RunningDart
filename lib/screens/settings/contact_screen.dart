@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../../providers/auth_provider.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
@@ -16,7 +14,6 @@ class ContactScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -101,18 +98,6 @@ class ContactScreen extends StatelessWidget {
                 AppConstants.communityWhatsAppGroupUrl,
               ),
             ),
-            if (auth.isProTeamMember) ...[
-              const SizedBox(height: AppSpacing.sm),
-              ProfileActionTile(
-                icon: Icons.groups_rounded,
-                title: 'SAINTS Pro Team',
-                subtitle: 'Coordinación con el coach y el equipo',
-                onTap: () => launchWhatsAppGroupInviteFromContext(
-                  context,
-                  AppConstants.proTeamWhatsAppGroupUrl,
-                ),
-              ),
-            ],
           ],
         ),
       ),

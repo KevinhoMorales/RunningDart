@@ -49,13 +49,7 @@ Future<void> launchWhatsAppGroupInviteFromContext(
   }
 }
 
-String? whatsAppGroupUrlForScheduleSection(
-  String title, {
-  required bool isProTeamMember,
-}) {
-  if (title.contains('Pro Team')) {
-    return isProTeamMember ? AppConstants.proTeamWhatsAppGroupUrl : null;
-  }
+String? whatsAppGroupUrlForScheduleSection(String title) {
   if (title.contains('Comunidad') || title.contains('Oficial')) {
     return AppConstants.communityWhatsAppGroupUrl;
   }
@@ -63,9 +57,6 @@ String? whatsAppGroupUrlForScheduleSection(
 }
 
 String whatsAppGroupCtaLabelForScheduleSection(String title) {
-  if (title.contains('Pro Team')) {
-    return 'Grupo Pro Team en WhatsApp';
-  }
   return 'Unirme al grupo de WhatsApp';
 }
 

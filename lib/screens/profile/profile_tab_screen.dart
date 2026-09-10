@@ -72,7 +72,7 @@ class ProfileTabScreen extends StatelessWidget {
           ProfileActionTile(
             icon: Icons.schedule_rounded,
             title: 'Horarios de entrenamiento',
-            subtitle: 'Comunidad, Oficial y Pro Team',
+            subtitle: 'Comunidad y Miembro Oficial',
             onTap: () => context.push('/training-schedule'),
           ),
           if (auth.canManageSchedules) ...[

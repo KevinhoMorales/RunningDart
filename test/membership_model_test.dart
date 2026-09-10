@@ -7,20 +7,42 @@ import 'package:running_dart/utils/membership_helpers.dart';
 
 void main() {
   group('MembershipModality', () {
-    test('paid modalities require payment', () {
+    test('official requires admin approval; community does not', () {
       expect(MembershipModality.official.requiresAdminApproval, isTrue);
-      expect(MembershipModality.proTeam.requiresAdminApproval, isTrue);
       expect(MembershipModality.community.requiresAdminApproval, isFalse);
     });
 
-    test('registrable options include community and paid modalities', () {
+    test('registrable options are community and official only', () {
       expect(
         MembershipModality.registrableOptions,
         [
           MembershipModality.community,
           MembershipModality.official,
-          MembershipModality.proTeam,
         ],
+      );
+      expect(MembershipModality.values, MembershipModality.registrableOptions);
+    });
+
+    test('legacy proTeam Firestore value maps to official', () {
+      expect(
+        MembershipModality.fromFirestore('proTeam'),
+        MembershipModality.official,
+      );
+      expect(
+        MembershipModality.fromFirestore('official'),
+        MembershipModality.official,
+      );
+      expect(
+        MembershipModality.fromFirestore('community'),
+        MembershipModality.community,
+      );
+    });
+
+    test('official display name is Miembro Oficial', () {
+      expect(MembershipModality.official.displayName, 'Miembro Oficial');
+      expect(
+        MembershipModality.officialProductBlurb,
+        contains('USD 5/mes'),
       );
     });
   });

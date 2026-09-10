@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
-import '../models/membership_modality.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -50,8 +49,6 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin => _user?.isAdmin ?? false;
   bool get isCoach => _user?.isCoach ?? false;
   bool get canManageSchedules => _user?.canManageSchedules ?? false;
-  bool get isProTeamMember =>
-      _user?.membershipModality == MembershipModality.proTeam;
   bool get isMember => _user?.isMember ?? false;
   bool get isBusinessOperator => _user?.isBusinessOperator ?? false;
   bool get hasMembershipPrivileges =>

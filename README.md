@@ -4,17 +4,16 @@ Aplicación móvil en Flutter para **SAINTS Wellness Club** (Santo Domingo de lo
 
 ## Descripción
 
-SAINTS Wellness Club conecta a la comunidad runner con el club y sus aliados comerciales. Los miembros registran su modalidad (Comunidad, Miembro Oficial 2026 o Pro Team), reciben una credencial digital con QR y acceden a beneficios filtrados por modalidad. Las marcas aliadas validan membresías escaneando el QR; los administradores aprueban solicitudes, activan/desactivan roles y gestionan el catálogo.
+SAINTS Wellness Club conecta a la comunidad runner con el club y sus aliados comerciales. Los miembros usan modalidad Comunidad o Miembro Oficial (USD 5/mes, activación admin), reciben credencial digital con QR (Oficial) y acceden a beneficios filtrados por modalidad. Las marcas aliadas validan membresías escaneando el QR; los administradores aprueban solicitudes, activan/desactivan roles y gestionan el catálogo.
 
 ## Modalidades y estados
 
 | Modalidad | Rol app | Acceso | Entrenamientos |
 |---|---|---|---|
 | Comunidad SAINTS | `user` | Activo al registrarse | Mar/Jue 7 p.m. Jelen Tenka |
-| Miembro Oficial 2026 | `member` | Pendiente hasta activación admin | Comunidad + beneficios |
-| SAINTS Pro Team | `member` | Pendiente hasta activación admin | L/M/V 7 p.m. + gym/fondos |
+| Miembro Oficial | `member` | Pendiente hasta activación admin · USD 5/mes | Comunidad + beneficios |
 
-Estados de membresía: **Pendiente** (espera aprobación admin) → **Activo** → **Inactivo** / **Vencido** (`expiresAt`, default 31-dic-2026 para Oficial).
+Estados de membresía: **Pendiente** (espera aprobación admin) → **Activo** → **Inactivo** / **Vencido** (`expiresAt`, default 31-dic del año en curso para Oficial).
 
 Operador de marca aliada = `member` + `businessId` asignado por admin.
 
@@ -23,7 +22,8 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 ### Registro y membresía
 - Formulario enriquecido: WhatsApp, últimos 4 dígitos de cédula, fecha de nacimiento, T&C
 - Todo registro crea un usuario base (`role: user`, modalidad Comunidad, activo)
-- Un admin cambia después el rol/modalidad (Oficial, Pro Team, member, etc.) desde el panel
+- Un admin cambia después el rol/modalidad (Oficial, member, etc.) desde el panel
+- Legacy Firestore `proTeam` se lee como Oficial (sin romper docs existentes)
 
 ### Credencial digital
 - Tarjeta tipo wallet en perfil: nombre, modalidad, estado, vigencia, QR
@@ -48,7 +48,7 @@ Operador de marca aliada = `member` + `businessId` asignado por admin.
 - Cola de reportes de publicaciones: ocultar el post, resolver o descartar la denuncia
 
 ### Horarios de entrenamiento
-- Pantalla estática Comunidad / Oficial / Pro Team en Jelen Tenka (`/training-schedule`)
+- Pantalla Comunidad / Oficial en Jelen Tenka (`/training-schedule`)
 
 ## Ambientes (prod / dev)
 
@@ -165,9 +165,9 @@ Play revisa el AAB del flavor **prod** (`com.devlokos.runningdart` → `environm
    - `isActive: true`
    - campos de perfil requeridos (`displayName`, `username`, etc.)
 3. Pegar email/password en Play Console → **App content → App access / Sign-in details**.
-4. Instrucciones para el reviewer: *“Usar Comunidad; no requiere pago. Oficial/Pro Team los activa un administrador.”*
+4. Instrucciones para el reviewer: *“Usar Comunidad; no requiere pago. Oficial lo activa un administrador.”*
 
-No uses cuentas Oficial/Pro Team pendientes: pasan el login pero quedan en “Solicitud en revisión”.
+No uses cuentas Oficial pendientes: pasan el login pero quedan en “Solicitud en revisión”.
 
 ### Photo / Video policy
 

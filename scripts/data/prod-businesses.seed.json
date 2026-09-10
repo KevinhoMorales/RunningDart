@@ -12,7 +12,7 @@
     "category": "salud",
     "benefits": [],
     "allianceStatus": "active",
-    "applicableModalities": ["official", "proTeam"]
+    "applicableModalities": ["official"]
   },
   {
     "id": "elegance-barberia",
@@ -27,7 +27,7 @@
     "category": "lifestyle",
     "benefits": [],
     "allianceStatus": "active",
-    "applicableModalities": ["official", "proTeam"]
+    "applicableModalities": ["official"]
   },
   {
     "id": "nexus-gym",
@@ -42,7 +42,7 @@
     "category": "gimnasio",
     "benefits": [],
     "allianceStatus": "active",
-    "applicableModalities": ["official", "proTeam"]
+    "applicableModalities": ["official"]
   },
   {
     "id": "pasos",
@@ -59,7 +59,7 @@
       "Pueden juntar 3 pares entre 3 personas, no necesariamente 3 pares de la misma persona."
     ],
     "allianceStatus": "active",
-    "applicableModalities": ["official", "proTeam"]
+    "applicableModalities": ["official"]
   },
   {
     "id": "belmiq-group",
@@ -74,7 +74,7 @@
     "category": "servicios",
     "benefits": [],
     "allianceStatus": "active",
-    "applicableModalities": ["official", "proTeam"]
+    "applicableModalities": ["official"]
   },
   {
     "id": "mandayan-chill-fest",
@@ -92,6 +92,6 @@
       "Chicken bites en reservas de 5+"
     ],
     "allianceStatus": "active",
-    "applicableModalities": ["official", "proTeam"]
+    "applicableModalities": ["official"]
   }
 ]

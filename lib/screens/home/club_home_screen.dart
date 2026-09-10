@@ -356,13 +356,7 @@ class _LegacyNextTrainingCard extends StatelessWidget {
         section.title.toLowerCase().contains(needle);
 
     final modality = user?.membershipModality.name ?? '';
-    if (modality == 'proTeam') {
-      for (final section in sections) {
-        if (matches(section, 'pro')) {
-          return section;
-        }
-      }
-    } else if (modality == 'official') {
+    if (modality == 'official') {
       for (final section in sections) {
         if (matches(section, 'oficial')) {
           return section;

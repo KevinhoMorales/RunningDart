@@ -25,8 +25,6 @@ class AppConstants {
 
   static const String communityWhatsAppGroupUrl =
       'https://chat.whatsapp.com/JNSEYSbOtelsoIPdvOibh';
-  static const String proTeamWhatsAppGroupUrl =
-      'https://chat.whatsapp.com/lbs975Y30T0HsJQHMnSDR';
 
   static const String saintsMarkAsset = 'assets/icon/app_icon.png';
   static const String devLokosEnterpriseUrl =

@@ -37,7 +37,6 @@ import 'screens/club/activities_list_screen.dart';
 import 'screens/club/activity_checkin_scanner_screen.dart';
 import 'screens/club/activity_detail_screen.dart';
 import 'screens/club/league_screen.dart';
-import 'screens/club/pro_team_screen.dart';
 import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
 import 'screens/business/business_list_screen.dart';
@@ -184,7 +183,6 @@ class _RunningDartAppState extends State<RunningDartApp> {
             location == '/membership' ||
             location == '/membership-pending' ||
             location == '/training-schedule' ||
-            location == '/pro-team' ||
             location == '/activities' ||
             location == '/league' ||
             location == '/businesses' ||
@@ -315,10 +313,6 @@ class _RunningDartAppState extends State<RunningDartApp> {
             appBar: const CustomAppBar(title: 'Noticias'),
             body: const NewsListScreen(),
           ),
-        ),
-        GoRoute(
-          path: '/pro-team',
-          builder: (context, state) => const ProTeamScreen(),
         ),
         GoRoute(
           path: '/admin/training-schedule',

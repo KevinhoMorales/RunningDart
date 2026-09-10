@@ -29,8 +29,8 @@ class TrainingScheduleService {
           ],
         ),
         TrainingScheduleSection(
-          title: 'Miembro Oficial 2026',
-          subtitle: 'Incluye entrenamientos de comunidad',
+          title: 'Miembro Oficial',
+          subtitle: 'Incluye entrenamientos de comunidad · USD 5/mes',
           iconName: 'groups',
           lines: [
             'Martes y jueves · 7:00 p.m.',
@@ -38,18 +38,14 @@ class TrainingScheduleService {
             'Acceso a beneficios con marcas aliadas',
           ],
         ),
-        TrainingScheduleSection(
-          title: 'SAINTS Pro Team',
-          subtitle: 'Entrenamiento guiado con coach',
-          iconName: 'fitness',
-          lines: [
-            'Lunes, miércoles y viernes · 7:00 p.m.',
-            'Jelen Tenka',
-            'Gym y fondos según cronograma interno del coach',
-          ],
-        ),
       ],
     );
+  }
+
+  /// Hides legacy Pro Team L/M/V blocks still stored in club_settings.
+  static bool isActiveScheduleSection(TrainingScheduleSection section) {
+    final title = section.title.toLowerCase();
+    return !title.contains('pro team') && !title.contains('proteam');
   }
 
   Stream<TrainingScheduleModel> watchSchedule() {
@@ -79,7 +75,11 @@ class TrainingScheduleService {
     }
 
     final parsed = TrainingScheduleModel.fromFirestore(snapshot);
-    if (parsed.sections.isEmpty) {
+    final activeSections = parsed.sections
+        .where(isActiveScheduleSection)
+        .toList(growable: false);
+
+    if (activeSections.isEmpty) {
       return TrainingScheduleModel(
         location: parsed.location ?? defaultSchedule.location,
         venue: parsed.venue ?? defaultSchedule.venue,
@@ -88,6 +88,11 @@ class TrainingScheduleService {
       );
     }
 
-    return parsed;
+    return TrainingScheduleModel(
+      location: parsed.location,
+      venue: parsed.venue,
+      sections: activeSections,
+      updatedAt: parsed.updatedAt,
+    );
   }
 }

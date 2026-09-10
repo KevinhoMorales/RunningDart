@@ -7,7 +7,7 @@ import 'package:running_dart/utils/helpers.dart';
 import 'package:running_dart/utils/membership_helpers.dart';
 
 void main() {
-  const officialProBusiness = BusinessModel(
+  const officialBusiness = BusinessModel(
     id: 'sample',
     name: 'Sample',
     description: 'Sample',
@@ -19,7 +19,6 @@ void main() {
     discount: '10%',
     applicableModalities: [
       MembershipModality.official,
-      MembershipModality.proTeam,
     ],
   );
 
@@ -114,23 +113,23 @@ void main() {
   });
 
   group('MembershipHelpers.canRedeemBusinessBenefits', () {
-    test('community member cannot redeem official/pro benefits', () {
+    test('community member cannot redeem official benefits', () {
       expect(
         MembershipHelpers.canRedeemBusinessBenefits(
           canUseMembershipFeatures: true,
           membershipModality: MembershipModality.community,
-          business: officialProBusiness,
+          business: officialBusiness,
         ),
         isFalse,
       );
     });
 
-    test('official member can redeem official/pro benefits', () {
+    test('official member can redeem official benefits', () {
       expect(
         MembershipHelpers.canRedeemBusinessBenefits(
           canUseMembershipFeatures: true,
           membershipModality: MembershipModality.official,
-          business: officialProBusiness,
+          business: officialBusiness,
         ),
         isTrue,
       );
@@ -141,7 +140,7 @@ void main() {
         MembershipHelpers.canRedeemBusinessBenefits(
           canUseMembershipFeatures: false,
           membershipModality: MembershipModality.official,
-          business: officialProBusiness,
+          business: officialBusiness,
         ),
         isFalse,
       );
@@ -151,8 +150,23 @@ void main() {
         MembershipHelpers.canRedeemBusinessBenefits(
           canUseMembershipFeatures: false,
           membershipModality: MembershipModality.community,
-          business: officialProBusiness,
+          business: officialBusiness,
           isAdmin: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('legacy proTeam modality string maps to official for benefits', () {
+      expect(
+        MembershipModality.fromFirestore('proTeam'),
+        MembershipModality.official,
+      );
+      expect(
+        MembershipHelpers.canRedeemBusinessBenefits(
+          canUseMembershipFeatures: true,
+          membershipModality: MembershipModality.fromFirestore('proTeam'),
+          business: officialBusiness,
         ),
         isTrue,
       );

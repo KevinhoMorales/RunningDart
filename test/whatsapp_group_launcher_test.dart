@@ -1,78 +1,55 @@
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:running_dart/utils/constants.dart';
 import 'package:running_dart/utils/whatsapp_launcher.dart';
 
 void main() {
-  group('WhatsApp group constants', () {
-    test('community and pro team URLs use chat.whatsapp.com', () {
-      for (final url in [
+  group('WhatsApp group invite URLs', () {
+    test('community URL uses chat.whatsapp.com', () {
+      expect(
         AppConstants.communityWhatsAppGroupUrl,
-        AppConstants.proTeamWhatsAppGroupUrl,
-      ]) {
-        expect(url, isNotEmpty);
-        expect(Uri.parse(url).host, 'chat.whatsapp.com');
-        expect(Uri.parse(url).scheme, 'https');
-      }
+        startsWith('https://chat.whatsapp.com/'),
+      );
+    });
+
+    test('rejects invalid invite hosts', () async {
+      expect(
+        await launchWhatsAppGroupInvite('https://example.com/not-whatsapp'),
+        isFalse,
+      );
+      expect(await launchWhatsAppGroupInvite('not-a-url'), isFalse);
     });
   });
 
   group('whatsAppGroupUrlForScheduleSection', () {
     test('returns community URL for Comunidad and Oficial tabs', () {
       expect(
-        whatsAppGroupUrlForScheduleSection(
-          'Comunidad SAINTS',
-          isProTeamMember: false,
-        ),
+        whatsAppGroupUrlForScheduleSection('Comunidad SAINTS'),
         AppConstants.communityWhatsAppGroupUrl,
       );
       expect(
-        whatsAppGroupUrlForScheduleSection(
-          'Miembro Oficial 2026',
-          isProTeamMember: false,
-        ),
+        whatsAppGroupUrlForScheduleSection('Miembro Oficial'),
         AppConstants.communityWhatsAppGroupUrl,
       );
     });
 
-    test('returns pro team URL only for Pro Team members', () {
+    test('returns null for unknown or retired Pro Team sections', () {
       expect(
-        whatsAppGroupUrlForScheduleSection(
-          'SAINTS Pro Team',
-          isProTeamMember: true,
-        ),
-        AppConstants.proTeamWhatsAppGroupUrl,
-      );
-      expect(
-        whatsAppGroupUrlForScheduleSection(
-          'SAINTS Pro Team',
-          isProTeamMember: false,
-        ),
+        whatsAppGroupUrlForScheduleSection('SAINTS Pro Team'),
         isNull,
       );
+      expect(whatsAppGroupUrlForScheduleSection('Otro'), isNull);
     });
   });
 
   group('whatsAppGroupCtaLabelForScheduleSection', () {
-    test('uses distinct labels for Pro Team vs community', () {
+    test('uses a single community CTA label', () {
       expect(
         whatsAppGroupCtaLabelForScheduleSection('SAINTS Pro Team'),
-        'Grupo Pro Team en WhatsApp',
+        'Unirme al grupo de WhatsApp',
       );
       expect(
         whatsAppGroupCtaLabelForScheduleSection('Comunidad SAINTS'),
         'Unirme al grupo de WhatsApp',
-      );
-    });
-  });
-
-  group('launchWhatsAppGroupInvite', () {
-    test('rejects invalid invite URLs', () async {
-      expect(await launchWhatsAppGroupInvite(''), isFalse);
-      expect(await launchWhatsAppGroupInvite('https://wa.me/123'), isFalse);
-      expect(
-        await launchWhatsAppGroupInvite('http://chat.whatsapp.com/abc'),
-        isFalse,
       );
     });
   });

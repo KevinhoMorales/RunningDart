@@ -365,7 +365,7 @@ class _DiscountHighlightCard extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Hazte miembro Oficial o Pro Team para ver y usar el descuento.',
+                    'Hazte Miembro Oficial (USD 5/mes) para ver y usar el descuento.',
                     style: AppTypography.muted(context).copyWith(height: 1.35),
                   ),
                 ],
