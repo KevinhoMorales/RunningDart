@@ -93,6 +93,19 @@ class _NotificationsOnboardingScreenState
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       _BenefitRow(
+                        icon: Icons.directions_run_outlined,
+                        text:
+                            'Hay una próxima actividad o se abre el check-in '
+                            'de un Social Run al que confirmaste.',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _BenefitRow(
+                        icon: Icons.emoji_events_outlined,
+                        text:
+                            'Completas el reto del mes o ganas un Reward Spot.',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _BenefitRow(
                         icon: Icons.event_outlined,
                         text:
                             'Hay eventos o novedades de la comunidad SAINTS.',

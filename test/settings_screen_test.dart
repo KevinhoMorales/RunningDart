@@ -42,11 +42,11 @@ void main() {
     expect(find.text('Ajustes'), findsOneWidget);
     expect(find.text('Contacto SAINTS'), findsOneWidget);
     expect(find.text(AppConstants.supportWhatsAppDisplay), findsOneWidget);
-    expect(find.text('Nuevas marcas aliadas y eventos'), findsOneWidget);
+    expect(find.text('Notificaciones push'), findsOneWidget);
     expect(find.text('Cerrar sesión'), findsOneWidget);
     expect(
       find.text(
-        'Aplicación creada por ${AppConstants.devLokosEnterpriseName}',
+        'Hecho por ${AppConstants.devLokosEnterpriseName}',
       ),
       findsOneWidget,
     );

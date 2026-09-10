@@ -2,7 +2,6 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
-const { getMessaging } = require("firebase-admin/messaging");
 const {
   onDocumentCreated,
   onDocumentDeleted,
@@ -10,6 +9,7 @@ const {
   onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 
 const { deleteEnvironmentAccountData } = require("./account_deletion");
@@ -32,8 +32,36 @@ const {
 } = require("./monthly_challenge");
 const { collectionFor } = require("./firestore_helpers");
 const { FieldValue } = require("firebase-admin/firestore");
+const {
+  topicNewBusinesses,
+  topicNewEvents,
+  sendTopicNotification,
+  notifyCheckInOpened,
+  notifyChallengeCompleted,
+  notifyChallengeWinners,
+  sendUpcomingActivityRemindersForEnvironment,
+} = require("./push_notifications");
 
 initializeApp();
+
+async function notifyIfChallengeCompleted(db, environment, userId, newly) {
+  if (!newly?.newlyCompleted) return;
+  try {
+    await notifyChallengeCompleted(db, environment, {
+      userId,
+      challengeId: newly.challengeId,
+      challengeName: newly.challengeName,
+      badgeName: newly.badgeName,
+      pointsAwarded: newly.pointsAwarded,
+    });
+  } catch (error) {
+    logger.warn("Challenge complete push failed", {
+      environment,
+      userId,
+      message: error?.message,
+    });
+  }
+}
 
 async function attachChallengeProgress(db, environment, result, user) {
   if (!result || result.alreadyCheckedIn) {
@@ -63,6 +91,7 @@ async function attachChallengeProgress(db, environment, result, user) {
       } else {
         result.message = `${result.message} · Reto completado · insignia desbloqueada.`;
       }
+      await notifyIfChallengeCompleted(db, environment, user.id, newly);
     }
   } catch (error) {
     logger.warn("Challenge progress sync failed", {
@@ -74,39 +103,7 @@ async function attachChallengeProgress(db, environment, result, user) {
   return result;
 }
 
-// El topic lleva sufijo de ambiente para que una marca o noticia de prueba en
-// dev no dispare un push a todos los usuarios de producción.
-const topicNewBusinesses = (environment) =>
-  `saints_new_businesses_${environment}`;
-const topicNewEvents = (environment) => `saints_new_events_${environment}`;
 const VALID_ENVIRONMENTS = new Set(["dev", "prod"]);
-
-async function sendTopicNotification({ topic, title, body, type, id }) {
-  await getMessaging().send({
-    topic,
-    notification: {
-      title,
-      body,
-    },
-    data: {
-      type,
-      id,
-    },
-    android: {
-      priority: "high",
-      notification: {
-        channelId: "saints_alerts",
-      },
-    },
-    apns: {
-      payload: {
-        aps: {
-          sound: "default",
-        },
-      },
-    },
-  });
-}
 
 exports.onBusinessCreated = onDocumentCreated(
   "environments/{environment}/businesses/{businessId}",
@@ -128,8 +125,7 @@ exports.onBusinessCreated = onDocumentCreated(
       topic: topicNewBusinesses(environment),
       title: "Nueva marca aliada",
       body: name || "Hay una nueva marca aliada en SAINTS",
-      type: "business",
-      id: businessId,
+      data: { type: "business", id: businessId },
     });
   },
 );
@@ -154,8 +150,7 @@ exports.onNewsCreated = onDocumentCreated(
       topic: topicNewEvents(environment),
       title: "Nuevo evento",
       body: title || "Hay un nuevo evento en SAINTS",
-      type: "news",
-      id: newsId,
+      data: { type: "news", id: newsId },
     });
   },
 );
@@ -186,9 +181,43 @@ exports.onNewsPublished = onDocumentUpdated(
       topic: topicNewEvents(environment),
       title: "Nuevo evento",
       body: title || "Hay un nuevo evento en SAINTS",
-      type: "news",
-      id: newsId,
+      data: { type: "news", id: newsId },
     });
+  },
+);
+
+/** Check-in window opened by admin → push to confirmed attendees. */
+exports.onActivityCheckInEnabled = onDocumentUpdated(
+  "environments/{environment}/activities/{activityId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
+
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) {
+      return;
+    }
+
+    if (before.checkInEnabled === true || after.checkInEnabled !== true) {
+      return;
+    }
+
+    const activityId = event.params.activityId;
+    try {
+      await notifyCheckInOpened(getFirestore(), environment, {
+        id: activityId,
+        ...after,
+      });
+    } catch (error) {
+      logger.warn("check-in open push failed", {
+        environment,
+        activityId,
+        message: error?.message,
+      });
+    }
   },
 );
 
@@ -402,6 +431,9 @@ exports.evaluateMyChallengeProgress = onCall(async (request) => {
     displayName: user.displayName || user.display_name || "Miembro",
     membershipModality: user.membershipModality || null,
   });
+  for (const newly of results.filter((r) => r.newlyCompleted)) {
+    await notifyIfChallengeCompleted(db, environment, user.id, newly);
+  }
   return { success: true, results };
 });
 
@@ -414,11 +446,68 @@ exports.adminSetChallengeWinners = onCall(async (request) => {
   assertValidEnvironment(environment);
   const db = getFirestore();
   await requireAdmin(db, environment, request.auth.uid);
-  return adminSetChallengeWinners(db, environment, {
+  const result = await adminSetChallengeWinners(db, environment, {
     adminUid: request.auth.uid,
     challengeId: request.data?.challengeId,
     winnerUserIds: request.data?.winnerUserIds,
   });
+  try {
+    if (result.newlyWon && result.newlyWon.length > 0) {
+      await notifyChallengeWinners(db, environment, {
+        challengeId: request.data?.challengeId,
+        challengeName: result.challengeName,
+        winners: result.newlyWon,
+      });
+    }
+  } catch (error) {
+    logger.warn("Challenge winners push failed", {
+      environment,
+      message: error?.message,
+    });
+  }
+  return result;
+});
+
+/**
+ * ~90 min before start: remind confirmed attendees.
+ * Requires Cloud Scheduler (Blaze). Deploy with functions.
+ * Manual backfill: adminSendActivityReminders callable.
+ */
+exports.sendUpcomingActivityReminders = onSchedule(
+  {
+    schedule: "every 15 minutes",
+    timeZone: "America/Guayaquil",
+  },
+  async () => {
+    const db = getFirestore();
+    const outcomes = [];
+    for (const environment of VALID_ENVIRONMENTS) {
+      try {
+        outcomes.push(
+          await sendUpcomingActivityRemindersForEnvironment(db, environment),
+        );
+      } catch (error) {
+        logger.warn("activity reminder sweep failed", {
+          environment,
+          message: error?.message,
+        });
+        outcomes.push({ environment, error: error?.message });
+      }
+    }
+    logger.info("activity reminder sweep", { outcomes });
+  },
+);
+
+exports.adminSendActivityReminders = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  const environment =
+    request.data?.environment === "dev" ? "dev" : "prod";
+  assertValidEnvironment(environment);
+  const db = getFirestore();
+  await requireAdmin(db, environment, request.auth.uid);
+  return sendUpcomingActivityRemindersForEnvironment(db, environment);
 });
 
 exports.deleteMyAccount = onCall({ timeoutSeconds: 540 }, async (request) => {

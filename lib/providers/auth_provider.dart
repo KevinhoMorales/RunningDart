@@ -125,7 +125,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _notificationService?.unsubscribeAll();
+    await _notificationService?.syncForUser(null);
     await _authService.logout();
     _user = null;
     _error = null;
@@ -146,7 +146,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> deleteAccount() async {
     return _runAuthAction(() async {
-      await _notificationService?.unsubscribeAll();
+      await _notificationService?.syncForUser(null);
       await _authService.deleteAccount();
       _user = null;
     });

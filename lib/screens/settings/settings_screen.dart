@@ -135,11 +135,11 @@ class _PushNotificationsTile extends StatelessWidget {
       ),
       child: SwitchListTile(
         title: Text(
-          'Nuevas marcas aliadas y eventos',
+          'Notificaciones push',
           style: AppTypography.title(context, weight: FontWeight.w600),
         ),
         subtitle: Text(
-          'Avisos de nuevas marcas aliadas y eventos de la comunidad',
+          'Actividades, check-in, reto/Liga, marcas y eventos',
           style: AppTypography.caption(context),
         ),
         value: preferences.enabled,

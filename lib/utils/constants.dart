@@ -35,7 +35,7 @@ class AppConstants {
   static const String notificationChannelId = 'saints_alerts';
   static const String notificationChannelName = 'Alertas SAINTS';
   static const String notificationChannelDescription =
-      'Nuevas marcas aliadas y eventos de la comunidad';
+      'Actividades, check-in, Liga/reto y novedades SAINTS';
 
   /// Los topics llevan sufijo de ambiente para que crear una marca de prueba en
   /// dev no dispare un push a todos los usuarios de producción.
@@ -44,6 +44,10 @@ class AppConstants {
 
   static String fcmTopicNewEvents(AppEnvironment environment) =>
       '${_legacyFcmTopicNewEvents}_${environment.name}';
+
+  /// Club activity broadcast topic (optional general reminders).
+  static String fcmTopicClubActivities(AppEnvironment environment) =>
+      'saints_club_activities_${environment.name}';
 
   static const String _legacyFcmTopicNewBusinesses = 'saints_new_businesses';
   static const String _legacyFcmTopicNewEvents = 'saints_new_events';

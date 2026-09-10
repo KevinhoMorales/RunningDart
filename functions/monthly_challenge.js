@@ -339,6 +339,8 @@ async function syncChallengeProgressForUser(db, environment, {
         pointsAwarded: award.awardedPoints,
         current: progress.current,
         target: progress.target,
+        challengeName: challenge.name || null,
+        badgeName: (challenge.badge && challenge.badge.name) || challenge.name || null,
       });
     } else if (progress.completed && wasCompleted) {
       payload.badgeAwarded = true;
@@ -428,8 +430,11 @@ async function adminSetChallengeWinners(db, environment, {
       ? challenge.officialPerkDescription.trim()
       : null;
 
+  const newlyWon = [];
+
   for (const doc of finishersSnap.docs) {
     const data = doc.data();
+    const wasWinner = data.isWinner === true;
     const isWinner = unique.includes(data.userId);
     const rank = isWinner ? unique.indexOf(data.userId) + 1 : null;
     let qualifies = false;
@@ -453,6 +458,13 @@ async function adminSetChallengeWinners(db, environment, {
       // Active Official only — membership never changes ranking, only perk.
       qualifies =
         isOfficialModality && status === "active" && !expired;
+    }
+    if (isWinner && !wasWinner) {
+      newlyWon.push({
+        userId: data.userId,
+        qualifiesForOfficialPerk: qualifies,
+        officialPerkLabel: qualifies ? perkLabel : null,
+      });
     }
     batch.set(
       doc.ref,
@@ -483,7 +495,13 @@ async function adminSetChallengeWinners(db, environment, {
     { merge: true },
   );
 
-  return { success: true, winnersCount: unique.length, rewardSpots: spots };
+  return {
+    success: true,
+    winnersCount: unique.length,
+    rewardSpots: spots,
+    challengeName: challenge.name || null,
+    newlyWon,
+  };
 }
 
 module.exports = {

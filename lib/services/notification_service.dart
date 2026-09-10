@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_environment.dart';
+import '../config/firebase_paths.dart';
 import '../firebase_options.dart';
 import '../models/user_model.dart';
 import '../utils/constants.dart';
@@ -23,14 +25,20 @@ class NotificationService {
   NotificationService({
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
+    FirebaseFirestore? firestore,
   })  : _messaging = messaging ?? FirebaseMessaging.instance,
         _localNotifications =
-            localNotifications ?? FlutterLocalNotificationsPlugin();
+            localNotifications ?? FlutterLocalNotificationsPlugin(),
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final FirebaseFirestore _firestore;
 
   SharedPreferences? _prefs;
+  String? _activeUserId;
+  String? _registeredToken;
+  bool _tokenRefreshBound = false;
 
   void Function(String route)? onNavigate;
 
@@ -43,13 +51,14 @@ class NotificationService {
   static String? routeFromMessageData(Map<String, dynamic> data) {
     final type = data['type']?.toString();
     final id = data['id']?.toString();
-    if (id == null || id.isEmpty) {
-      return null;
-    }
 
     return switch (type) {
-      'business' => '/business/$id',
-      'news' => '/news/$id',
+      'business' when id != null && id.isNotEmpty => '/business/$id',
+      'news' when id != null && id.isNotEmpty => '/news/$id',
+      'activity' when id != null && id.isNotEmpty => '/activities/$id',
+      'activity_checkin' when id != null && id.isNotEmpty =>
+        '/activities/$id/check-in',
+      'challenge' || 'league' => '/league',
       _ => null,
     };
   }
@@ -120,6 +129,17 @@ class NotificationService {
   void bindRouterHandlers() {
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpened);
+    _bindTokenRefresh();
+  }
+
+  void _bindTokenRefresh() {
+    if (_tokenRefreshBound) return;
+    _tokenRefreshBound = true;
+    _messaging.onTokenRefresh.listen((token) async {
+      final userId = _activeUserId;
+      if (!_pushEnabled || userId == null) return;
+      await _persistToken(userId: userId, token: token);
+    });
   }
 
   Future<void> handleInitialMessage() async {
@@ -149,6 +169,7 @@ class NotificationService {
         _pushEnabled && user != null && user.isAccountActive;
 
     if (shouldSubscribe) {
+      _activeUserId = user.id;
       if (!_isSubscribed) {
         await _unsubscribeLegacyTopics();
         for (final topic in _currentTopics) {
@@ -156,10 +177,13 @@ class NotificationService {
         }
         _isSubscribed = true;
       }
+      await _registerDeviceToken(user.id);
       return;
     }
 
+    await _clearDeviceToken();
     await unsubscribeAll();
+    _activeUserId = null;
   }
 
   Future<void> unsubscribeAll() async {
@@ -175,6 +199,7 @@ class NotificationService {
     return [
       AppConstants.fcmTopicNewBusinesses(environment),
       AppConstants.fcmTopicNewEvents(environment),
+      AppConstants.fcmTopicClubActivities(environment),
     ];
   }
 
@@ -197,6 +222,56 @@ class NotificationService {
     }
 
     await prefs?.setBool(AppConstants.legacyFcmTopicsClearedKey, true);
+  }
+
+  Future<void> _registerDeviceToken(String userId) async {
+    try {
+      final token = await _messaging.getToken();
+      if (token == null || token.isEmpty) return;
+      await _persistToken(userId: userId, token: token);
+    } catch (error, stackTrace) {
+      debugPrint('FCM token register failed: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> _persistToken({
+    required String userId,
+    required String token,
+  }) async {
+    final previous = _registeredToken;
+    final ref = FirebasePaths.collection(_firestore, 'users').doc(userId);
+    final updates = <String, dynamic>{
+      'fcmTokens': FieldValue.arrayUnion([token]),
+      'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+    };
+    if (previous != null && previous.isNotEmpty && previous != token) {
+      updates['fcmTokens'] = FieldValue.arrayUnion([token]);
+      // Remove stale token in a follow-up so arrayUnion/remove don't clash.
+      await ref.set(updates, SetOptions(merge: true));
+      await ref.update({
+        'fcmTokens': FieldValue.arrayRemove([previous]),
+      });
+    } else {
+      await ref.set(updates, SetOptions(merge: true));
+    }
+    _registeredToken = token;
+  }
+
+  Future<void> _clearDeviceToken() async {
+    final userId = _activeUserId;
+    final token = _registeredToken;
+    if (userId == null || token == null || token.isEmpty) {
+      _registeredToken = null;
+      return;
+    }
+    try {
+      await FirebasePaths.collection(_firestore, 'users').doc(userId).update({
+        'fcmTokens': FieldValue.arrayRemove([token]),
+      });
+    } catch (error, stackTrace) {
+      debugPrint('FCM token clear failed: $error\n$stackTrace');
+    }
+    _registeredToken = null;
   }
 
   void _onLocalNotificationTap(NotificationResponse response) {
