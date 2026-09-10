@@ -8,9 +8,9 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/news_card.dart';
 
-/// Tab de Noticias para socios (también admin/operador en el shell). Solo
-/// publica lo publicado: los borradores viven en el panel Admin.
-const memberNewsHomeTabIndex = 3;
+/// Listado de noticias (ya no es tab primario; deep-link `/news`).
+/// Solo muestra publicado: los borradores viven en el panel Admin.
+const memberNewsHomeTabIndex = -1;
 
 class NewsListScreen extends StatefulWidget {
   const NewsListScreen({super.key});

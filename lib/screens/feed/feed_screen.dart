@@ -22,7 +22,9 @@ import '../../widgets/post_likes_sheet.dart';
 import '../../widgets/post_viewer.dart';
 import '../social/user_search_tab.dart';
 
-const communityHomeTabIndex = 1;
+/// Índice legacy del tab Comunidad (retirado de la nav primaria en point 3).
+/// El feed sigue disponible por deep-link `/feed`.
+const communityHomeTabIndex = -1;
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});

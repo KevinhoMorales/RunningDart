@@ -40,9 +40,12 @@ import 'screens/club/league_screen.dart';
 import 'screens/club/pro_team_screen.dart';
 import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
+import 'screens/business/business_list_screen.dart';
 import 'screens/feed/create_post_screen.dart';
+import 'screens/feed/feed_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/news/news_detail_screen.dart';
+import 'screens/news/news_list_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/membership_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -67,6 +70,7 @@ import 'services/user_service.dart';
 import 'services/visit_service.dart';
 import '../theme/app_theme.dart';
 import 'widgets/app_startup_loading.dart';
+import 'widgets/custom_app_bar.dart';
 import 'widgets/environment_banner.dart';
 import 'widgets/force_update_gate.dart';
 import 'widgets/router_error_screen.dart';
@@ -183,6 +187,9 @@ class _RunningDartAppState extends State<RunningDartApp> {
             location == '/pro-team' ||
             location == '/activities' ||
             location == '/league' ||
+            location == '/businesses' ||
+            location == '/feed' ||
+            location == '/news' ||
             location == '/post/new' ||
             location.startsWith('/activities/') ||
             location.startsWith('/business/') ||
@@ -290,6 +297,24 @@ class _RunningDartAppState extends State<RunningDartApp> {
         GoRoute(
           path: '/league',
           builder: (context, state) => const LeagueScreen(),
+        ),
+        GoRoute(
+          path: '/businesses',
+          builder: (context, state) => const BusinessListScreen(),
+        ),
+        GoRoute(
+          path: '/feed',
+          builder: (context, state) => Scaffold(
+            appBar: const CustomAppBar(title: 'Comunidad'),
+            body: const FeedScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/news',
+          builder: (context, state) => Scaffold(
+            appBar: const CustomAppBar(title: 'Noticias'),
+            body: const NewsListScreen(),
+          ),
         ),
         GoRoute(
           path: '/pro-team',

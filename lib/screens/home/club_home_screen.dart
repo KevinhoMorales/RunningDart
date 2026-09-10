@@ -6,7 +6,6 @@ import '../../models/activity_model.dart';
 import '../../models/training_schedule_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/news_provider.dart';
 import '../../services/activity_service.dart';
 import '../../services/qr_service.dart';
 import '../../services/training_schedule_service.dart';
@@ -17,15 +16,13 @@ import '../../utils/activity_helpers.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/membership_helpers.dart';
 import '../../utils/schedule_helpers.dart';
-import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/league_home_card.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
-import '../../widgets/news_card.dart';
 
-/// Primera pantalla después del login: saludo, credencial/QR, próximo
-/// Social Run y un par de eventos. Marcas queda como tab aparte.
+/// Inicio compacto: credencial, próximo Social Run, resumen de Liga y
+/// tease de beneficios. Sin feed ni listado largo de noticias.
 class ClubHomeScreen extends StatefulWidget {
   const ClubHomeScreen({super.key});
 
@@ -47,7 +44,6 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NewsProvider>().startListening();
       _loadSchedule();
       _loadNextActivity();
     });
@@ -80,7 +76,6 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
 
   Future<void> _refresh() async {
     await Future.wait([
-      context.read<NewsProvider>().refresh(),
       _loadSchedule(),
       _loadNextActivity(),
       context.read<AuthProvider>().refreshAccountStatus(),
@@ -92,86 +87,108 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
-    final newsProvider = context.watch<NewsProvider>();
-    final upcoming = newsProvider.news.take(2).toList(growable: false);
 
     return HapticRefreshIndicator(
       onRefresh: _refresh,
-      child: CustomScrollView(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Tu club',
-                    style: AppTypography.sectionTitle(context),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Credencial, Social Runs y lo que viene en SAINTS.',
-                    style: AppTypography.muted(context),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (user != null)
-                    _CredentialBlock(user: user, qrService: _qrService),
-                  const SizedBox(height: AppSpacing.md),
-                  _NextActivityCard(
-                    activity: _nextActivity,
-                    isLoading: _loadingActivity,
-                    fallbackSchedule: _schedule,
-                    fallbackLoading: _loadingSchedule,
-                    user: user,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  LeagueHomeCard(key: _leagueCardKey),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Próximos eventos',
-                    style: AppTypography.sectionTitle(context),
-                  ),
-                ],
-              ),
-            ),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.xl,
+        ),
+        children: [
+          Text(
+            'Tu club',
+            style: AppTypography.sectionTitle(context),
           ),
-          if (newsProvider.isLoading && upcoming.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(AppSpacing.xl),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            )
-          else if (upcoming.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(AppSpacing.md),
-                child: EmptyStateCard(
-                  icon: Icons.event_note_outlined,
-                  message: 'Sin eventos por ahora',
-                  subtitle:
-                      'Cuando haya rodadas o actividades, las verás aquí.',
-                ),
-              ),
-            )
-          else
-            ...upcoming.map(
-              (item) => SliverToBoxAdapter(
-                child: NewsCard(
-                  news: item,
-                  onTap: () => context.push('/news/${item.id}'),
-                ),
-              ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Próximo Social Run, tu liga del mes y beneficios.',
+            style: AppTypography.muted(context),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (user != null)
+            _CredentialBlock(user: user, qrService: _qrService),
+          const SizedBox(height: AppSpacing.md),
+          _NextActivityCard(
+            activity: _nextActivity,
+            isLoading: _loadingActivity,
+            fallbackSchedule: _schedule,
+            fallbackLoading: _loadingSchedule,
+            user: user,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LeagueHomeCard(key: _leagueCardKey),
+          const SizedBox(height: AppSpacing.md),
+          const _BenefitsTeaseCard(),
         ],
+      ),
+    );
+  }
+}
+
+class _BenefitsTeaseCard extends StatelessWidget {
+  const _BenefitsTeaseCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Material(
+      color: palette.cardBackground,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: InkWell(
+        onTap: AppHaptics.wrap(() => context.push('/businesses')),
+        enableFeedback: false,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(color: palette.cardBorder),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: palette.accentPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: Icon(
+                  Icons.storefront_outlined,
+                  color: palette.accentPrimary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Beneficios SAINTS',
+                      style: AppTypography.body(
+                        context,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Marcas aliadas con descuentos para socios.',
+                      style: AppTypography.caption(
+                        context,
+                        color: palette.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: palette.textMuted),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -210,14 +227,9 @@ class _CredentialBlock extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MembershipCredentialCard(
-          user: user,
-          qrPayload: qrService.generatePayload(user),
-        ),
-      ],
+    return MembershipCredentialCard(
+      user: user,
+      qrPayload: qrService.generatePayload(user),
     );
   }
 }

@@ -65,41 +65,45 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
           .toList(growable: false),
     );
 
-    return HapticRefreshIndicator(
-      color: AppConstants.primaryColor,
-      onRefresh: () => provider.loadBusinesses(),
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          const SliverToBoxAdapter(
-            child: SectionHeader(
-              title: 'Marcas aliadas',
-              subtitle: 'Beneficios exclusivos para la comunidad SAINTS',
+    return Scaffold(
+      backgroundColor: palette.scaffoldBackground,
+      appBar: const CustomAppBar(title: 'Marcas aliadas'),
+      body: HapticRefreshIndicator(
+        color: AppConstants.primaryColor,
+        onRefresh: () => provider.loadBusinesses(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            const SliverToBoxAdapter(
+              child: SectionHeader(
+                title: 'Marcas aliadas',
+                subtitle: 'Beneficios exclusivos para la comunidad SAINTS',
+              ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: AdminSearchFieldStateful(
-              controller: _searchController,
-              hintText: 'Buscar por nombre, categoría o descuento',
-              onChanged: (value) => setState(() => _searchQuery = value),
+            SliverToBoxAdapter(
+              child: AdminSearchFieldStateful(
+                controller: _searchController,
+                hintText: 'Buscar por nombre, categoría o descuento',
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
             ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _BusinessCategoryHeaderDelegate(
-              selectedCategory: provider.selectedCategory,
-              palette: palette,
-              onCategorySelected: (category) {
-                provider.loadBusinesses(category: category);
-              },
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _BusinessCategoryHeaderDelegate(
+                selectedCategory: provider.selectedCategory,
+                palette: palette,
+                onCategorySelected: (category) {
+                  provider.loadBusinesses(category: category);
+                },
+              ),
             ),
-          ),
-          ..._buildContentSlivers(
-            provider,
-            businesses,
-            searchQuery: _searchQuery,
-          ),
-        ],
+            ..._buildContentSlivers(
+              provider,
+              businesses,
+              searchQuery: _searchQuery,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -11,15 +11,23 @@ import '../../utils/app_haptics.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
-import '../../widgets/user_avatar.dart';
 import '../admin/admin_panel_screen.dart';
-import '../business/business_list_screen.dart';
 import '../business/operator_scan_screen.dart';
-import '../feed/feed_screen.dart';
-import '../news/news_list_screen.dart';
+import '../club/activities_list_screen.dart';
+import '../club/league_screen.dart';
+import '../profile/profile_tab_screen.dart';
 import 'club_home_screen.dart';
 
 enum _HomeMode { member, operator, admin }
+
+/// Índices de la nav compacta (Inicio / Actividades / Liga / Perfil).
+const homeTabIndex = 0;
+const activitiesTabIndex = 1;
+const leagueTabIndex = 2;
+const profileTabIndex = 3;
+
+/// Quinto destino solo para admin u operador.
+const roleExtraTabIndex = 4;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,39 +49,50 @@ class _HomeScreenState extends State<HomeScreen> {
     return _HomeMode.member;
   }
 
-  String _homeAppBarTitle(String? displayName) {
-    if (displayName != null && displayName.trim().isNotEmpty) {
-      return Helpers.greetingForUser(displayName);
+  String _appBarTitle(_HomeMode mode, int index, String? displayName) {
+    if (index == homeTabIndex) {
+      if (displayName != null && displayName.trim().isNotEmpty) {
+        return Helpers.greetingForUser(displayName);
+      }
+      return Helpers.timeOfDayGreeting();
     }
-    return Helpers.timeOfDayGreeting();
+    if (index == activitiesTabIndex) {
+      return 'Actividades';
+    }
+    if (index == leagueTabIndex) {
+      return 'Liga';
+    }
+    if (index == profileTabIndex) {
+      return 'Perfil';
+    }
+    if (index == roleExtraTabIndex) {
+      return mode == _HomeMode.admin ? 'Admin' : 'Escanear';
+    }
+    return 'SAINTS';
   }
 
-  /// Orden fijo: Inicio → Comunidad → Marcas → Noticias → (Admin|Escanear).
+  /// Inicio → Actividades → Liga → Perfil → (Admin|Escanear).
   List<Widget> _pages(_HomeMode mode) {
+    const primary = <Widget>[
+      ClubHomeScreen(),
+      ActivitiesListScreen(embedded: true),
+      LeagueScreen(embedded: true),
+      ProfileTabScreen(),
+    ];
+
     switch (mode) {
       case _HomeMode.operator:
         return const [
-          ClubHomeScreen(),
-          FeedScreen(),
-          BusinessListScreen(),
-          NewsListScreen(),
+          ...primary,
           OperatorScanScreen(),
         ];
       case _HomeMode.admin:
         return const [
-          ClubHomeScreen(),
-          FeedScreen(),
-          BusinessListScreen(),
-          NewsListScreen(),
+          ...primary,
           AdminPanelScreen(),
         ];
       case _HomeMode.member:
-        return const [
-          ClubHomeScreen(),
-          FeedScreen(),
-          BusinessListScreen(),
-          NewsListScreen(),
-        ];
+        return primary;
     }
   }
 
@@ -85,19 +104,19 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Inicio',
       ),
       NavigationDestination(
-        icon: Icon(Icons.people_alt_outlined),
-        selectedIcon: Icon(Icons.people_alt_rounded),
-        label: 'Comunidad',
+        icon: Icon(Icons.directions_run_outlined),
+        selectedIcon: Icon(Icons.directions_run_rounded),
+        label: 'Actividades',
       ),
       NavigationDestination(
-        icon: Icon(Icons.storefront_outlined),
-        selectedIcon: Icon(Icons.storefront_rounded),
-        label: 'Marcas',
+        icon: Icon(Icons.emoji_events_outlined),
+        selectedIcon: Icon(Icons.emoji_events_rounded),
+        label: 'Liga',
       ),
       NavigationDestination(
-        icon: Icon(Icons.event_note_outlined),
-        selectedIcon: Icon(Icons.event_rounded),
-        label: 'Noticias',
+        icon: Icon(Icons.person_outline_rounded),
+        selectedIcon: Icon(Icons.person_rounded),
+        label: 'Perfil',
       ),
     ];
 
@@ -151,39 +170,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final mode = _mode(auth);
     final pages = _pages(mode);
     final safeIndex = _currentIndex.clamp(0, pages.length - 1);
-    // Publicar solo en Comunidad. Los FABs de Marca/Evento viven en el panel
-    // Admin: el socio no debe ver chrome de administración en Marcas/Noticias.
-    final showPublishFab = safeIndex == communityHomeTabIndex;
+    final showMembershipQr = safeIndex != profileTabIndex &&
+        safeIndex != roleExtraTabIndex;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
       appBar: CustomAppBar(
-        title: _homeAppBarTitle(auth.user?.displayName),
+        title: _appBarTitle(mode, safeIndex, auth.user?.displayName),
         actions: [
-          HapticIconButton(
-            onPressed: () => context.push('/membership'),
-            tooltip: 'Mi QR',
-            icon: Icon(Icons.qr_code_2_rounded, color: palette.textPrimary),
-          ),
-          HapticIconButton(
-            onPressed: () => context.push('/profile'),
-            tooltip: 'Mi perfil',
-            icon: UserAvatar(
-              displayName: auth.user?.displayName ?? '',
-              photoUrl: auth.user?.photoUrl,
-              radius: 16,
-              showBackground: false,
+          if (showMembershipQr)
+            HapticIconButton(
+              onPressed: () => context.push('/membership'),
+              tooltip: 'Mi QR',
+              icon: Icon(Icons.qr_code_2_rounded, color: palette.textPrimary),
             ),
-          ),
+          if (safeIndex == profileTabIndex)
+            HapticIconButton(
+              onPressed: () => context.push('/settings'),
+              tooltip: 'Ajustes',
+              icon: Icon(Icons.settings_rounded, color: palette.textPrimary),
+            ),
         ],
       ),
-      floatingActionButton: showPublishFab
-          ? HapticFloatingActionButton(
-              onPressed: () => context.push('/post/new'),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Publicar'),
-            )
-          : null,
       body: IndexedStack(
         index: safeIndex,
         children: pages,
@@ -206,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _currentIndex = index;
               });
-              if (mode == _HomeMode.admin && index == adminPanelHomeTabIndex) {
+              if (mode == _HomeMode.admin && index == roleExtraTabIndex) {
                 _refreshAdminPanel();
               }
             }),
