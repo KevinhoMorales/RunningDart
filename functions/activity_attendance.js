@@ -109,6 +109,7 @@ async function awardCheckInPoints(db, environment, {
   activityType,
   startsAt,
   displayName,
+  pointsOverride,
 }) {
   const config = await getPointsConfig(db, environment);
   const pointEvents = collectionFor(db, environment, "point_events");
@@ -145,7 +146,10 @@ async function awardCheckInPoints(db, environment, {
       return;
     }
 
-    pointsAwarded = config.checkInPoints;
+    pointsAwarded =
+      typeof pointsOverride === "number" && pointsOverride >= 0
+        ? pointsOverride
+        : config.checkInPoints;
     const lifetime = balanceSnap.exists
       ? balanceSnap.data().totalPoints || 0
       : 0;
@@ -502,6 +506,7 @@ async function performCheckIn(db, environment, {
     activityType: activity.type || "social_run",
     startsAt,
     displayName,
+    pointsOverride: activity.pointsOverride,
   });
 
   return {

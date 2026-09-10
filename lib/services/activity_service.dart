@@ -164,6 +164,13 @@ class ActivityService {
     data.remove('confirmedCount');
     data.remove('checkedInCount');
     data.remove('createdAt');
+    // Limpiar opcionales cuando el admin los deja vacíos.
+    if (activity.capacity == null) {
+      data['capacity'] = FieldValue.delete();
+    }
+    if (activity.pointsOverride == null) {
+      data['pointsOverride'] = FieldValue.delete();
+    }
     await _activities.doc(activity.id).update(data);
   }
 
@@ -418,6 +425,8 @@ class ActivityService {
     String? description,
     String? venue,
     String? location,
+    int? capacity,
+    int? pointsOverride,
     String? createdBy,
     bool isPublished = true,
   }) {
@@ -435,6 +444,8 @@ class ActivityService {
           ? AppConstants.clubLocation
           : location,
       description: description,
+      capacity: capacity,
+      pointsOverride: pointsOverride,
       isPublished: isPublished,
       checkInToken: _uuid.v4(),
       createdBy: createdBy,

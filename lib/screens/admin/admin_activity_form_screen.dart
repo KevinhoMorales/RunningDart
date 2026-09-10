@@ -7,6 +7,7 @@ import '../../models/activity_type.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/activity_service.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
 import '../../utils/activity_helpers.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/constants.dart';
@@ -33,6 +34,8 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
   final _venueController = TextEditingController(text: AppConstants.clubVenue);
   final _locationController =
       TextEditingController(text: AppConstants.clubLocation);
+  final _capacityController = TextEditingController();
+  final _pointsOverrideController = TextEditingController();
 
   ActivityType _type = ActivityType.socialRun;
   DateTime _startsAt = ActivityHelpers.socialRunStartAt(
@@ -74,6 +77,11 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
       _venueController.text = activity.venue ?? AppConstants.clubVenue;
       _locationController.text =
           activity.location ?? AppConstants.clubLocation;
+      _capacityController.text =
+          activity.capacity == null ? '' : '${activity.capacity}';
+      _pointsOverrideController.text = activity.pointsOverride == null
+          ? ''
+          : '${activity.pointsOverride}';
       _type = activity.type;
       _startsAt = activity.startsAt;
       _isPublished = activity.isPublished;
@@ -87,7 +95,17 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
     _descriptionController.dispose();
     _venueController.dispose();
     _locationController.dispose();
+    _capacityController.dispose();
+    _pointsOverrideController.dispose();
     super.dispose();
+  }
+
+  int? _parseOptionalPositiveInt(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return int.tryParse(trimmed);
   }
 
   Future<void> _pickDateTime() async {
@@ -97,21 +115,22 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
       initialDate: DateTime(ecuador.year, ecuador.month, ecuador.day),
       firstDate: DateTime(2024),
       lastDate: DateTime(2030),
+      helpText: 'Fecha de la actividad',
+      cancelText: 'Cancelar',
+      confirmText: 'Siguiente',
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: ecuador.hour, minute: ecuador.minute),
+      helpText: 'Hora (Ecuador)',
+      cancelText: 'Cancelar',
+      confirmText: 'Listo',
     );
     if (time == null || !mounted) return;
     setState(() {
-      _startsAt = ActivityHelpers.socialRunStartAt(
-        year: date.year,
-        month: date.month,
-        day: date.day,
-      );
-      // Ajustar a la hora elegida (no forzar 19:00 si el admin cambia).
-      final local = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      final local =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
       _startsAt = local.subtract(ActivityHelpers.ecuadorOffset).toUtc();
     });
   }
@@ -120,6 +139,24 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
+    final capacity = _parseOptionalPositiveInt(_capacityController.text);
+    final pointsOverride =
+        _parseOptionalPositiveInt(_pointsOverrideController.text);
+    if (_capacityController.text.trim().isNotEmpty &&
+        (capacity == null || capacity <= 0)) {
+      AppSnackBar.showError(context, 'El cupo debe ser un número mayor a 0.');
+      return;
+    }
+    if (_pointsOverrideController.text.trim().isNotEmpty &&
+        (pointsOverride == null || pointsOverride < 0)) {
+      AppSnackBar.showError(
+        context,
+        'Los puntos de esta actividad deben ser 0 o más.',
+      );
+      return;
+    }
+
     setState(() => _loading = true);
     try {
       final service = context.read<ActivityService>();
@@ -134,6 +171,10 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
             venue: _venueController.text.trim(),
             location: _locationController.text.trim(),
             description: _descriptionController.text.trim(),
+            capacity: capacity,
+            pointsOverride: pointsOverride,
+            clearCapacity: capacity == null,
+            clearPointsOverride: pointsOverride == null,
             isPublished: _isPublished,
           ),
         );
@@ -145,6 +186,8 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
           description: _descriptionController.text.trim(),
           venue: _venueController.text.trim(),
           location: _locationController.text.trim(),
+          capacity: capacity,
+          pointsOverride: pointsOverride,
           createdBy: auth.user?.id,
           isPublished: _isPublished,
         );
@@ -178,6 +221,12 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 children: [
+                  Text(
+                    'Define tipo, fecha, lugar y cupo. '
+                    'El check-in QR se activa desde el detalle de la actividad.',
+                    style: AppTypography.muted(context),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   ModernTextField(
                     controller: _titleController,
                     labelText: 'Título',
@@ -186,6 +235,7 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<ActivityType>(
+                    // ignore: deprecated_member_use
                     value: _type,
                     decoration: const InputDecoration(labelText: 'Tipo'),
                     items: ActivityType.values
@@ -202,7 +252,9 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
                         _type = value;
                         if (_titleController.text.trim().isEmpty ||
                             ActivityType.values.any(
-                              (t) => t.displayName == _titleController.text.trim(),
+                              (t) =>
+                                  t.displayName ==
+                                  _titleController.text.trim(),
                             )) {
                           _titleController.text = value.displayName;
                         }
@@ -212,7 +264,7 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
                   const SizedBox(height: AppSpacing.md),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Fecha y hora'),
+                    title: const Text('Fecha y hora (Ecuador)'),
                     subtitle: Text(
                       ActivityHelpers.formatActivityWhen(_startsAt),
                     ),
@@ -230,6 +282,29 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   ModernTextField(
+                    controller: _capacityController,
+                    labelText: 'Cupo (opcional)',
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Vacío = sin límite. Solo informativo en esta versión.',
+                    style: AppTypography.caption(context),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  ModernTextField(
+                    controller: _pointsOverrideController,
+                    labelText: 'Puntos de esta actividad (opcional)',
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Si lo dejas vacío, se usan los puntos de '
+                    'Admin → Actividades → Puntos por check-in.',
+                    style: AppTypography.caption(context),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  ModernTextField(
                     controller: _descriptionController,
                     labelText: 'Descripción',
                     maxLines: 3,
@@ -237,8 +312,13 @@ class _AdminActivityFormScreenState extends State<AdminActivityFormScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Publicada'),
+                    subtitle: const Text(
+                      'Visible para socios en Actividades e Inicio',
+                    ),
                     value: _isPublished,
-                    onChanged: (v) => setState(() => _isPublished = v),
+                    onChanged: AppHaptics.wrapValue(
+                      (v) => setState(() => _isPublished = v),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   FilledButton(

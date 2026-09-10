@@ -14,6 +14,8 @@ class ActivityModel {
     this.venue,
     this.location,
     this.description,
+    this.capacity,
+    this.pointsOverride,
     this.isPublished = true,
     this.checkInEnabled = false,
     this.checkInOpensAt,
@@ -33,6 +35,10 @@ class ActivityModel {
   final String? venue;
   final String? location;
   final String? description;
+  /// Cupo opcional (informativo / tope blando en UI).
+  final int? capacity;
+  /// Si no es null, sustituye `points_config.checkInPoints` en ese check-in.
+  final int? pointsOverride;
   final bool isPublished;
   final bool checkInEnabled;
   final DateTime? checkInOpensAt;
@@ -46,6 +52,11 @@ class ActivityModel {
   final DateTime updatedAt;
 
   bool get isSocialRun => type == ActivityType.socialRun;
+
+  bool get hasCapacity => capacity != null && capacity! > 0;
+
+  bool get isAtCapacity =>
+      hasCapacity && confirmedCount >= capacity!;
 
   bool isCheckInWindowOpen([DateTime? now]) {
     final reference = now ?? DateTime.now();
@@ -71,6 +82,8 @@ class ActivityModel {
       if (location != null && location!.isNotEmpty) 'location': location,
       if (description != null && description!.isNotEmpty)
         'description': description,
+      if (capacity != null) 'capacity': capacity,
+      if (pointsOverride != null) 'pointsOverride': pointsOverride,
       'isPublished': isPublished,
       'checkInEnabled': checkInEnabled,
       if (checkInOpensAt != null)
@@ -116,6 +129,8 @@ class ActivityModel {
       venue: data['venue'] as String?,
       location: data['location'] as String?,
       description: data['description'] as String?,
+      capacity: (data['capacity'] as num?)?.toInt(),
+      pointsOverride: (data['pointsOverride'] as num?)?.toInt(),
       isPublished: data['isPublished'] as bool? ?? true,
       checkInEnabled: data['checkInEnabled'] as bool? ?? false,
       checkInOpensAt: readOptionalDate(data['checkInOpensAt']),
@@ -140,6 +155,8 @@ class ActivityModel {
     String? venue,
     String? location,
     String? description,
+    int? capacity,
+    int? pointsOverride,
     bool? isPublished,
     bool? checkInEnabled,
     DateTime? checkInOpensAt,
@@ -152,6 +169,8 @@ class ActivityModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool clearEndsAt = false,
+    bool clearCapacity = false,
+    bool clearPointsOverride = false,
     bool clearCheckInOpensAt = false,
     bool clearCheckInClosesAt = false,
     bool clearCheckInToken = false,
@@ -165,6 +184,10 @@ class ActivityModel {
       venue: venue ?? this.venue,
       location: location ?? this.location,
       description: description ?? this.description,
+      capacity: clearCapacity ? null : (capacity ?? this.capacity),
+      pointsOverride: clearPointsOverride
+          ? null
+          : (pointsOverride ?? this.pointsOverride),
       isPublished: isPublished ?? this.isPublished,
       checkInEnabled: checkInEnabled ?? this.checkInEnabled,
       checkInOpensAt:

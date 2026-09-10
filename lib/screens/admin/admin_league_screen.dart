@@ -8,6 +8,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/league_helpers.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../widgets/haptic_controls.dart';
 
 class AdminLeagueScreen extends StatefulWidget {
   const AdminLeagueScreen({super.key});
@@ -41,7 +42,7 @@ class _AdminLeagueScreenState extends State<AdminLeagueScreen> {
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'Liga del mes'),
-      body: RefreshIndicator(
+      body: HapticRefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<List<LeagueStandingModel>>(
           future: _future,

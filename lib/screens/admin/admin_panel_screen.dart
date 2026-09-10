@@ -18,9 +18,9 @@ import 'admin_users_tab.dart';
 /// Índice del tab Admin en el shell compacto (5.º destino: Inicio…Perfil + Admin).
 const adminPanelHomeTabIndex = 4;
 const adminPanelUsersTabIndex = 0;
-const adminPanelEventsTabIndex = 1;
-const adminPanelBusinessesTabIndex = 2;
-const adminPanelActivitiesTabIndex = 3;
+const adminPanelActivitiesTabIndex = 1;
+const adminPanelEventsTabIndex = 2;
+const adminPanelBusinessesTabIndex = 3;
 const adminPanelSchedulesTabIndex = 4;
 const adminPanelReportsTabIndex = 5;
 const adminPanelStatsTabIndex = 6;
@@ -36,9 +36,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     with SingleTickerProviderStateMixin {
   static const _tabLabels = [
     'Usuarios',
+    'Actividades',
     'Eventos',
     'Marcas',
-    'Actividades',
     'Horarios',
     'Reportes',
     'Estadísticas',
@@ -46,9 +46,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
   static const _tabIcons = [
     Icons.people_outline_rounded,
+    Icons.directions_run_rounded,
     Icons.event_outlined,
     Icons.storefront_outlined,
-    Icons.directions_run_rounded,
     Icons.schedule_outlined,
     Icons.flag_outlined,
     Icons.insights_outlined,
@@ -131,9 +131,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 controller: _tabController,
                 children: [
                   const AdminUsersTab(),
+                  const AdminActivitiesTab(),
                   const AdminNewsManagementTab(),
                   const AdminBusinessesTab(),
-                  const AdminActivitiesTab(),
                   const AdminTrainingScheduleTab(),
                   const AdminReportsTab(),
                   AdminStatsTab(
