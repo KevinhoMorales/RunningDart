@@ -126,6 +126,14 @@ class _AdminActivitiesTabState extends State<AdminActivitiesTab> {
                 label: const Text('Generar Social Runs (4 semanas)'),
               ),
               const SizedBox(height: AppSpacing.sm),
+              OutlinedButton.icon(
+                onPressed: AppHaptics.wrap(
+                  () => context.push('/admin/league'),
+                ),
+                icon: const Icon(Icons.emoji_events_outlined),
+                label: const Text('Ver liga del mes'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 title: Text(

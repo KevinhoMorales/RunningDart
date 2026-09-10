@@ -116,7 +116,8 @@ Todas viven bajo `environments/{prod|dev}/`:
 - **activity_rsvps**: confirmación / cancelación de asistencia por usuario
 - **activity_checkins**: check-in validado (solo Cloud Functions escribe)
 - **activity_checkin_secrets**: token del QR de check-in (solo admin)
-- **point_events** / **point_balances**: ledger de puntos (base para League)
+- **point_events** / **point_balances**: ledger de puntos (lifetime) + `periodKey` en eventos
+- **league_standings**: ranking mensual (`periodKey` = `YYYY-MM` Ecuador); doc `{periodKey}_{userId}`
 - **club_settings/points_config**: puntos por check-in y bonus mar+jue (configurable)
 - **news**: eventos y comunicados del club
 - **posts**: publicaciones de la comunidad + `isHidden` y el detalle de moderación (`hiddenReason`, `hiddenNote`, `hiddenAt`, `hiddenBy`)

@@ -30,6 +30,7 @@ class PointEventModel {
     this.activityId,
     this.sourceCheckInId,
     this.weekKey,
+    this.periodKey,
     this.note,
   });
 
@@ -41,6 +42,7 @@ class PointEventModel {
   final String? activityId;
   final String? sourceCheckInId;
   final String? weekKey;
+  final String? periodKey;
   final String? note;
 
   factory PointEventModel.fromFirestore(
@@ -64,6 +66,7 @@ class PointEventModel {
       activityId: data['activityId'] as String?,
       sourceCheckInId: data['sourceCheckInId'] as String?,
       weekKey: data['weekKey'] as String?,
+      periodKey: data['periodKey'] as String?,
       note: data['note'] as String?,
     );
   }

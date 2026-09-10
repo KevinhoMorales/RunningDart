@@ -55,7 +55,6 @@ async function getPointsConfig(db, environment) {
 function ecuadorIsoWeekKey(date) {
   const ecuadorMs = date.getTime() - 5 * 60 * 60 * 1000;
   const ecuador = new Date(ecuadorMs);
-  // Día civil Ecuador como UTC noon para evitar bordes.
   const utcDate = new Date(
     Date.UTC(
       ecuador.getUTCFullYear(),
@@ -63,12 +62,24 @@ function ecuadorIsoWeekKey(date) {
       ecuador.getUTCDate(),
     ),
   );
-  // ISO: semana del jueves.
   const dayNum = utcDate.getUTCDay() || 7;
   utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
   const week = Math.ceil(((utcDate - yearStart) / 86400000 + 1) / 7);
   return `${utcDate.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+/** Mes calendario Ecuador: `YYYY-MM` (periodo de la Liga). */
+function ecuadorMonthKey(date = new Date()) {
+  const ecuadorMs = date.getTime() - 5 * 60 * 60 * 1000;
+  const ecuador = new Date(ecuadorMs);
+  const year = ecuador.getUTCFullYear();
+  const month = String(ecuador.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function leagueStandingId(periodKey, userId) {
+  return `${periodKey}_${userId}`;
 }
 
 function isCheckInWindowOpen(activity, now = new Date()) {
@@ -89,7 +100,7 @@ function isCheckInWindowOpen(activity, now = new Date()) {
 
 /**
  * Otorga puntos de check-in (+ bonus semanal Mar+Jue si aplica).
- * Idempotente por checkInId y por weekKey de bonus.
+ * Idempotente. Actualiza lifetime + league_standings del mes Ecuador.
  */
 async function awardCheckInPoints(db, environment, {
   userId,
@@ -97,27 +108,36 @@ async function awardCheckInPoints(db, environment, {
   checkInId,
   activityType,
   startsAt,
+  displayName,
 }) {
   const config = await getPointsConfig(db, environment);
   const pointEvents = collectionFor(db, environment, "point_events");
   const balances = collectionFor(db, environment, "point_balances");
+  const standings = collectionFor(db, environment, "league_standings");
   const checkIns = collectionFor(db, environment, "activity_checkins");
 
   const checkInEventId = `checkin_${checkInId}`;
   const weekKey = ecuadorIsoWeekKey(
     startsAt instanceof Date ? startsAt : startsAt.toDate(),
   );
+  const periodKey = ecuadorMonthKey(new Date());
+  const name =
+    typeof displayName === "string" && displayName.trim()
+      ? displayName.trim()
+      : "Miembro";
 
   let pointsAwarded = 0;
 
   await db.runTransaction(async (tx) => {
     const eventRef = pointEvents.doc(checkInEventId);
     const balanceRef = balances.doc(userId);
+    const standingRef = standings.doc(leagueStandingId(periodKey, userId));
     const checkInRef = checkIns.doc(checkInId);
 
-    const [existingEvent, balanceSnap] = await Promise.all([
+    const [existingEvent, balanceSnap, standingSnap] = await Promise.all([
       tx.get(eventRef),
       tx.get(balanceRef),
+      tx.get(standingRef),
     ]);
 
     if (existingEvent.exists) {
@@ -126,8 +146,11 @@ async function awardCheckInPoints(db, environment, {
     }
 
     pointsAwarded = config.checkInPoints;
-    const current = balanceSnap.exists
+    const lifetime = balanceSnap.exists
       ? balanceSnap.data().totalPoints || 0
+      : 0;
+    const periodPoints = standingSnap.exists
+      ? standingSnap.data().points || 0
       : 0;
 
     tx.set(eventRef, {
@@ -137,13 +160,25 @@ async function awardCheckInPoints(db, environment, {
       points: pointsAwarded,
       sourceCheckInId: checkInId,
       weekKey,
+      periodKey,
       createdAt: FieldValue.serverTimestamp(),
     });
     tx.set(
       balanceRef,
       {
         userId,
-        totalPoints: current + pointsAwarded,
+        totalPoints: lifetime + pointsAwarded,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    tx.set(
+      standingRef,
+      {
+        userId,
+        periodKey,
+        displayName: name,
+        points: periodPoints + pointsAwarded,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -162,10 +197,12 @@ async function awardCheckInPoints(db, environment, {
       weekKey,
       bonusPoints: config.weeklyDoubleBonus,
       excludeCheckInId: checkInId,
+      displayName: name,
+      periodKey,
     });
   }
 
-  return { pointsAwarded, bonusAwarded, checkInEventId };
+  return { pointsAwarded, bonusAwarded, checkInEventId, periodKey };
 }
 
 async function maybeAwardWeeklyBonus(db, environment, {
@@ -174,12 +211,16 @@ async function maybeAwardWeeklyBonus(db, environment, {
   weekKey,
   bonusPoints,
   excludeCheckInId,
+  displayName,
+  periodKey,
 }) {
   const pointEvents = collectionFor(db, environment, "point_events");
   const balances = collectionFor(db, environment, "point_balances");
+  const standings = collectionFor(db, environment, "league_standings");
   const checkIns = collectionFor(db, environment, "activity_checkins");
   const activities = collectionFor(db, environment, "activities");
   const bonusEventId = `weekly_bonus_${userId}_${weekKey}`;
+  const monthKey = periodKey || ecuadorMonthKey(new Date());
 
   const existingBonus = await pointEvents.doc(bonusEventId).get();
   if (existingBonus.exists) {
@@ -225,17 +266,22 @@ async function maybeAwardWeeklyBonus(db, environment, {
   await db.runTransaction(async (tx) => {
     const bonusRef = pointEvents.doc(bonusEventId);
     const balanceRef = balances.doc(userId);
-    const [again, balanceSnap] = await Promise.all([
+    const standingRef = standings.doc(leagueStandingId(monthKey, userId));
+    const [again, balanceSnap, standingSnap] = await Promise.all([
       tx.get(bonusRef),
       tx.get(balanceRef),
+      tx.get(standingRef),
     ]);
     if (again.exists) {
       awarded = again.data().points || 0;
       return;
     }
     awarded = bonusPoints;
-    const current = balanceSnap.exists
+    const lifetime = balanceSnap.exists
       ? balanceSnap.data().totalPoints || 0
+      : 0;
+    const periodPoints = standingSnap.exists
+      ? standingSnap.data().points || 0
       : 0;
     tx.set(bonusRef, {
       userId,
@@ -243,6 +289,7 @@ async function maybeAwardWeeklyBonus(db, environment, {
       type: "weekly_bonus",
       points: awarded,
       weekKey,
+      periodKey: monthKey,
       note: "Bonus por asistir martes y jueves la misma semana",
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -250,7 +297,18 @@ async function maybeAwardWeeklyBonus(db, environment, {
       balanceRef,
       {
         userId,
-        totalPoints: current + awarded,
+        totalPoints: lifetime + awarded,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    tx.set(
+      standingRef,
+      {
+        userId,
+        periodKey: monthKey,
+        displayName: displayName || "Miembro",
+        points: periodPoints + awarded,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -267,6 +325,7 @@ async function reverseCheckInPoints(db, environment, {
 }) {
   const pointEvents = collectionFor(db, environment, "point_events");
   const balances = collectionFor(db, environment, "point_balances");
+  const standings = collectionFor(db, environment, "league_standings");
 
   if (!checkInEventId) {
     return;
@@ -288,9 +347,20 @@ async function reverseCheckInPoints(db, environment, {
       return;
     }
 
-    const points = eventSnap.data().points || 0;
-    const current = balanceSnap.exists
+    const eventData = eventSnap.data();
+    const points = eventData.points || 0;
+    const periodKey =
+      typeof eventData.periodKey === "string" && eventData.periodKey.length > 0
+        ? eventData.periodKey
+        : ecuadorMonthKey(new Date());
+    const standingRef = standings.doc(leagueStandingId(periodKey, userId));
+    const standingSnap = await tx.get(standingRef);
+
+    const lifetime = balanceSnap.exists
       ? balanceSnap.data().totalPoints || 0
+      : 0;
+    const periodPoints = standingSnap.exists
+      ? standingSnap.data().points || 0
       : 0;
 
     tx.set(reversalRef, {
@@ -298,6 +368,7 @@ async function reverseCheckInPoints(db, environment, {
       type: "reversal",
       points: -points,
       sourceCheckInId: checkInId,
+      periodKey,
       note: "Reverso de check-in eliminado por admin",
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -306,11 +377,24 @@ async function reverseCheckInPoints(db, environment, {
       balanceRef,
       {
         userId,
-        totalPoints: current - points,
+        totalPoints: lifetime - points,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
+    if (standingSnap.exists) {
+      tx.set(
+        standingRef,
+        {
+          userId,
+          periodKey,
+          displayName: standingSnap.data().displayName || "Miembro",
+          points: Math.max(0, periodPoints - points),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
   });
 }
 
@@ -360,7 +444,6 @@ async function performCheckIn(db, environment, {
       .doc(activityId)
       .get();
     const expectedToken = secretSnap.exists ? secretSnap.data()?.token : null;
-    // Compat: token legacy en el doc de actividad.
     const legacyToken = activity.checkInToken;
     if (token !== expectedToken && token !== legacyToken) {
       throw new HttpsError(
@@ -418,12 +501,14 @@ async function performCheckIn(db, environment, {
     checkInId,
     activityType: activity.type || "social_run",
     startsAt,
+    displayName,
   });
 
   return {
     alreadyCheckedIn: false,
     pointsAwarded: award.pointsAwarded,
     bonusAwarded: award.bonusAwarded,
+    periodKey: award.periodKey,
     message:
       award.bonusAwarded > 0
         ? `Asistencia registrada (+${award.pointsAwarded} pts, +${award.bonusAwarded} bonus).`
@@ -451,6 +536,8 @@ module.exports = {
   requireActiveUser,
   getPointsConfig,
   ecuadorIsoWeekKey,
+  ecuadorMonthKey,
+  leagueStandingId,
   isCheckInWindowOpen,
   awardCheckInPoints,
   reverseCheckInPoints,

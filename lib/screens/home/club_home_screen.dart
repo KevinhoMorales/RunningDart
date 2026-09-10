@@ -19,6 +19,7 @@ import '../../utils/membership_helpers.dart';
 import '../../utils/schedule_helpers.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
+import '../../widgets/league_home_card.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
 import '../../widgets/news_card.dart';
@@ -35,6 +36,7 @@ class ClubHomeScreen extends StatefulWidget {
 class _ClubHomeScreenState extends State<ClubHomeScreen> {
   final _scheduleService = TrainingScheduleService();
   final _qrService = QRService();
+  final _leagueCardKey = GlobalKey<LeagueHomeCardState>();
 
   TrainingScheduleModel? _schedule;
   ActivityModel? _nextActivity;
@@ -82,6 +84,7 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
       _loadSchedule(),
       _loadNextActivity(),
       context.read<AuthProvider>().refreshAccountStatus(),
+      _leagueCardKey.currentState?.reload() ?? Future<void>.value(),
     ]);
   }
 
@@ -128,6 +131,8 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
                     fallbackLoading: _loadingSchedule,
                     user: user,
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  LeagueHomeCard(key: _leagueCardKey),
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     'Próximos eventos',

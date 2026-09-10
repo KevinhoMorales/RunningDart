@@ -14,6 +14,7 @@ import 'providers/app_update_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/business_provider.dart';
 import 'providers/feed_provider.dart';
+import 'providers/league_provider.dart';
 import 'providers/news_provider.dart';
 import 'providers/social_provider.dart';
 import 'providers/notification_preferences_provider.dart';
@@ -23,6 +24,7 @@ import 'screens/admin/admin_activity_detail_screen.dart';
 import 'screens/admin/admin_activity_form_screen.dart';
 import 'screens/admin/admin_business_form_screen.dart';
 import 'screens/admin/admin_businesses_screen.dart';
+import 'screens/admin/admin_league_screen.dart';
 import 'screens/admin/admin_news_form_screen.dart';
 import 'screens/admin/admin_user_detail_screen.dart';
 import 'screens/admin/admin_validations_screen.dart';
@@ -34,6 +36,7 @@ import 'screens/admin/admin_training_schedule_screen.dart';
 import 'screens/club/activities_list_screen.dart';
 import 'screens/club/activity_checkin_scanner_screen.dart';
 import 'screens/club/activity_detail_screen.dart';
+import 'screens/club/league_screen.dart';
 import 'screens/club/pro_team_screen.dart';
 import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
@@ -55,6 +58,7 @@ import 'services/business_service.dart';
 import 'services/firestore_business_service.dart';
 import 'services/firestore_news_service.dart';
 import 'services/firestore_post_service.dart';
+import 'services/league_service.dart';
 import 'services/news_service.dart';
 import 'services/notification_service.dart';
 import 'services/post_service.dart';
@@ -178,6 +182,7 @@ class _RunningDartAppState extends State<RunningDartApp> {
             location == '/training-schedule' ||
             location == '/pro-team' ||
             location == '/activities' ||
+            location == '/league' ||
             location == '/post/new' ||
             location.startsWith('/activities/') ||
             location.startsWith('/business/') ||
@@ -283,12 +288,20 @@ class _RunningDartAppState extends State<RunningDartApp> {
           },
         ),
         GoRoute(
+          path: '/league',
+          builder: (context, state) => const LeagueScreen(),
+        ),
+        GoRoute(
           path: '/pro-team',
           builder: (context, state) => const ProTeamScreen(),
         ),
         GoRoute(
           path: '/admin/training-schedule',
           builder: (context, state) => const AdminTrainingScheduleScreen(),
+        ),
+        GoRoute(
+          path: '/admin/league',
+          builder: (context, state) => const AdminLeagueScreen(),
         ),
         GoRoute(
           path: '/admin/activities/new',
@@ -471,6 +484,12 @@ class _RunningDartAppState extends State<RunningDartApp> {
         ChangeNotifierProvider.value(value: _visitProvider),
         Provider<ActivityService>(
           create: (_) => ActivityService(),
+        ),
+        Provider<LeagueService>(
+          create: (_) => LeagueService(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => LeagueProvider(context.read<LeagueService>()),
         ),
         if (_notificationPreferencesProvider != null)
           ChangeNotifierProvider.value(

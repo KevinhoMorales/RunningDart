@@ -1138,6 +1138,36 @@ async function runTests() {
       }),
     );
 
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await envCollection(context.firestore(), 'league_standings')
+        .doc('2026-09_user-plain')
+        .set({
+          userId: 'user-plain',
+          periodKey: '2026-09',
+          displayName: 'Plain',
+          points: 10,
+          updatedAt: new Date(),
+        });
+    });
+
+    await assertSucceeds(
+      envCollection(authedDb('member-1'), 'league_standings')
+        .doc('2026-09_user-plain')
+        .get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'league_standings')
+        .doc('2026-09_user-plain')
+        .set({
+          userId: 'user-plain',
+          periodKey: '2026-09',
+          displayName: 'Plain',
+          points: 999,
+          updatedAt: new Date(),
+        }),
+    );
+
     console.log('All Firestore rules tests passed.');
   } finally {
     await cleanup();

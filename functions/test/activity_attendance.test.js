@@ -2,6 +2,8 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const {
   ecuadorIsoWeekKey,
+  ecuadorMonthKey,
+  leagueStandingId,
   isCheckInWindowOpen,
   DEFAULT_CHECK_IN_POINTS,
 } = require("../activity_attendance");
@@ -12,11 +14,20 @@ describe("activity_attendance helpers", () => {
   });
 
   it("ecuadorIsoWeekKey is stable for tue/thu same week", () => {
-    // 2026-09-08 19:00 ECT = 2026-09-09 00:00Z
     const tue = new Date("2026-09-09T00:00:00.000Z");
-    // 2026-09-10 19:00 ECT = 2026-09-11 00:00Z
     const thu = new Date("2026-09-11T00:00:00.000Z");
     assert.equal(ecuadorIsoWeekKey(tue), ecuadorIsoWeekKey(thu));
+  });
+
+  it("ecuadorMonthKey uses Ecuador calendar month", () => {
+    // 2026-09-01 00:30 UTC = 2026-08-31 19:30 ECT → August
+    assert.equal(ecuadorMonthKey(new Date("2026-09-01T00:30:00.000Z")), "2026-08");
+    // 2026-09-01 06:00 UTC = 2026-09-01 01:00 ECT → September
+    assert.equal(ecuadorMonthKey(new Date("2026-09-01T06:00:00.000Z")), "2026-09");
+  });
+
+  it("leagueStandingId joins period and user", () => {
+    assert.equal(leagueStandingId("2026-09", "u1"), "2026-09_u1");
   });
 
   it("isCheckInWindowOpen respects enabled flag and window", () => {

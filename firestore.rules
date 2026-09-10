@@ -420,5 +420,11 @@ service cloud.firestore {
         && (isOwner(userId) || isAdmin(environment));
       allow create, update, delete: if false;
     }
+
+    // Ranking mensual de la Liga. Lectura para socios firmados; escritura solo CF.
+    match /environments/{environment}/league_standings/{standingId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create, update, delete: if false;
+    }
   }
 }

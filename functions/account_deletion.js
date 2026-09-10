@@ -175,6 +175,14 @@ async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
     .doc(uid)
     .delete()
     .catch(() => undefined);
+  const leagueStandings = await deleteByQuery(
+    db,
+    collectionFor(db, environment, "league_standings").where(
+      "userId",
+      "==",
+      uid,
+    ),
+  );
 
   await deleteStoragePrefix(
     bucket,
@@ -202,6 +210,7 @@ async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
     activityRsvps,
     activityCheckIns,
     pointEvents,
+    leagueStandings,
   };
 }
 
