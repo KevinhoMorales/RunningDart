@@ -12,6 +12,7 @@ import '../../utils/helpers.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
+import '../../widgets/official_member_perk_card.dart';
 import '../../widgets/profile_action_tile.dart';
 import '../social/user_profile_screen.dart';
 
@@ -86,6 +87,8 @@ class AccountSections extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           MembershipCredentialCard(user: user, qrPayload: qrPayload),
+          const SizedBox(height: AppSpacing.md),
+          OfficialMemberPerkCard(user: user),
           const SizedBox(height: AppSpacing.md),
           _ContextBanner(auth: auth),
           const SizedBox(height: AppSpacing.md),

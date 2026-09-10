@@ -101,7 +101,7 @@ class _AdminChallengeDetailScreenState
       return;
     }
 
-    // Prefer league order for winner ranks.
+    // Prefer league order for winner ranks (Official never reorders).
     final ordered = _finishers
         .where((f) => _selectedWinners.contains(f.userId))
         .map((f) => f.userId)
@@ -146,6 +146,15 @@ class _AdminChallengeDetailScreenState
     });
   }
 
+  int get _selectedOfficialPerkCount {
+    return _finishers.where((row) {
+      if (!_selectedWinners.contains(row.userId)) return false;
+      // Preview: Official modality among selected; after save use flag.
+      if (row.isWinner && row.qualifiesForOfficialPerk) return true;
+      return row.isOfficialModality;
+    }).length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final challenge = _challenge;
@@ -182,7 +191,10 @@ class _AdminChallengeDetailScreenState
                   if (challenge.description != null &&
                       challenge.description!.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Text(challenge.description!, style: AppTypography.body(context)),
+                    Text(
+                      challenge.description!,
+                      style: AppTypography.body(context),
+                    ),
                   ],
                   const SizedBox(height: AppSpacing.md),
                   Text(
@@ -191,6 +203,8 @@ class _AdminChallengeDetailScreenState
                     '+${challenge.completionPoints} pts al completar',
                     style: AppTypography.caption(context),
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  _OfficialPerkAdminCard(challenge: challenge),
                   const SizedBox(height: AppSpacing.md),
                   Wrap(
                     spacing: AppSpacing.sm,
@@ -234,15 +248,26 @@ class _AdminChallengeDetailScreenState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Ordenados por puntos de Liga del periodo. '
-                    'Marca hasta ${challenge.rewardSpots} ganadores de premio físico. '
-                    'Empates en el último spot: resuélvelos tú (sin sorteo). '
-                    'Oficial = perk pendiente (punto 7).',
+                    'Ordenados por puntos de Liga del periodo (no por membresía). '
+                    'Marca hasta ${challenge.rewardSpots} ganadores del premio general. '
+                    'Oficiales activos entre ellos también reciben el perk. '
+                    'Empates en el último spot: resuélvelos tú (sin sorteo).',
                     style: AppTypography.caption(
                       context,
                       color: palette.textMuted,
                     ),
                   ),
+                  if (_selectedWinners.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Selección: ${_selectedWinners.length} premio general · '
+                      '$_selectedOfficialPerkCount con perk Oficial',
+                      style: AppTypography.caption(
+                        context,
+                        color: palette.accentPrimary,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.sm),
                   if (_loadingFinishers)
                     const Padding(
@@ -257,9 +282,9 @@ class _AdminChallengeDetailScreenState
                   else ...[
                     ..._finishers.map((row) {
                       final selected = _selectedWinners.contains(row.userId);
-                      final modality = row.membershipModality;
-                      final isOfficial = modality == 'official' ||
-                          modality == 'proTeam';
+                      final getsPerk = selected &&
+                          (row.qualifiesForOfficialPerk ||
+                              row.isOfficialModality);
                       return CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         value: selected,
@@ -271,14 +296,18 @@ class _AdminChallengeDetailScreenState
                           [
                             'Liga #${row.leagueRank ?? '—'} · '
                                 '${row.leaguePoints ?? 0} pts',
-                            if (isOfficial) 'Oficial · perk',
-                            if (row.qualifiesForOfficialPerk && selected)
-                              'Marcado para perk',
+                            if (row.isOfficialModality) 'Oficial',
+                            if (selected && !getsPerk) 'Premio general',
+                            if (getsPerk)
+                              'Premio general + perk'
+                                  '${challenge.hasOfficialPerkConfigured ? ': ${challenge.officialPerkTitle}' : ''}',
                           ].join(' · '),
                         ),
                         secondary: selected
                             ? Icon(
-                                Icons.card_giftcard_rounded,
+                                getsPerk
+                                    ? Icons.workspace_premium_rounded
+                                    : Icons.card_giftcard_rounded,
                                 color: palette.accentPrimary,
                               )
                             : null,
@@ -296,6 +325,63 @@ class _AdminChallengeDetailScreenState
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _OfficialPerkAdminCard extends StatelessWidget {
+  const _OfficialPerkAdminCard({required this.challenge});
+
+  final MonthlyChallengeModel challenge;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final configured = challenge.hasOfficialPerkConfigured;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: palette.infoBannerBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.infoBannerBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Perk Oficial del mes',
+            style: AppTypography.body(context, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          if (configured) ...[
+            Text(
+              challenge.officialPerkTitle,
+              style: AppTypography.body(context),
+            ),
+            if (challenge.officialPerkDescription != null &&
+                challenge.officialPerkDescription!.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                challenge.officialPerkDescription!.trim(),
+                style: AppTypography.caption(
+                  context,
+                  color: palette.textMuted,
+                ),
+              ),
+            ],
+          ] else
+            Text(
+              'Sin perk configurado. Edita el reto para definir el premio '
+              'extra de Oficiales activos en Reward Spots.',
+              style: AppTypography.caption(
+                context,
+                color: palette.textMuted,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

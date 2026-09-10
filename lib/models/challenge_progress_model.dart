@@ -22,6 +22,8 @@ class ChallengeProgressModel {
     this.winnerRank,
     this.qualifiesForOfficialPerk = false,
     this.membershipModality,
+    this.officialPerkLabel,
+    this.officialPerkDescription,
     this.leaguePoints,
     this.leagueRank,
   });
@@ -43,6 +45,9 @@ class ChallengeProgressModel {
   final int? winnerRank;
   final bool qualifiesForOfficialPerk;
   final String? membershipModality;
+  /// Snapshot of the Official perk at award time (winners who qualify).
+  final String? officialPerkLabel;
+  final String? officialPerkDescription;
   final int? leaguePoints;
   final int? leagueRank;
   final DateTime updatedAt;
@@ -50,6 +55,21 @@ class ChallengeProgressModel {
   double get progressFraction {
     if (goalTarget <= 0) return 0;
     return (currentValue / goalTarget).clamp(0.0, 1.0);
+  }
+
+  bool get isOfficialModality {
+    final m = membershipModality;
+    return m == 'official' || m == 'proTeam';
+  }
+
+  /// Title to show when this finisher earned the Official perk.
+  String? earnedOfficialPerkTitle({String? challengeFallback}) {
+    if (!qualifiesForOfficialPerk) return null;
+    final snap = officialPerkLabel?.trim();
+    if (snap != null && snap.isNotEmpty) return snap;
+    final fallback = challengeFallback?.trim();
+    if (fallback != null && fallback.isNotEmpty) return fallback;
+    return 'Perk de Miembro Oficial';
   }
 
   factory ChallengeProgressModel.fromFirestore(
@@ -87,9 +107,64 @@ class ChallengeProgressModel {
       winnerRank: (data['winnerRank'] as num?)?.toInt(),
       qualifiesForOfficialPerk: data['qualifiesForOfficialPerk'] == true,
       membershipModality: data['membershipModality'] as String?,
+      officialPerkLabel: data['officialPerkLabel'] as String?,
+      officialPerkDescription: data['officialPerkDescription'] as String?,
       leaguePoints: (data['leaguePoints'] as num?)?.toInt(),
       leagueRank: (data['leagueRank'] as num?)?.toInt(),
       updatedAt: readDate(data['updatedAt'] ?? Timestamp.now()),
+    );
+  }
+
+  ChallengeProgressModel copyWith({
+    String? id,
+    String? challengeId,
+    String? userId,
+    String? displayName,
+    String? periodKey,
+    ChallengeGoalType? goalType,
+    int? goalTarget,
+    int? currentValue,
+    bool? completed,
+    DateTime? completedAt,
+    bool? badgeAwarded,
+    bool? pointsAwarded,
+    int? completionPointsAwarded,
+    bool? isWinner,
+    int? winnerRank,
+    bool? qualifiesForOfficialPerk,
+    String? membershipModality,
+    String? officialPerkLabel,
+    String? officialPerkDescription,
+    int? leaguePoints,
+    int? leagueRank,
+    DateTime? updatedAt,
+  }) {
+    return ChallengeProgressModel(
+      id: id ?? this.id,
+      challengeId: challengeId ?? this.challengeId,
+      userId: userId ?? this.userId,
+      displayName: displayName ?? this.displayName,
+      periodKey: periodKey ?? this.periodKey,
+      goalType: goalType ?? this.goalType,
+      goalTarget: goalTarget ?? this.goalTarget,
+      currentValue: currentValue ?? this.currentValue,
+      completed: completed ?? this.completed,
+      completedAt: completedAt ?? this.completedAt,
+      badgeAwarded: badgeAwarded ?? this.badgeAwarded,
+      pointsAwarded: pointsAwarded ?? this.pointsAwarded,
+      completionPointsAwarded:
+          completionPointsAwarded ?? this.completionPointsAwarded,
+      isWinner: isWinner ?? this.isWinner,
+      winnerRank: winnerRank ?? this.winnerRank,
+      qualifiesForOfficialPerk:
+          qualifiesForOfficialPerk ?? this.qualifiesForOfficialPerk,
+      membershipModality: membershipModality ?? this.membershipModality,
+      officialPerkLabel: officialPerkLabel ?? this.officialPerkLabel,
+      officialPerkDescription:
+          officialPerkDescription ?? this.officialPerkDescription,
+      leaguePoints: leaguePoints ?? this.leaguePoints,
+      leagueRank: leagueRank ?? this.leagueRank,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

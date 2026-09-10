@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/league_standing_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/league_provider.dart';
+import '../../services/challenge_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
@@ -49,6 +50,9 @@ class _LeagueScreenState extends State<LeagueScreen> {
         final user = auth.user;
         if (user != null) {
           await context.read<LeagueProvider>().refresh();
+          try {
+            await context.read<ChallengeService>().evaluateMyProgress();
+          } catch (_) {}
         }
       },
       child: ListView(

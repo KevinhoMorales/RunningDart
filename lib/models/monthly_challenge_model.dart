@@ -103,6 +103,8 @@ class MonthlyChallengeModel {
     this.periodKey,
     this.createdBy,
     this.winnersCount = 0,
+    this.officialPerkLabel,
+    this.officialPerkDescription,
   });
 
   final String id;
@@ -119,11 +121,22 @@ class MonthlyChallengeModel {
   final ChallengeBadgeMeta badge;
   final String? createdBy;
   final int winnersCount;
+  /// Short title of this month's Official Member Perk (physical/extra prize).
+  final String? officialPerkLabel;
+  final String? officialPerkDescription;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   bool get isActive => status == ChallengeStatus.active;
   bool get isClosed => status == ChallengeStatus.closed;
+
+  bool get hasOfficialPerkConfigured =>
+      officialPerkLabel != null && officialPerkLabel!.trim().isNotEmpty;
+
+  String get officialPerkTitle =>
+      hasOfficialPerkConfigured
+          ? officialPerkLabel!.trim()
+          : 'Perk de Miembro Oficial';
 
   String get goalSummary => '${goalType.displayName}: $goalTarget';
 
@@ -143,6 +156,11 @@ class MonthlyChallengeModel {
       'badge': badge.toFirestore(),
       if (createdBy != null) 'createdBy': createdBy,
       'winnersCount': winnersCount,
+      if (officialPerkLabel != null && officialPerkLabel!.trim().isNotEmpty)
+        'officialPerkLabel': officialPerkLabel!.trim(),
+      if (officialPerkDescription != null &&
+          officialPerkDescription!.trim().isNotEmpty)
+        'officialPerkDescription': officialPerkDescription!.trim(),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -178,6 +196,8 @@ class MonthlyChallengeModel {
       ),
       createdBy: data['createdBy'] as String?,
       winnersCount: (data['winnersCount'] as num?)?.toInt() ?? 0,
+      officialPerkLabel: data['officialPerkLabel'] as String?,
+      officialPerkDescription: data['officialPerkDescription'] as String?,
       createdAt: readDate(data['createdAt'] ?? data['startsAt']),
       updatedAt: readDate(data['updatedAt'] ?? data['startsAt']),
     );
@@ -198,9 +218,13 @@ class MonthlyChallengeModel {
     ChallengeBadgeMeta? badge,
     String? createdBy,
     int? winnersCount,
+    String? officialPerkLabel,
+    String? officialPerkDescription,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool clearDescription = false,
+    bool clearOfficialPerkLabel = false,
+    bool clearOfficialPerkDescription = false,
   }) {
     return MonthlyChallengeModel(
       id: id ?? this.id,
@@ -218,6 +242,12 @@ class MonthlyChallengeModel {
       badge: badge ?? this.badge,
       createdBy: createdBy ?? this.createdBy,
       winnersCount: winnersCount ?? this.winnersCount,
+      officialPerkLabel: clearOfficialPerkLabel
+          ? null
+          : (officialPerkLabel ?? this.officialPerkLabel),
+      officialPerkDescription: clearOfficialPerkDescription
+          ? null
+          : (officialPerkDescription ?? this.officialPerkDescription),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

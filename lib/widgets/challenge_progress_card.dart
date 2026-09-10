@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/challenge_progress_model.dart';
+import '../models/membership_modality.dart';
 import '../models/monthly_challenge_model.dart';
 import '../providers/auth_provider.dart';
 import '../services/challenge_service.dart';
@@ -48,15 +49,14 @@ class ChallengeProgressCardState extends State<ChallengeProgressCard> {
 
     final service = context.read<ChallengeService>();
     final palette = context.palette;
+    final isOfficial =
+        user.membershipModality == MembershipModality.official;
 
     return StreamBuilder<MonthlyChallengeModel?>(
       stream: service.watchActiveChallenge(),
       builder: (context, challengeSnap) {
         final challenge = challengeSnap.data;
         if (challenge == null) {
-          if (widget.compact) {
-            return const SizedBox.shrink();
-          }
           return const SizedBox.shrink();
         }
 
@@ -73,6 +73,12 @@ class ChallengeProgressCardState extends State<ChallengeProgressCard> {
                 ? 0.0
                 : (current / target).clamp(0.0, 1.0);
             final completed = progress?.completed == true;
+            final isWinner = progress?.isWinner == true;
+            final earnedPerk = progress?.qualifiesForOfficialPerk == true;
+            final perkTitle = progress?.earnedOfficialPerkTitle(
+                  challengeFallback: challenge.officialPerkLabel,
+                ) ??
+                challenge.officialPerkTitle;
 
             return Material(
               color: palette.cardBackground,
@@ -121,14 +127,70 @@ class ChallengeProgressCardState extends State<ChallengeProgressCard> {
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         completed
-                            ? 'Insignia: ${challenge.badge.name}'
-                                '${progress?.isWinner == true ? ' · Reward Spot' : ''}'
+                            ? [
+                                'Insignia: ${challenge.badge.name}',
+                                if (isWinner) 'Reward Spot',
+                                if (earnedPerk) 'Perk Oficial',
+                              ].join(' · ')
                             : challenge.goalSummary,
                         style: AppTypography.caption(
                           context,
                           color: palette.textMuted,
                         ),
                       ),
+                      if (earnedPerk) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _PerkBanner(
+                          title: 'Ganaste el perk Oficial',
+                          body: perkTitle +
+                              (progress?.officialPerkDescription != null &&
+                                      progress!
+                                          .officialPerkDescription!
+                                          .trim()
+                                          .isNotEmpty
+                                  ? ' — ${progress.officialPerkDescription!.trim()}'
+                                  : (challenge.officialPerkDescription !=
+                                              null &&
+                                          challenge.officialPerkDescription!
+                                              .trim()
+                                              .isNotEmpty
+                                      ? ' — ${challenge.officialPerkDescription!.trim()}'
+                                      : '')),
+                          highlight: true,
+                        ),
+                      ] else if (isWinner) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _PerkBanner(
+                          title: 'Ganaste un Reward Spot',
+                          body: isOfficial
+                              ? 'Premio general. El perk Oficial se confirma '
+                                  'con membresía Oficial activa.'
+                              : 'Premio general del mes. El perk extra es solo '
+                                  'para Miembros Oficiales activos.',
+                        ),
+                      ] else if (!widget.compact) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        if (isOfficial &&
+                            challenge.hasOfficialPerkConfigured)
+                          _PerkBanner(
+                            title: 'Perk Oficial del mes',
+                            body:
+                                '${challenge.officialPerkTitle}'
+                                '${challenge.officialPerkDescription != null && challenge.officialPerkDescription!.trim().isNotEmpty ? ' — ${challenge.officialPerkDescription!.trim()}' : ''}. '
+                                'Si ganas un Reward Spot, lo recibes junto al premio general. '
+                                'No suma puntos en la Liga.',
+                          )
+                        else if (isOfficial)
+                          const _PerkBanner(
+                            title: 'Perk Oficial',
+                            body: MembershipModality.officialPerkMemberBlurb,
+                          )
+                        else
+                          const _PerkBanner(
+                            title: 'Miembro Oficial',
+                            body: MembershipModality.officialPerkUpsellBlurb,
+                          ),
+                      ],
                       const SizedBox(height: AppSpacing.sm),
                       ClipRRect(
                         borderRadius:
@@ -153,6 +215,58 @@ class ChallengeProgressCardState extends State<ChallengeProgressCard> {
           },
         );
       },
+    );
+  }
+}
+
+class _PerkBanner extends StatelessWidget {
+  const _PerkBanner({
+    required this.title,
+    required this.body,
+    this.highlight = false,
+  });
+
+  final String title;
+  final String body;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: highlight
+            ? palette.accentPrimary.withValues(alpha: 0.12)
+            : palette.infoBannerBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(
+          color: highlight
+              ? palette.accentPrimary.withValues(alpha: 0.35)
+              : palette.infoBannerBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTypography.caption(
+              context,
+              color: highlight ? palette.accentPrimary : null,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            body,
+            style: AppTypography.caption(
+              context,
+              color: palette.textMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

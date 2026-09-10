@@ -33,6 +33,8 @@ class _AdminChallengeFormScreenState extends State<AdminChallengeFormScreen> {
   final _pointsController = TextEditingController(text: '20');
   final _badgeNameController = TextEditingController(text: 'Insignia del mes');
   final _badgeDescController = TextEditingController();
+  final _officialPerkLabelController = TextEditingController();
+  final _officialPerkDescController = TextEditingController();
 
   ChallengeGoalType _goalType = ChallengeGoalType.checkIns;
   ChallengeStatus _status = ChallengeStatus.draft;
@@ -69,6 +71,9 @@ class _AdminChallengeFormScreenState extends State<AdminChallengeFormScreen> {
       _pointsController.text = '${challenge.completionPoints}';
       _badgeNameController.text = challenge.badge.name;
       _badgeDescController.text = challenge.badge.description ?? '';
+      _officialPerkLabelController.text = challenge.officialPerkLabel ?? '';
+      _officialPerkDescController.text =
+          challenge.officialPerkDescription ?? '';
       _goalType = challenge.goalType;
       _status = challenge.status;
       _startsAt = challenge.startsAt;
@@ -86,6 +91,8 @@ class _AdminChallengeFormScreenState extends State<AdminChallengeFormScreen> {
     _pointsController.dispose();
     _badgeNameController.dispose();
     _badgeDescController.dispose();
+    _officialPerkLabelController.dispose();
+    _officialPerkDescController.dispose();
     super.dispose();
   }
 
@@ -164,6 +171,12 @@ class _AdminChallengeFormScreenState extends State<AdminChallengeFormScreen> {
             rewardSpots: spots,
             completionPoints: points,
             badge: badge,
+            officialPerkLabel: _officialPerkLabelController.text.trim(),
+            clearOfficialPerkLabel:
+                _officialPerkLabelController.text.trim().isEmpty,
+            officialPerkDescription: _officialPerkDescController.text.trim(),
+            clearOfficialPerkDescription:
+                _officialPerkDescController.text.trim().isEmpty,
           ),
         );
       } else {
@@ -181,6 +194,14 @@ class _AdminChallengeFormScreenState extends State<AdminChallengeFormScreen> {
             rewardSpots: spots,
             completionPoints: points,
             badge: badge,
+            officialPerkLabel:
+                _officialPerkLabelController.text.trim().isEmpty
+                    ? null
+                    : _officialPerkLabelController.text.trim(),
+            officialPerkDescription:
+                _officialPerkDescController.text.trim().isEmpty
+                    ? null
+                    : _officialPerkDescController.text.trim(),
             createdBy: auth.user?.id,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
@@ -299,6 +320,29 @@ class _AdminChallengeFormScreenState extends State<AdminChallengeFormScreen> {
                   ModernTextField(
                     controller: _badgeDescController,
                     labelText: 'Descripción de la insignia',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Perk de Miembro Oficial',
+                    style: AppTypography.body(context, weight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Premio extra solo para Oficiales activos que ganen un '
+                    'Reward Spot. No cambia ranking ni puntos. '
+                    'Comunidad recibe el premio general igual.',
+                    style: AppTypography.caption(context),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ModernTextField(
+                    controller: _officialPerkLabelController,
+                    labelText: 'Perk del mes (título corto)',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  ModernTextField(
+                    controller: _officialPerkDescController,
+                    labelText: 'Detalle del perk (opcional)',
                     maxLines: 2,
                   ),
                   const SizedBox(height: AppSpacing.md),

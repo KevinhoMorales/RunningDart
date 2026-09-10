@@ -12,6 +12,7 @@ import '../../utils/helpers.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
+import '../../widgets/official_member_perk_card.dart';
 import '../../widgets/profile_action_tile.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/user_badges_section.dart';
@@ -48,6 +49,8 @@ class ProfileTabScreen extends StatelessWidget {
           _ProfileHeader(user: user),
           const SizedBox(height: AppSpacing.md),
           _MembershipBlock(user: user),
+          const SizedBox(height: AppSpacing.md),
+          OfficialMemberPerkCard(user: user),
           const SizedBox(height: AppSpacing.md),
           UserBadgesSection(userId: user.id),
           const SizedBox(height: AppSpacing.md),

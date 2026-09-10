@@ -86,6 +86,14 @@ class ChallengeService {
     if (challenge.description == null || challenge.description!.isEmpty) {
       data['description'] = FieldValue.delete();
     }
+    if (challenge.officialPerkLabel == null ||
+        challenge.officialPerkLabel!.trim().isEmpty) {
+      data['officialPerkLabel'] = FieldValue.delete();
+    }
+    if (challenge.officialPerkDescription == null ||
+        challenge.officialPerkDescription!.trim().isEmpty) {
+      data['officialPerkDescription'] = FieldValue.delete();
+    }
     await _challenges.doc(challenge.id).update(data);
   }
 
@@ -180,30 +188,7 @@ class ChallengeService {
           .get();
       final points =
           standingDoc.exists ? (standingDoc.data()?['points'] as num?)?.toInt() ?? 0 : 0;
-      enriched.add(
-        ChallengeProgressModel(
-          id: base.id,
-          challengeId: base.challengeId,
-          userId: base.userId,
-          displayName: base.displayName,
-          periodKey: base.periodKey,
-          goalType: base.goalType,
-          goalTarget: base.goalTarget,
-          currentValue: base.currentValue,
-          completed: base.completed,
-          completedAt: base.completedAt,
-          badgeAwarded: base.badgeAwarded,
-          pointsAwarded: base.pointsAwarded,
-          completionPointsAwarded: base.completionPointsAwarded,
-          isWinner: base.isWinner,
-          winnerRank: base.winnerRank,
-          qualifiesForOfficialPerk: base.qualifiesForOfficialPerk,
-          membershipModality: base.membershipModality,
-          leaguePoints: points,
-          leagueRank: null,
-          updatedAt: base.updatedAt,
-        ),
-      );
+      enriched.add(base.copyWith(leaguePoints: points, leagueRank: null));
     }
 
     enriched.sort((a, b) {
@@ -213,6 +198,7 @@ class ChallengeService {
     });
 
     // Assign dense ranks for display (ties share explanation for admin).
+    // Ranking is League points only — Official status never reorders.
     var rank = 0;
     var lastPoints = -1;
     final ranked = <ChallengeProgressModel>[];
@@ -222,30 +208,7 @@ class ChallengeService {
         rank = i + 1;
         lastPoints = points;
       }
-      ranked.add(
-        ChallengeProgressModel(
-          id: enriched[i].id,
-          challengeId: enriched[i].challengeId,
-          userId: enriched[i].userId,
-          displayName: enriched[i].displayName,
-          periodKey: enriched[i].periodKey,
-          goalType: enriched[i].goalType,
-          goalTarget: enriched[i].goalTarget,
-          currentValue: enriched[i].currentValue,
-          completed: enriched[i].completed,
-          completedAt: enriched[i].completedAt,
-          badgeAwarded: enriched[i].badgeAwarded,
-          pointsAwarded: enriched[i].pointsAwarded,
-          completionPointsAwarded: enriched[i].completionPointsAwarded,
-          isWinner: enriched[i].isWinner,
-          winnerRank: enriched[i].winnerRank,
-          qualifiesForOfficialPerk: enriched[i].qualifiesForOfficialPerk,
-          membershipModality: enriched[i].membershipModality,
-          leaguePoints: enriched[i].leaguePoints,
-          leagueRank: rank,
-          updatedAt: enriched[i].updatedAt,
-        ),
-      );
+      ranked.add(enriched[i].copyWith(leagueRank: rank));
     }
     return ranked;
   }

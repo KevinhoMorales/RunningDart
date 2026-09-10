@@ -414,19 +414,45 @@ async function adminSetChallengeWinners(db, environment, {
   }
 
   // Clear previous winners then set new ranks.
+  // Order of `unique` = League rank among finishers (client sorts by points).
+  // Official status only adds qualifiesForOfficialPerk — never reorders.
   const batch = db.batch();
+  const perkLabel =
+    typeof challenge.officialPerkLabel === "string" &&
+    challenge.officialPerkLabel.trim()
+      ? challenge.officialPerkLabel.trim()
+      : null;
+  const perkDescription =
+    typeof challenge.officialPerkDescription === "string" &&
+    challenge.officialPerkDescription.trim()
+      ? challenge.officialPerkDescription.trim()
+      : null;
+
   for (const doc of finishersSnap.docs) {
     const data = doc.data();
     const isWinner = unique.includes(data.userId);
     const rank = isWinner ? unique.indexOf(data.userId) + 1 : null;
     let qualifies = false;
+    let modality = data.membershipModality || null;
     if (isWinner) {
-      const modality =
-        data.membershipModality ||
-        (await collectionFor(db, environment, "users").doc(data.userId).get())
-          .data()?.membershipModality;
-      // Legacy proTeam maps to official on client; treat both as perk-eligible.
-      qualifies = modality === "official" || modality === "proTeam";
+      const userSnap = await collectionFor(db, environment, "users")
+        .doc(data.userId)
+        .get();
+      const userData = userSnap.exists ? userSnap.data() || {} : {};
+      modality = userData.membershipModality || modality;
+      // Legacy proTeam maps to official on client; treat both as Official.
+      const isOfficialModality =
+        modality === "official" || modality === "proTeam";
+      const status = userData.membershipStatus || "active";
+      let expired = false;
+      if (userData.expiresAt && typeof userData.expiresAt.toDate === "function") {
+        expired = userData.expiresAt.toDate().getTime() < Date.now();
+      } else if (userData.expiresAt instanceof Date) {
+        expired = userData.expiresAt.getTime() < Date.now();
+      }
+      // Active Official only — membership never changes ranking, only perk.
+      qualifies =
+        isOfficialModality && status === "active" && !expired;
     }
     batch.set(
       doc.ref,
@@ -434,6 +460,10 @@ async function adminSetChallengeWinners(db, environment, {
         isWinner,
         winnerRank: rank,
         qualifiesForOfficialPerk: qualifies,
+        membershipModality: modality || null,
+        officialPerkLabel: isWinner && qualifies ? perkLabel : null,
+        officialPerkDescription:
+          isWinner && qualifies ? perkDescription : null,
         winnerMarkedAt: isWinner ? FieldValue.serverTimestamp() : null,
         winnerMarkedBy: isWinner ? adminUid : null,
         updatedAt: FieldValue.serverTimestamp(),
