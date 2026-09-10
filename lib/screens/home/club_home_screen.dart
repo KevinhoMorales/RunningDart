@@ -23,7 +23,7 @@ import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
 
 /// Inicio compacto: credencial, próximo Social Run, resumen de Liga y
-/// tease de beneficios. Sin feed ni listado largo de noticias.
+/// tease de beneficios. El feed vive en el tab Comunidad.
 class ClubHomeScreen extends StatefulWidget {
   const ClubHomeScreen({super.key});
 
@@ -125,75 +125,8 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
           const SizedBox(height: AppSpacing.md),
           const ChallengeProgressCard(compact: true),
           const SizedBox(height: AppSpacing.md),
-          const _ComunidadTeaseCard(),
-          const SizedBox(height: AppSpacing.md),
           const _BenefitsTeaseCard(),
         ],
-      ),
-    );
-  }
-}
-
-class _ComunidadTeaseCard extends StatelessWidget {
-  const _ComunidadTeaseCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Material(
-      color: palette.cardBackground,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: InkWell(
-        onTap: AppHaptics.wrap(() => context.push('/feed')),
-        enableFeedback: false,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: palette.cardBorder),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: palette.accentPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Icon(
-                  Icons.forum_outlined,
-                  color: palette.accentPrimary,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Comunidad',
-                      style: AppTypography.body(
-                        context,
-                        weight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Publicaciones, fotos y la vida del club.',
-                      style: AppTypography.caption(
-                        context,
-                        color: palette.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: palette.textMuted),
-            ],
-          ),
-        ),
       ),
     );
   }

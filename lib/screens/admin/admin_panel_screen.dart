@@ -16,8 +16,8 @@ import 'admin_stats_tab.dart';
 import 'admin_training_schedule_tab.dart';
 import 'admin_users_tab.dart';
 
-/// Índice del tab Admin en el shell compacto (5.º destino: Inicio…Perfil + Admin).
-const adminPanelHomeTabIndex = 4;
+/// Índice del tab Admin en el shell (6.º destino: Inicio…Perfil + Admin).
+const adminPanelHomeTabIndex = 5;
 const adminPanelUsersTabIndex = 0;
 const adminPanelActivitiesTabIndex = 1;
 const adminPanelChallengesTabIndex = 2;

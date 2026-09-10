@@ -15,19 +15,20 @@ import '../admin/admin_panel_screen.dart';
 import '../business/operator_scan_screen.dart';
 import '../club/activities_list_screen.dart';
 import '../club/league_screen.dart';
+import '../feed/feed_screen.dart';
 import '../profile/profile_tab_screen.dart';
 import 'club_home_screen.dart';
 
 enum _HomeMode { member, operator, admin }
 
-/// Índices de la nav compacta (Inicio / Actividades / Liga / Perfil).
+/// Índices de la nav de socio (Inicio / Actividades / Liga / Comunidad / Perfil).
 const homeTabIndex = 0;
 const activitiesTabIndex = 1;
 const leagueTabIndex = 2;
-const profileTabIndex = 3;
+const profileTabIndex = 4;
 
-/// Quinto destino solo para admin u operador.
-const roleExtraTabIndex = 4;
+/// Sexto destino solo para admin u operador.
+const roleExtraTabIndex = 5;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,6 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == leagueTabIndex) {
       return 'Liga';
     }
+    if (index == communityHomeTabIndex) {
+      return 'Comunidad';
+    }
     if (index == profileTabIndex) {
       return 'Perfil';
     }
@@ -71,12 +75,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'SAINTS';
   }
 
-  /// Inicio → Actividades → Liga → Perfil → (Admin|Escanear).
+  /// Inicio → Actividades → Liga → Comunidad → Perfil → (Admin|Escanear).
   List<Widget> _pages(_HomeMode mode) {
     const primary = <Widget>[
       ClubHomeScreen(),
       ActivitiesListScreen(embedded: true),
       LeagueScreen(embedded: true),
+      FeedScreen(),
       ProfileTabScreen(),
     ];
 
@@ -112,6 +117,11 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icon(Icons.emoji_events_outlined),
         selectedIcon: Icon(Icons.emoji_events_rounded),
         label: 'Liga',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.people_alt_outlined),
+        selectedIcon: Icon(Icons.people_alt_rounded),
+        label: 'Comunidad',
       ),
       NavigationDestination(
         icon: Icon(Icons.person_outline_rounded),
@@ -172,6 +182,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeIndex = _currentIndex.clamp(0, pages.length - 1);
     final showMembershipQr = safeIndex != profileTabIndex &&
         safeIndex != roleExtraTabIndex;
+    // Publicar solo en Comunidad.
+    final showPublishFab = safeIndex == communityHomeTabIndex;
 
     return Scaffold(
       backgroundColor: palette.scaffoldBackground,
@@ -192,6 +204,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
+      floatingActionButton: showPublishFab
+          ? HapticFloatingActionButton(
+              onPressed: () => context.push('/post/new'),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Publicar'),
+            )
+          : null,
       body: IndexedStack(
         index: safeIndex,
         children: pages,
