@@ -199,8 +199,7 @@ class _AdminActivityDetailScreenState extends State<AdminActivityDetailScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Quitar check-in'),
         content: const Text(
-          'Se eliminará la asistencia y los puntos de este check-in '
-          '(si aún no se reasignaron).',
+          'Se eliminará la asistencia y se revertirán los puntos de este check-in.',
         ),
         actions: [
           HapticTextButton(

@@ -9,6 +9,7 @@ import '../../widgets/haptic_controls.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
 import 'admin_activities_tab.dart';
 import 'admin_businesses_tab.dart';
+import 'admin_challenges_tab.dart';
 import 'admin_news_management_tab.dart';
 import 'admin_reports_tab.dart';
 import 'admin_stats_tab.dart';
@@ -19,11 +20,12 @@ import 'admin_users_tab.dart';
 const adminPanelHomeTabIndex = 4;
 const adminPanelUsersTabIndex = 0;
 const adminPanelActivitiesTabIndex = 1;
-const adminPanelEventsTabIndex = 2;
-const adminPanelBusinessesTabIndex = 3;
-const adminPanelSchedulesTabIndex = 4;
-const adminPanelReportsTabIndex = 5;
-const adminPanelStatsTabIndex = 6;
+const adminPanelChallengesTabIndex = 2;
+const adminPanelEventsTabIndex = 3;
+const adminPanelBusinessesTabIndex = 4;
+const adminPanelSchedulesTabIndex = 5;
+const adminPanelReportsTabIndex = 6;
+const adminPanelStatsTabIndex = 7;
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -37,6 +39,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   static const _tabLabels = [
     'Usuarios',
     'Actividades',
+    'Reto',
     'Eventos',
     'Marcas',
     'Horarios',
@@ -47,10 +50,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   static const _tabIcons = [
     Icons.people_outline_rounded,
     Icons.directions_run_rounded,
+    Icons.flag_outlined,
     Icons.event_outlined,
     Icons.storefront_outlined,
     Icons.schedule_outlined,
-    Icons.flag_outlined,
+    Icons.report_outlined,
     Icons.insights_outlined,
   ];
 
@@ -96,6 +100,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         label: const Text('Actividad'),
       );
     }
+    if (index == adminPanelChallengesTabIndex) {
+      return HapticFloatingActionButton(
+        onPressed: () => context.push('/admin/challenges/new'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Reto'),
+      );
+    }
     return null;
   }
 
@@ -132,6 +143,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 children: [
                   const AdminUsersTab(),
                   const AdminActivitiesTab(),
+                  const AdminChallengesTab(),
                   const AdminNewsManagementTab(),
                   const AdminBusinessesTab(),
                   const AdminTrainingScheduleTab(),

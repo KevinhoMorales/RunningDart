@@ -29,6 +29,11 @@ abstract final class LeagueHelpers {
     return '${ecuador.year}-$month';
   }
 
+  /// Periodo para una fecha arbitraria (UTC o local → Ecuador).
+  static String periodKeyFor(DateTime date) {
+    return currentPeriodKey(date.toUtc());
+  }
+
   static String periodLabel(String periodKey) {
     final parts = periodKey.split('-');
     if (parts.length != 2) {

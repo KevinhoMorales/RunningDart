@@ -18,6 +18,7 @@ import '../../utils/membership_helpers.dart';
 import '../../utils/schedule_helpers.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/league_home_card.dart';
+import '../../widgets/challenge_progress_card.dart';
 import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
 
@@ -121,6 +122,8 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           LeagueHomeCard(key: _leagueCardKey),
+          const SizedBox(height: AppSpacing.md),
+          const ChallengeProgressCard(compact: true),
           const SizedBox(height: AppSpacing.md),
           const _BenefitsTeaseCard(),
         ],

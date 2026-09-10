@@ -426,5 +426,26 @@ service cloud.firestore {
       allow read: if isValidEnvironment(environment) && isSignedIn();
       allow create, update, delete: if false;
     }
+
+    // Reto mensual (Firestore-driven). Admin escribe definición; progreso/insignias CF.
+    match /environments/{environment}/monthly_challenges/{challengeId} {
+      allow read: if isValidEnvironment(environment) && isSignedIn();
+      allow create, update, delete: if isValidEnvironment(environment)
+        && isAdmin(environment);
+    }
+
+    match /environments/{environment}/challenge_progress/{progressId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin(environment));
+      allow create, update, delete: if false;
+    }
+
+    match /environments/{environment}/user_badges/{badgeId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin(environment));
+      allow create, update, delete: if false;
+    }
   }
 }

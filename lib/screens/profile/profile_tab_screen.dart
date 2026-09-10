@@ -14,6 +14,7 @@ import '../../widgets/membership_credential_card.dart';
 import '../../widgets/membership_upsell_card.dart';
 import '../../widgets/profile_action_tile.dart';
 import '../../widgets/user_avatar.dart';
+import '../../widgets/user_badges_section.dart';
 
 /// Tab Perfil del shell compacto: encabezado social, membresía, marcas y datos.
 class ProfileTabScreen extends StatelessWidget {
@@ -47,6 +48,8 @@ class ProfileTabScreen extends StatelessWidget {
           _ProfileHeader(user: user),
           const SizedBox(height: AppSpacing.md),
           _MembershipBlock(user: user),
+          const SizedBox(height: AppSpacing.md),
+          UserBadgesSection(userId: user.id),
           const SizedBox(height: AppSpacing.md),
           ProfileActionTile(
             icon: Icons.storefront_outlined,

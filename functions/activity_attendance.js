@@ -514,6 +514,9 @@ async function performCheckIn(db, environment, {
     pointsAwarded: award.pointsAwarded,
     bonusAwarded: award.bonusAwarded,
     periodKey: award.periodKey,
+    userId: user.id,
+    displayName,
+    membershipModality: user.membershipModality || null,
     message:
       award.bonusAwarded > 0
         ? `Asistencia registrada (+${award.pointsAwarded} pts, +${award.bonusAwarded} bonus).`

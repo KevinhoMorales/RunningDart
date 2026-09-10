@@ -26,10 +26,53 @@ const {
   reverseCheckInPoints,
   syncConfirmedCount,
 } = require("./activity_attendance");
+const {
+  syncChallengeProgressForUser,
+  adminSetChallengeWinners,
+} = require("./monthly_challenge");
 const { collectionFor } = require("./firestore_helpers");
 const { FieldValue } = require("firebase-admin/firestore");
 
 initializeApp();
+
+async function attachChallengeProgress(db, environment, result, user) {
+  if (!result || result.alreadyCheckedIn) {
+    return result;
+  }
+  try {
+    const challengeResults = await syncChallengeProgressForUser(
+      db,
+      environment,
+      {
+        userId: user.id,
+        displayName:
+          result.displayName ||
+          user.displayName ||
+          user.display_name ||
+          "Miembro",
+        membershipModality:
+          result.membershipModality || user.membershipModality || null,
+      },
+    );
+    const newly = challengeResults.find((r) => r.newlyCompleted);
+    if (newly) {
+      result.challengeCompleted = true;
+      result.challengePointsAwarded = newly.pointsAwarded || 0;
+      if (newly.pointsAwarded > 0) {
+        result.message = `${result.message} · Reto completado (+${newly.pointsAwarded} pts).`;
+      } else {
+        result.message = `${result.message} · Reto completado · insignia desbloqueada.`;
+      }
+    }
+  } catch (error) {
+    logger.warn("Challenge progress sync failed", {
+      environment,
+      userId: user.id,
+      message: error?.message,
+    });
+  }
+  return result;
+}
 
 // El topic lleva sufijo de ambiente para que una marca o noticia de prueba en
 // dev no dispare un push a todos los usuarios de producción.
@@ -248,13 +291,14 @@ exports.checkInToActivity = onCall(async (request) => {
 
   const db = getFirestore();
   const user = await requireActiveUser(db, environment, request.auth.uid);
-  return performCheckIn(db, environment, {
+  const result = await performCheckIn(db, environment, {
     activityId,
     user,
     method: "qr",
     token,
     skipWindowCheck: false,
   });
+  return attachChallengeProgress(db, environment, result, user);
 });
 
 exports.adminMarkActivityCheckIn = onCall(async (request) => {
@@ -279,13 +323,14 @@ exports.adminMarkActivityCheckIn = onCall(async (request) => {
   await requireAdmin(db, environment, request.auth.uid);
   const user = await requireActiveUser(db, environment, userId);
 
-  return performCheckIn(db, environment, {
+  const result = await performCheckIn(db, environment, {
     activityId,
     user,
     method: "admin",
     checkedInBy: request.auth.uid,
     skipWindowCheck: true,
   });
+  return attachChallengeProgress(db, environment, result, user);
 });
 
 exports.adminRemoveActivityCheckIn = onCall(async (request) => {
@@ -341,6 +386,39 @@ exports.adminRemoveActivityCheckIn = onCall(async (request) => {
   });
 
   return { success: true, removed: true };
+});
+
+exports.evaluateMyChallengeProgress = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  const environment =
+    request.data?.environment === "dev" ? "dev" : "prod";
+  assertValidEnvironment(environment);
+  const db = getFirestore();
+  const user = await requireActiveUser(db, environment, request.auth.uid);
+  const results = await syncChallengeProgressForUser(db, environment, {
+    userId: user.id,
+    displayName: user.displayName || user.display_name || "Miembro",
+    membershipModality: user.membershipModality || null,
+  });
+  return { success: true, results };
+});
+
+exports.adminSetChallengeWinners = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  const environment =
+    request.data?.environment === "dev" ? "dev" : "prod";
+  assertValidEnvironment(environment);
+  const db = getFirestore();
+  await requireAdmin(db, environment, request.auth.uid);
+  return adminSetChallengeWinners(db, environment, {
+    adminUid: request.auth.uid,
+    challengeId: request.data?.challengeId,
+    winnerUserIds: request.data?.winnerUserIds,
+  });
 });
 
 exports.deleteMyAccount = onCall({ timeoutSeconds: 540 }, async (request) => {

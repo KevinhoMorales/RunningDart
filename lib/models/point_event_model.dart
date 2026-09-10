@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum PointEventType {
   activityCheckIn('activity_checkin', 'Check-in'),
   weeklyBonus('weekly_bonus', 'Bonus semanal'),
+  challengeComplete('challenge_complete', 'Reto completado'),
   adminAdjustment('admin_adjustment', 'Ajuste admin'),
   reversal('reversal', 'Reverso');
 

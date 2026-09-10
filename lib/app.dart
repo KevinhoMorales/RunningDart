@@ -24,6 +24,8 @@ import 'screens/admin/admin_activity_detail_screen.dart';
 import 'screens/admin/admin_activity_form_screen.dart';
 import 'screens/admin/admin_business_form_screen.dart';
 import 'screens/admin/admin_businesses_screen.dart';
+import 'screens/admin/admin_challenge_detail_screen.dart';
+import 'screens/admin/admin_challenge_form_screen.dart';
 import 'screens/admin/admin_league_screen.dart';
 import 'screens/admin/admin_news_form_screen.dart';
 import 'screens/admin/admin_user_detail_screen.dart';
@@ -57,6 +59,7 @@ import 'screens/social/follow_list_screen.dart';
 import 'screens/social/user_profile_screen.dart';
 import 'services/activity_service.dart';
 import 'services/business_service.dart';
+import 'services/challenge_service.dart';
 import 'services/firestore_business_service.dart';
 import 'services/firestore_news_service.dart';
 import 'services/firestore_post_service.dart';
@@ -323,6 +326,24 @@ class _RunningDartAppState extends State<RunningDartApp> {
           builder: (context, state) => const AdminLeagueScreen(),
         ),
         GoRoute(
+          path: '/admin/challenges/new',
+          builder: (context, state) => const AdminChallengeFormScreen(),
+        ),
+        GoRoute(
+          path: '/admin/challenges/:id/edit',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AdminChallengeFormScreen(challengeId: id);
+          },
+        ),
+        GoRoute(
+          path: '/admin/challenges/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AdminChallengeDetailScreen(challengeId: id);
+          },
+        ),
+        GoRoute(
           path: '/admin/activities/new',
           builder: (context, state) => const AdminActivityFormScreen(),
         ),
@@ -506,6 +527,9 @@ class _RunningDartAppState extends State<RunningDartApp> {
         ),
         Provider<LeagueService>(
           create: (_) => LeagueService(),
+        ),
+        Provider<ChallengeService>(
+          create: (_) => ChallengeService(),
         ),
         ChangeNotifierProvider(
           create: (context) => LeagueProvider(context.read<LeagueService>()),

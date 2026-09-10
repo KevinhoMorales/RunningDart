@@ -10,6 +10,7 @@ import '../../theme/app_typography.dart';
 import '../../utils/league_helpers.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/haptic_controls.dart';
+import '../../widgets/challenge_progress_card.dart';
 
 class LeagueScreen extends StatefulWidget {
   const LeagueScreen({
@@ -70,6 +71,8 @@ class _LeagueScreenState extends State<LeagueScreen> {
             participants: league.participantCount,
             isLoading: league.isLoading,
           ),
+          const SizedBox(height: AppSpacing.md),
+          const ChallengeProgressCard(),
           const SizedBox(height: AppSpacing.lg),
           Text(
             'Top 10',
