@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/activity_model.dart';
 import '../../models/training_schedule_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/news_provider.dart';
+import '../../services/activity_service.dart';
 import '../../services/qr_service.dart';
 import '../../services/training_schedule_service.dart';
 import '../../theme/app_palette.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../utils/activity_helpers.dart';
 import '../../utils/app_haptics.dart';
 import '../../utils/membership_helpers.dart';
 import '../../utils/schedule_helpers.dart';
@@ -21,7 +24,7 @@ import '../../widgets/membership_upsell_card.dart';
 import '../../widgets/news_card.dart';
 
 /// Primera pantalla después del login: saludo, credencial/QR, próximo
-/// entrenamiento y un par de eventos. Marcas queda como tab aparte.
+/// Social Run y un par de eventos. Marcas queda como tab aparte.
 class ClubHomeScreen extends StatefulWidget {
   const ClubHomeScreen({super.key});
 
@@ -34,7 +37,9 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
   final _qrService = QRService();
 
   TrainingScheduleModel? _schedule;
+  ActivityModel? _nextActivity;
   bool _loadingSchedule = true;
+  bool _loadingActivity = true;
 
   @override
   void initState() {
@@ -42,6 +47,7 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NewsProvider>().startListening();
       _loadSchedule();
+      _loadNextActivity();
     });
   }
 
@@ -56,10 +62,25 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
     });
   }
 
+  Future<void> _loadNextActivity() async {
+    try {
+      final activity = await context.read<ActivityService>().getNextActivity();
+      if (!mounted) return;
+      setState(() {
+        _nextActivity = activity;
+        _loadingActivity = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingActivity = false);
+    }
+  }
+
   Future<void> _refresh() async {
     await Future.wait([
       context.read<NewsProvider>().refresh(),
       _loadSchedule(),
+      _loadNextActivity(),
       context.read<AuthProvider>().refreshAccountStatus(),
     ]);
   }
@@ -93,16 +114,19 @@ class _ClubHomeScreenState extends State<ClubHomeScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Credencial, entrenamientos y lo que viene en SAINTS.',
+                    'Credencial, Social Runs y lo que viene en SAINTS.',
                     style: AppTypography.muted(context),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  if (user != null) _CredentialBlock(user: user, qrService: _qrService),
+                  if (user != null)
+                    _CredentialBlock(user: user, qrService: _qrService),
                   const SizedBox(height: AppSpacing.md),
-                  _NextTrainingCard(
+                  _NextActivityCard(
+                    activity: _nextActivity,
+                    isLoading: _loadingActivity,
+                    fallbackSchedule: _schedule,
+                    fallbackLoading: _loadingSchedule,
                     user: user,
-                    schedule: _schedule,
-                    isLoading: _loadingSchedule,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
@@ -193,8 +217,109 @@ class _CredentialBlock extends StatelessWidget {
   }
 }
 
-class _NextTrainingCard extends StatelessWidget {
-  const _NextTrainingCard({
+class _NextActivityCard extends StatelessWidget {
+  const _NextActivityCard({
+    required this.activity,
+    required this.isLoading,
+    required this.fallbackSchedule,
+    required this.fallbackLoading,
+    required this.user,
+  });
+
+  final ActivityModel? activity;
+  final bool isLoading;
+  final TrainingScheduleModel? fallbackSchedule;
+  final bool fallbackLoading;
+  final UserModel? user;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    if (activity != null) {
+      return Material(
+        color: palette.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        child: InkWell(
+          onTap: AppHaptics.wrap(
+            () => context.push('/activities/${activity!.id}'),
+          ),
+          enableFeedback: false,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border: Border.all(color: palette.cardBorder),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: palette.accentPrimary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  ),
+                  child: Icon(
+                    Icons.directions_run_rounded,
+                    color: palette.accentPrimary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Próximo Social Run',
+                        style: AppTypography.caption(
+                          context,
+                          color: palette.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ActivityHelpers.formatActivityWhen(activity!.startsAt),
+                        style: AppTypography.body(
+                          context,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (activity!.venue != null) activity!.venue!,
+                          '${activity!.confirmedCount} confirmados',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption(
+                          context,
+                          color: palette.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: palette.textMuted),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Fallback al horario CMS mientras no haya actividades generadas.
+    return _LegacyNextTrainingCard(
+      user: user,
+      schedule: fallbackSchedule,
+      isLoading: isLoading || fallbackLoading,
+    );
+  }
+}
+
+class _LegacyNextTrainingCard extends StatelessWidget {
+  const _LegacyNextTrainingCard({
     required this.user,
     required this.schedule,
     required this.isLoading,
@@ -259,7 +384,7 @@ class _NextTrainingCard extends StatelessWidget {
       color: palette.cardBackground,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       child: InkWell(
-        onTap: AppHaptics.wrap(() => context.push('/training-schedule')),
+        onTap: AppHaptics.wrap(() => context.push('/activities')),
         enableFeedback: false,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         child: Container(
@@ -287,31 +412,44 @@ class _NextTrainingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Próximo entrenamiento',
-                      style: AppTypography.caption(context, color: palette.textMuted),
+                      'Próximo Social Run',
+                      style: AppTypography.caption(
+                        context,
+                        color: palette.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     if (isLoading)
                       Text('Cargando…', style: AppTypography.body(context))
                     else if (section == null)
                       Text(
-                        'Horarios no disponibles',
-                        style: AppTypography.body(context, weight: FontWeight.w600),
+                        'Ver actividades',
+                        style: AppTypography.body(
+                          context,
+                          weight: FontWeight.w600,
+                        ),
                       )
                     else ...[
                       Text(
                         highlight ?? section.title,
-                        style: AppTypography.body(context, weight: FontWeight.w700),
+                        style: AppTypography.body(
+                          context,
+                          weight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         [
                           section.title,
-                          if (venue != null && venue.trim().isNotEmpty) venue.trim(),
+                          if (venue != null && venue.trim().isNotEmpty)
+                            venue.trim(),
                         ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.caption(context, color: palette.textMuted),
+                        style: AppTypography.caption(
+                          context,
+                          color: palette.textMuted,
+                        ),
                       ),
                     ],
                   ],

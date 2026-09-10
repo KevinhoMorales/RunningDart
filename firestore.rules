@@ -351,5 +351,74 @@ service cloud.firestore {
       allow update, delete: if isValidEnvironment(environment)
         && isAdmin(environment);
     }
+
+    // Actividades datadas (Social Run / eventos). Contadores los sincroniza CF.
+    match /environments/{environment}/activities/{activityId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.isPublished == true || isAdmin(environment));
+
+      allow create, update, delete: if isValidEnvironment(environment)
+        && isAdmin(environment);
+    }
+
+    // RSVP: cada usuario confirma/cancela solo el suyo. El contador lo actualiza CF.
+    match /environments/{environment}/activity_rsvps/{rsvpId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin(environment));
+
+      allow create: if isValidEnvironment(environment)
+        && isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && rsvpId == request.resource.data.activityId + '_' + request.auth.uid
+        && request.resource.data.status in ['confirmed', 'cancelled']
+        && request.resource.data.keys().hasAll([
+          'activityId',
+          'userId',
+          'displayName',
+          'status',
+          'updatedAt',
+        ]);
+
+      allow update: if isValidEnvironment(environment)
+        && isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.activityId == resource.data.activityId
+        && request.resource.data.status in ['confirmed', 'cancelled'];
+
+      allow delete: if isValidEnvironment(environment)
+        && (isAdmin(environment)
+          || (isSignedIn() && resource.data.userId == request.auth.uid));
+    }
+
+    // Check-ins: solo Cloud Functions (Admin SDK) crean/borran. Lectura propia o admin.
+    match /environments/{environment}/activity_checkins/{checkInId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin(environment));
+      allow create, update, delete: if false;
+    }
+
+    // Token del QR de check-in: solo admin (el miembro lo obtiene escaneando el QR físico).
+    match /environments/{environment}/activity_checkin_secrets/{activityId} {
+      allow read, create, update, delete: if isValidEnvironment(environment)
+        && isAdmin(environment);
+    }
+
+    // Ledger de puntos para League. Solo servidor escribe; el dueño/admin lee.
+    match /environments/{environment}/point_events/{eventId} {
+      allow read: if isValidEnvironment(environment)
+        && isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin(environment));
+      allow create, update, delete: if false;
+    }
+
+    match /environments/{environment}/point_balances/{userId} {
+      allow read: if isValidEnvironment(environment)
+        && (isOwner(userId) || isAdmin(environment));
+      allow create, update, delete: if false;
+    }
   }
 }

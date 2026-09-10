@@ -18,6 +18,16 @@ const {
   deletePostComments,
   syncPostCommentCount,
 } = require("./post_comments");
+const {
+  assertValidEnvironment,
+  requireAdmin,
+  requireActiveUser,
+  performCheckIn,
+  reverseCheckInPoints,
+  syncConfirmedCount,
+} = require("./activity_attendance");
+const { collectionFor } = require("./firestore_helpers");
+const { FieldValue } = require("firebase-admin/firestore");
 
 initializeApp();
 
@@ -195,6 +205,143 @@ exports.onPostDeleted = onDocumentDeleted(
     ]);
   },
 );
+
+exports.onActivityRsvpWritten = onDocumentWritten(
+  "environments/{environment}/activity_rsvps/{rsvpId}",
+  async (event) => {
+    const environment = event.params.environment;
+    if (!VALID_ENVIRONMENTS.has(environment)) {
+      return;
+    }
+
+    const after = event.data?.after?.data();
+    const before = event.data?.before?.data();
+    const activityId = after?.activityId ?? before?.activityId;
+    if (typeof activityId !== "string" || activityId.length === 0) {
+      return;
+    }
+
+    await syncConfirmedCount(getFirestore(), environment, activityId);
+  },
+);
+
+exports.checkInToActivity = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Debes iniciar sesión para hacer check-in.",
+    );
+  }
+
+  const environment =
+    request.data?.environment === "dev" ? "dev" : "prod";
+  assertValidEnvironment(environment);
+
+  const activityId = request.data?.activityId;
+  const token = request.data?.token;
+  if (typeof activityId !== "string" || activityId.length === 0) {
+    throw new HttpsError("invalid-argument", "Falta la actividad.");
+  }
+  if (typeof token !== "string" || token.length === 0) {
+    throw new HttpsError("invalid-argument", "Falta el token del QR.");
+  }
+
+  const db = getFirestore();
+  const user = await requireActiveUser(db, environment, request.auth.uid);
+  return performCheckIn(db, environment, {
+    activityId,
+    user,
+    method: "qr",
+    token,
+    skipWindowCheck: false,
+  });
+});
+
+exports.adminMarkActivityCheckIn = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const environment =
+    request.data?.environment === "dev" ? "dev" : "prod";
+  assertValidEnvironment(environment);
+
+  const activityId = request.data?.activityId;
+  const userId = request.data?.userId;
+  if (typeof activityId !== "string" || activityId.length === 0) {
+    throw new HttpsError("invalid-argument", "Falta la actividad.");
+  }
+  if (typeof userId !== "string" || userId.length === 0) {
+    throw new HttpsError("invalid-argument", "Falta el usuario.");
+  }
+
+  const db = getFirestore();
+  await requireAdmin(db, environment, request.auth.uid);
+  const user = await requireActiveUser(db, environment, userId);
+
+  return performCheckIn(db, environment, {
+    activityId,
+    user,
+    method: "admin",
+    checkedInBy: request.auth.uid,
+    skipWindowCheck: true,
+  });
+});
+
+exports.adminRemoveActivityCheckIn = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const environment =
+    request.data?.environment === "dev" ? "dev" : "prod";
+  assertValidEnvironment(environment);
+
+  const activityId = request.data?.activityId;
+  const userId = request.data?.userId;
+  if (typeof activityId !== "string" || activityId.length === 0) {
+    throw new HttpsError("invalid-argument", "Falta la actividad.");
+  }
+  if (typeof userId !== "string" || userId.length === 0) {
+    throw new HttpsError("invalid-argument", "Falta el usuario.");
+  }
+
+  const db = getFirestore();
+  await requireAdmin(db, environment, request.auth.uid);
+
+  const checkInId = `${activityId}_${userId}`;
+  const checkInRef = collectionFor(db, environment, "activity_checkins").doc(
+    checkInId,
+  );
+  const activityRef = collectionFor(db, environment, "activities").doc(
+    activityId,
+  );
+  const snap = await checkInRef.get();
+  if (!snap.exists) {
+    return { success: true, removed: false };
+  }
+
+  const data = snap.data();
+  await reverseCheckInPoints(db, environment, {
+    userId,
+    checkInId,
+    checkInEventId: data.pointEventId || `checkin_${checkInId}`,
+  });
+
+  await db.runTransaction(async (tx) => {
+    const again = await tx.get(checkInRef);
+    if (!again.exists) {
+      return;
+    }
+    tx.delete(checkInRef);
+    tx.update(activityRef, {
+      checkedInCount: FieldValue.increment(-1),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { success: true, removed: true };
+});
 
 exports.deleteMyAccount = onCall({ timeoutSeconds: 540 }, async (request) => {
   if (!request.auth) {

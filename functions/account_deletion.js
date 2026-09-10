@@ -155,6 +155,27 @@ async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
 
   const visits = await anonymizeVisits(db, environment, uid);
 
+  const activityRsvps = await deleteByQuery(
+    db,
+    collectionFor(db, environment, "activity_rsvps").where("userId", "==", uid),
+  );
+  const activityCheckIns = await deleteByQuery(
+    db,
+    collectionFor(db, environment, "activity_checkins").where(
+      "userId",
+      "==",
+      uid,
+    ),
+  );
+  const pointEvents = await deleteByQuery(
+    db,
+    collectionFor(db, environment, "point_events").where("userId", "==", uid),
+  );
+  await collectionFor(db, environment, "point_balances")
+    .doc(uid)
+    .delete()
+    .catch(() => undefined);
+
   await deleteStoragePrefix(
     bucket,
     `environments/${environment}/users/${uid}/`,
@@ -178,6 +199,9 @@ async function deleteEnvironmentAccountData(db, bucket, environment, uid) {
     usernamesReleased,
     visitsAnonymized: visits.asMember,
     scansAnonymized: visits.asOperator,
+    activityRsvps,
+    activityCheckIns,
+    pointEvents,
   };
 }
 

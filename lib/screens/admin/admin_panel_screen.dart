@@ -7,6 +7,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/haptic_controls.dart';
 import '../../widgets/horizontal_chip_tab_bar.dart';
+import 'admin_activities_tab.dart';
 import 'admin_businesses_tab.dart';
 import 'admin_news_management_tab.dart';
 import 'admin_reports_tab.dart';
@@ -19,9 +20,10 @@ const adminPanelHomeTabIndex = 4;
 const adminPanelUsersTabIndex = 0;
 const adminPanelEventsTabIndex = 1;
 const adminPanelBusinessesTabIndex = 2;
-const adminPanelSchedulesTabIndex = 3;
-const adminPanelReportsTabIndex = 4;
-const adminPanelStatsTabIndex = 5;
+const adminPanelActivitiesTabIndex = 3;
+const adminPanelSchedulesTabIndex = 4;
+const adminPanelReportsTabIndex = 5;
+const adminPanelStatsTabIndex = 6;
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -36,6 +38,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     'Usuarios',
     'Eventos',
     'Marcas',
+    'Actividades',
     'Horarios',
     'Reportes',
     'Estadísticas',
@@ -45,6 +48,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     Icons.people_outline_rounded,
     Icons.event_outlined,
     Icons.storefront_outlined,
+    Icons.directions_run_rounded,
     Icons.schedule_outlined,
     Icons.flag_outlined,
     Icons.insights_outlined,
@@ -85,6 +89,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         label: const Text('Marca'),
       );
     }
+    if (index == adminPanelActivitiesTabIndex) {
+      return HapticFloatingActionButton(
+        onPressed: () => context.push('/admin/activities/new'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Actividad'),
+      );
+    }
     return null;
   }
 
@@ -122,6 +133,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                   const AdminUsersTab(),
                   const AdminNewsManagementTab(),
                   const AdminBusinessesTab(),
+                  const AdminActivitiesTab(),
                   const AdminTrainingScheduleTab(),
                   const AdminReportsTab(),
                   AdminStatsTab(

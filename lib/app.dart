@@ -19,6 +19,8 @@ import 'providers/social_provider.dart';
 import 'providers/notification_preferences_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/visit_provider.dart';
+import 'screens/admin/admin_activity_detail_screen.dart';
+import 'screens/admin/admin_activity_form_screen.dart';
 import 'screens/admin/admin_business_form_screen.dart';
 import 'screens/admin/admin_businesses_screen.dart';
 import 'screens/admin/admin_news_form_screen.dart';
@@ -29,6 +31,9 @@ import 'screens/auth/account_disabled_screen.dart';
 import 'screens/auth/membership_pending_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/admin/admin_training_schedule_screen.dart';
+import 'screens/club/activities_list_screen.dart';
+import 'screens/club/activity_checkin_scanner_screen.dart';
+import 'screens/club/activity_detail_screen.dart';
 import 'screens/club/pro_team_screen.dart';
 import 'screens/club/training_schedule_screen.dart';
 import 'screens/business/business_detail_screen.dart';
@@ -45,6 +50,7 @@ import 'screens/social/blocked_users_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/social/follow_list_screen.dart';
 import 'screens/social/user_profile_screen.dart';
+import 'services/activity_service.dart';
 import 'services/business_service.dart';
 import 'services/firestore_business_service.dart';
 import 'services/firestore_news_service.dart';
@@ -171,7 +177,9 @@ class _RunningDartAppState extends State<RunningDartApp> {
             location == '/membership-pending' ||
             location == '/training-schedule' ||
             location == '/pro-team' ||
+            location == '/activities' ||
             location == '/post/new' ||
+            location.startsWith('/activities/') ||
             location.startsWith('/business/') ||
             location.startsWith('/news/') ||
             location.startsWith('/user/') ||
@@ -257,12 +265,48 @@ class _RunningDartAppState extends State<RunningDartApp> {
           builder: (context, state) => const TrainingScheduleScreen(),
         ),
         GoRoute(
+          path: '/activities',
+          builder: (context, state) => const ActivitiesListScreen(),
+        ),
+        GoRoute(
+          path: '/activities/:id/check-in',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return ActivityCheckInScannerScreen(activityId: id);
+          },
+        ),
+        GoRoute(
+          path: '/activities/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return ActivityDetailScreen(activityId: id);
+          },
+        ),
+        GoRoute(
           path: '/pro-team',
           builder: (context, state) => const ProTeamScreen(),
         ),
         GoRoute(
           path: '/admin/training-schedule',
           builder: (context, state) => const AdminTrainingScheduleScreen(),
+        ),
+        GoRoute(
+          path: '/admin/activities/new',
+          builder: (context, state) => const AdminActivityFormScreen(),
+        ),
+        GoRoute(
+          path: '/admin/activities/:id/edit',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AdminActivityFormScreen(activityId: id);
+          },
+        ),
+        GoRoute(
+          path: '/admin/activities/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AdminActivityDetailScreen(activityId: id);
+          },
         ),
         GoRoute(
           path: '/home',
@@ -425,6 +469,9 @@ class _RunningDartAppState extends State<RunningDartApp> {
         ChangeNotifierProvider.value(value: _adminBusinessProvider),
         ChangeNotifierProvider.value(value: _adminNewsProvider),
         ChangeNotifierProvider.value(value: _visitProvider),
+        Provider<ActivityService>(
+          create: (_) => ActivityService(),
+        ),
         if (_notificationPreferencesProvider != null)
           ChangeNotifierProvider.value(
             value: _notificationPreferencesProvider,

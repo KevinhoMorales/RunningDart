@@ -111,7 +111,13 @@ Todas viven bajo `environments/{prod|dev}/`:
 
 - **users**: perfil + `whatsapp`, `nationalIdLast4`, `birthDate`, `membershipModality`, `membershipStatus`, `expiresAt`, `activatedAt`, `internalNotes`, `acceptedTermsAt`, `qrCode`, `role`, `businessId`
 - **businesses**: marcas aliadas + `whatsapp`, `instagram`, `conditions`, `allianceStatus`, `validUntil`, `applicableModalities[]`
-- **visits**: validaciones QR + `validationResult`, `memberModality`, `memberStatus`, `benefitUsed`, `expiresAt`
+- **visits**: validaciones QR de marcas aliadas (no usar para asistencia del club)
+- **activities**: Social Runs / eventos datados + ventana de check-in + contadores
+- **activity_rsvps**: confirmación / cancelación de asistencia por usuario
+- **activity_checkins**: check-in validado (solo Cloud Functions escribe)
+- **activity_checkin_secrets**: token del QR de check-in (solo admin)
+- **point_events** / **point_balances**: ledger de puntos (base para League)
+- **club_settings/points_config**: puntos por check-in y bonus mar+jue (configurable)
 - **news**: eventos y comunicados del club
 - **posts**: publicaciones de la comunidad + `isHidden` y el detalle de moderación (`hiddenReason`, `hiddenNote`, `hiddenAt`, `hiddenBy`)
 - **public_profiles** / **usernames**: perfil visible entre socios y reserva del usuario, uno por cuenta
@@ -120,9 +126,9 @@ Todas viven bajo `environments/{prod|dev}/`:
 
 Reglas: [`firestore.rules`](firestore.rules) · Storage: [`storage.rules`](storage.rules)
 
-Publicar reglas e índices:
+Publicar reglas, índices y functions (asistencia):
 ```bash
-firebase deploy --only firestore:rules,firestore:indexes,storage
+firebase deploy --only firestore:rules,firestore:indexes,functions
 ```
 
 Las reglas de `posts` exigen `isHidden` para poder filtrar las ocultas en el

@@ -6,8 +6,8 @@
     "node": "20"
   },
   "scripts": {
-    "lint": "node --check index.js && node --check account_deletion.js && node --check firestore_helpers.js && node --check post_likes.js && node --check post_comments.js",
-    "test": "node --test --test-concurrency=1 test/"
+    "lint": "node --check index.js && node --check account_deletion.js && node --check firestore_helpers.js && node --check post_likes.js && node --check post_comments.js && node --check activity_attendance.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.4.0",

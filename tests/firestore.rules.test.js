@@ -1030,6 +1030,114 @@ async function runTests() {
       envCollection(authedDb('member-1'), 'usernames').doc('member1').delete(),
     );
 
+    // --- Actividades / asistencia ---
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await envCollection(context.firestore(), 'activities').doc('act-1').set({
+        title: 'Social Run',
+        type: 'social_run',
+        startsAt: new Date(),
+        isPublished: true,
+        checkInEnabled: false,
+        confirmedCount: 0,
+        checkedInCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      await envCollection(context.firestore(), 'activity_checkin_secrets')
+        .doc('act-1')
+        .set({ activityId: 'act-1', token: 'secret-token' });
+    });
+
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'activities').doc('act-1').get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'activities').doc('act-2').set({
+        title: 'Hack',
+        type: 'social_run',
+        startsAt: new Date(),
+        isPublished: true,
+        checkInEnabled: false,
+        confirmedCount: 0,
+        checkedInCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'activities').doc('act-2').set({
+        title: 'Social Run Extra',
+        type: 'social_run',
+        startsAt: new Date(),
+        isPublished: true,
+        checkInEnabled: false,
+        confirmedCount: 0,
+        checkedInCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('user-plain'), 'activity_rsvps')
+        .doc('act-1_user-plain')
+        .set({
+          activityId: 'act-1',
+          userId: 'user-plain',
+          displayName: 'Plain',
+          status: 'confirmed',
+          updatedAt: new Date(),
+          confirmedAt: new Date(),
+        }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'activity_rsvps')
+        .doc('act-1_member-1')
+        .set({
+          activityId: 'act-1',
+          userId: 'member-1',
+          displayName: 'Other',
+          status: 'confirmed',
+          updatedAt: new Date(),
+        }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'activity_checkins')
+        .doc('act-1_user-plain')
+        .set({
+          activityId: 'act-1',
+          userId: 'user-plain',
+          displayName: 'Plain',
+          checkedInAt: new Date(),
+          method: 'qr',
+        }),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'activity_checkin_secrets')
+        .doc('act-1')
+        .get(),
+    );
+
+    await assertSucceeds(
+      envCollection(authedDb('admin-1'), 'activity_checkin_secrets')
+        .doc('act-1')
+        .get(),
+    );
+
+    await assertFails(
+      envCollection(authedDb('user-plain'), 'point_events').doc('p1').set({
+        userId: 'user-plain',
+        type: 'activity_checkin',
+        points: 10,
+        createdAt: new Date(),
+      }),
+    );
+
     console.log('All Firestore rules tests passed.');
   } finally {
     await cleanup();

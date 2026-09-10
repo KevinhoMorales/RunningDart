@@ -12,6 +12,19 @@ class QRPayload {
   final String qrCode;
 }
 
+/// Payload del QR de check-in de una actividad (no confundir con visitas).
+class ActivityCheckInQrPayload {
+  const ActivityCheckInQrPayload({
+    required this.activityId,
+    required this.token,
+  });
+
+  final String activityId;
+  final String token;
+
+  static const String typeValue = 'activity_checkin';
+}
+
 class QRParseException implements Exception {
   QRParseException(this.message);
 
@@ -29,6 +42,17 @@ class QRService {
     });
   }
 
+  String generateActivityCheckInPayload({
+    required String activityId,
+    required String token,
+  }) {
+    return jsonEncode({
+      'type': ActivityCheckInQrPayload.typeValue,
+      'activityId': activityId,
+      'token': token,
+    });
+  }
+
   QRPayload parsePayload(String rawValue) {
     final trimmed = rawValue.trim();
     if (trimmed.isEmpty) {
@@ -37,12 +61,19 @@ class QRService {
 
     try {
       final decoded = jsonDecode(trimmed);
-      if (decoded is! Map<String, dynamic>) {
+      if (decoded is! Map) {
         throw QRParseException('Formato de QR inválido.');
       }
+      final map = Map<String, dynamic>.from(decoded);
 
-      final userId = decoded['userId'] as String?;
-      final qrCode = decoded['qrCode'] as String?;
+      if (map['type'] == ActivityCheckInQrPayload.typeValue) {
+        throw QRParseException(
+          'Este QR es de check-in de actividad, no de membresía.',
+        );
+      }
+
+      final userId = map['userId'] as String?;
+      final qrCode = map['qrCode'] as String?;
 
       if (userId == null ||
           userId.isEmpty ||
@@ -52,6 +83,48 @@ class QRService {
       }
 
       return QRPayload(userId: userId, qrCode: qrCode);
+    } on QRParseException {
+      rethrow;
+    } on FormatException {
+      throw QRParseException('Formato de QR inválido.');
+    }
+  }
+
+  ActivityCheckInQrPayload parseActivityCheckInPayload(String rawValue) {
+    final trimmed = rawValue.trim();
+    if (trimmed.isEmpty) {
+      throw QRParseException('El código QR está vacío.');
+    }
+
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is! Map) {
+        throw QRParseException('Formato de QR inválido.');
+      }
+      final map = Map<String, dynamic>.from(decoded);
+
+      if (map['type'] != ActivityCheckInQrPayload.typeValue) {
+        throw QRParseException(
+          'Este QR no es de check-in de actividad SAINTS.',
+        );
+      }
+
+      final activityId = map['activityId'] as String?;
+      final token = map['token'] as String?;
+
+      if (activityId == null ||
+          activityId.isEmpty ||
+          token == null ||
+          token.isEmpty) {
+        throw QRParseException('El QR de check-in está incompleto.');
+      }
+
+      return ActivityCheckInQrPayload(
+        activityId: activityId,
+        token: token,
+      );
+    } on QRParseException {
+      rethrow;
     } on FormatException {
       throw QRParseException('Formato de QR inválido.');
     }
